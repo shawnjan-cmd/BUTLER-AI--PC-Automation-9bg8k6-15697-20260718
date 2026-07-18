@@ -210,6 +210,20 @@ class RuntimeErrorMonitorService {
   }
 
   // ── 3. fetch() interceptor ────────────────────────────────────────
+  // Health-check endpoints that are expected to fail when server is offline.
+  // Never log errors for these — they fire constantly by design.
+  private _isHealthCheckUrl(url: string): boolean {
+    const HEALTH_PATHS = ['/api/status', '/api/health', '/api/metrics', '/api/ping', '/api/info'];
+    return HEALTH_PATHS.some(p => url.includes(p));
+  }
+
+  private _isServerConnected(): boolean {
+    try {
+      const { serverConnection } = require('./serverConnection');
+      return serverConnection.isConnected?.() ?? false;
+    } catch { return false; }
+  }
+
   private _installFetchInterceptor() {
     try {
       if (!(global as any).fetch) return;
@@ -218,11 +232,14 @@ class RuntimeErrorMonitorService {
       (global as any).fetch = async function patchedFetch(input: any, init?: any): Promise<Response> {
         const url = typeof input === 'string' ? input : (input as Request)?.url ?? 'unknown';
         const startMs = Date.now();
+        // Completely ignore health-check endpoints when server is not connected.
+        // These fire every 30s from multiple services and are never actionable when offline.
+        const isHealthCheck = self._isHealthCheckUrl(url);
         try {
           const res = await self._origFetch!.call(this, input, init);
           const latency = Date.now() - startMs;
-          // Log failed HTTP responses (4xx / 5xx), except expected auth flows
-          if (!res.ok && res.status !== 404 && !(res.status === 401 && url.includes('/api/status'))) {
+          // Only log failed HTTP responses for non-health-check URLs
+          if (!res.ok && !isHealthCheck && res.status !== 404 && !(res.status === 401 && url.includes('/api/status'))) {
             self._add({
               category:   'network',
               severity:   res.status >= 500 ? 'error' : 'warning',
@@ -232,8 +249,8 @@ class RuntimeErrorMonitorService {
               statusCode: res.status,
             });
           }
-          // Log very slow responses (> 8s)
-          if (latency > 8000) {
+          // Log very slow responses (> 8s) only for connected server calls
+          if (latency > 8000 && self._isServerConnected() && !isHealthCheck) {
             self._add({
               category: 'network',
               severity: 'warning',
@@ -245,14 +262,21 @@ class RuntimeErrorMonitorService {
           return res;
         } catch (err: any) {
           const msg = err?.message ?? 'Network error';
-          // Only log once per URL to avoid spam
-          self._add({
-            category: 'network',
-            severity: msg.includes('AbortError') ? 'info' : 'warning',
-            message:  `${msg.slice(0, 120)} — ${url.replace(/https?:\/\/[^/]+/, '').slice(0, 80)}`,
-            source:   'fetch() interceptor',
-            url,
-          });
+          // Completely suppress:
+          //  1. AbortError — normal cancellation (timeouts, unmount)
+          //  2. Health-check failures when server is offline — expected
+          //  3. "Network request failed" on known health endpoints
+          const isAbort = msg.includes('AbortError') || msg.includes('aborted');
+          const isExpectedOffline = isHealthCheck && !self._isServerConnected();
+          if (!isAbort && !isExpectedOffline) {
+            self._add({
+              category: 'network',
+              severity: 'warning',
+              message:  `${msg.slice(0, 120)} — ${url.replace(/https?:\/\/[^/]+/, '').slice(0, 80)}`,
+              source:   'fetch() interceptor',
+              url,
+            });
+          }
           throw err;
         }
       };
@@ -321,11 +345,12 @@ class RuntimeErrorMonitorService {
       criticalCount: this.getCriticalCount(),
     };
 
-    // Check server
+    // Check server — only probe if app thinks it's connected
     try {
       const { serverConnection } = require('./serverConnection');
       snap.services.serverConnection = true;
-      if (serverConnection.isConnected?.()) {
+      const connected = serverConnection.isConnected?.();
+      if (connected) {
         const ip   = serverConnection.getIP();
         const port = serverConnection.getPort();
         if (ip && port) {
@@ -336,22 +361,27 @@ class RuntimeErrorMonitorService {
             const tok = serverConnection.getToken?.() ?? '';
             const headers: Record<string, string> = {};
             if (tok) headers['Authorization'] = 'Bearer ' + tok;
+            // Use _origFetch to bypass our interceptor (no double-logging)
             const res = await (this._origFetch ?? fetch)(`http://${ip}:${port}/api/status`, {
               headers, signal: ctrl.signal,
             });
             snap.serverLatency = Date.now() - t0;
             snap.server = res.ok ? 'ok' : 'degraded';
-            if (!res.ok) {
+            // Only log non-auth failures — 401 is handled by token refresh
+            if (!res.ok && res.status !== 401) {
               this._add({ category: 'health_check', severity: 'warning', message: `Server returned ${res.status} on /api/status`, source: 'Health Monitor' });
             }
           } catch (e: any) {
             snap.server = 'offline';
-            if (!e?.message?.includes('AbortError')) {
-              this._add({ category: 'health_check', severity: 'error', message: `Server unreachable: ${e?.message ?? 'timeout'}`, source: 'Health Monitor' });
+            // Only log if it was NOT an AbortError (timeout is expected on slow networks)
+            const eMsg = e?.message ?? '';
+            if (!eMsg.includes('AbortError') && !eMsg.includes('aborted') && !eMsg.includes('Network request failed')) {
+              this._add({ category: 'health_check', severity: 'warning', message: `Server lost: ${eMsg.slice(0, 80)}`, source: 'Health Monitor' });
             }
           }
         }
       }
+      // If not connected, just mark offline silently — no log needed
     } catch {}
 
     // Check AsyncStorage

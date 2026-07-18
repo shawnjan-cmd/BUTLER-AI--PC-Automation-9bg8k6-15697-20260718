@@ -12,9 +12,15 @@ import { TabBarProvider } from '@/contexts/TabBarContext';
 import { PurchaseProvider } from '@/contexts/PurchaseContext';
 import { runtimeErrorMonitor } from '@/services/runtimeErrorMonitor';
 import { RuntimeDiagnosticsHUD } from '@/components/ui/RuntimeDiagnosticsHUD';
+import { securityAuditEngine } from '@/services/securityAuditEngine';
+import { appHealthEngine } from '@/services/appHealthEngine';
 
 // Boot runtime monitor — installs 5 global interceptors silently
 try { runtimeErrorMonitor.init().catch(() => {}); } catch {}
+// Boot security audit engine — 13-check vulnerability scanner
+try { securityAuditEngine.init().catch(() => {}); } catch {}
+// Boot app health engine — dead code + stale storage + auto-fix
+try { appHealthEngine.init().catch(() => {}); } catch {}
 
 // NOTE: Crash log helpers live in services/bootErrorLog.ts.
 // Import them directly from there — re-exporting from _layout.tsx risks
