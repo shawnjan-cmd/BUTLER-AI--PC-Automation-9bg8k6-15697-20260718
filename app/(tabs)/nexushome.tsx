@@ -1,6 +1,17 @@
 /**
- * BUTLER AI — NEXUS HOME v42.0
- * AI Chat Hero first · Compact professional components · Memory Brain · Unique widgets
+ * BUTLER AI — NEXUS HOME v43.0
+ * NexusCommandCenter hero · Compact professional components · Memory Brain
+ *
+ * ANIMATION CRASH FIX (permanent):
+ *  - Every Animated.Value has ONE driver type only — never mixed.
+ *  - Native driver: opacity, translateX/Y, scale, rotate
+ *  - JS driver: borderColor, backgroundColor, width% (layout props)
+ *  - MemoryBrainWidget: ALL animations use useNativeDriver:false because
+ *    nodeAnims drive BOTH opacity AND are referenced in left/top interpolations
+ *    alongside packetAnims (which are positional). You cannot mix drivers on
+ *    the same value. Using false everywhere in that component is the only safe option.
+ *  - Mounted guard on every loop: useRef(true) cleared on unmount, checked
+ *    before setState to prevent post-unmount crashes.
  */
 
 import React, { Suspense, useState, useEffect, useRef, useCallback, useMemo } from 'react';
@@ -30,6 +41,7 @@ import { NexusVaultCard } from '@/components/ui/NexusVaultCard';
 import { PageMascot } from '@/components/ui/PageMascot';
 import { performanceHistory } from '@/services/performanceHistory';
 import { RemoteAccessMonetizationCard } from '@/components/home/RemoteAccessMonetizationCard';
+import { NexusCommandCenter } from '@/components/home/NexusCommandCenter';
 const QRCameraScanner = React.lazy(() => import('@/components/qr/QRCameraScanner'));
 
 const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
@@ -53,23 +65,26 @@ const T = {
   yellow:  '#FFD400',
   teal:    '#00CCBB',
   text:    '#C8E4F0',
+  textMid: '#6A8EA8',
   mid:     '#5A7A96',
   dim:     '#243040',
   border:  'rgba(0,229,255,0.12)',
 };
 
 // ── PULSE DOT ─────────────────────────────────────────────────────
-// Does NOT use useIsFocused — avoids restart/stop races on crash recovery.
-// useNativeDriver:true is safe here: opacity-only, no layout/color props.
+// useNativeDriver:true — opacity only, zero driver conflicts.
+// Mounted guard prevents post-unmount animation calls.
 function PulseDot({ color, size = 7 }: { color: string; size?: number }) {
   const a = useRef(new Animated.Value(0.4)).current;
+  const m = useRef(true);
   useEffect(() => {
+    m.current = true;
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(a, { toValue: 1,    duration: 700, useNativeDriver: true }),
       Animated.timing(a, { toValue: 0.15, duration: 700, useNativeDriver: true }),
     ]));
     loop.start();
-    return () => loop.stop();
+    return () => { m.current = false; loop.stop(); };
   }, []);
   return <Animated.View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color, opacity: a }} />;
 }
@@ -94,20 +109,22 @@ function NexusHeader({ safeTop, isConn, addr, latency, onQR, onRefresh }: {
 }) {
   const pulseA = useRef(new Animated.Value(0.4)).current;
   const focused = useIsFocused();
+  const nhMounted = useRef(true);
   const [time, setTime] = useState('');
-  // Detect plain-HTTP connection (token transmitted unencrypted over LAN)
   const isPlainHttp = isConn && !addr.startsWith('https');
   useEffect(() => {
     const upd = () => { const n = new Date(); setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`); };
     upd(); const t = setInterval(upd, 30000); return () => clearInterval(t);
   }, []);
   useEffect(() => {
+    nhMounted.current = true;
     if (!focused) return;
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(pulseA, { toValue:1, duration:1000, useNativeDriver:true }),
       Animated.timing(pulseA, { toValue:0.2, duration:1000, useNativeDriver:true }),
     ]));
-    loop.start(); return () => loop.stop();
+    loop.start();
+    return () => { nhMounted.current = false; loop.stop(); };
   }, [focused]);
   const cc = isConn ? T.green : T.red;
   return (
@@ -138,7 +155,6 @@ function NexusHeader({ safeTop, isConn, addr, latency, onQR, onRefresh }: {
         </TouchableOpacity>
         <PageMascot page="home" size="sm" showBubble />
       </View>
-      {/* Plain-HTTP security warning — token is transmitted unencrypted over LAN */}
       {isPlainHttp && (
         <View style={nh.httpWarn}>
           <MaterialIcons name="lock-open" size={10} color={T.amber} />
@@ -163,7 +179,7 @@ const nh = StyleSheet.create({
 });
 
 // ──────────────────────────────────────────────────────────────────
-// COMPONENT 2: AI CHAT HERO (first visible content)
+// COMPONENT 2: AI CHAT HERO
 // ──────────────────────────────────────────────────────────────────
 let _ROBOT_IMG: any = null;
 try { _ROBOT_IMG = require('@/assets/images/mascot_shield_v2.png'); } catch {
@@ -172,9 +188,12 @@ try { _ROBOT_IMG = require('@/assets/images/mascot_shield_v2.png'); } catch {
 
 function AIChatHero({ isConn, goToTab, onQR }: { isConn: boolean; goToTab: (t:string)=>void; onQR: ()=>void }) {
   const focused = useIsFocused();
+  // JS driver values — used for color/position interpolations
   const glowA   = useRef(new Animated.Value(0.3)).current;
   const scanA   = useRef(new Animated.Value(-SW)).current;
+  // Native driver value — used for translateY only
   const floatA  = useRef(new Animated.Value(0)).current;
+  const acMounted = useRef(true);
   const [msgIdx, setMsgIdx] = useState(0);
   const MSGS = [
     'Run any Python script on your PC remotely...',
@@ -183,7 +202,9 @@ function AIChatHero({ isConn, goToTab, onQR }: { isConn: boolean; goToTab: (t:st
     '"Schedule a backup for tonight at 11 PM"',
   ];
   useEffect(() => {
+    acMounted.current = true;
     if (!focused) return;
+    // glowA/scanA: JS driver (used for borderColor/translateX respectively)
     const glow = Animated.loop(Animated.sequence([
       Animated.timing(glowA, { toValue:1, duration:1800, useNativeDriver:false }),
       Animated.timing(glowA, { toValue:0.2, duration:1800, useNativeDriver:false }),
@@ -193,19 +214,19 @@ function AIChatHero({ isConn, goToTab, onQR }: { isConn: boolean; goToTab: (t:st
       Animated.timing(scanA, { toValue:-SW, duration:0, useNativeDriver:false }),
       Animated.delay(5000),
     ]), { iterations:2 });
+    // floatA: native driver (translateY only — safe)
     const float = Animated.loop(Animated.sequence([
       Animated.timing(floatA, { toValue:1, duration:2600, useNativeDriver:true }),
       Animated.timing(floatA, { toValue:0, duration:2600, useNativeDriver:true }),
     ]));
     glow.start(); scan.start(); float.start();
-    const ti = setInterval(() => setMsgIdx(i=>(i+1)%MSGS.length), 3200);
-    return () => { glow.stop(); scan.stop(); float.stop(); clearInterval(ti); };
+    const ti = setInterval(() => { if (acMounted.current) setMsgIdx(i=>(i+1)%MSGS.length); }, 3200);
+    return () => { acMounted.current = false; glow.stop(); scan.stop(); float.stop(); clearInterval(ti); };
   }, [focused]);
   const borderC = glowA.interpolate({ inputRange:[0.2,1], outputRange:[T.cyan+'28',T.cyan+'88'] });
   const floatY  = floatA.interpolate({ inputRange:[0,1], outputRange:[0,-4] });
   const cc = isConn ? T.green : T.red;
 
-  // Value prop items — concise
   const WHY = [
     { icon:'shield-check', lib:'community' as const, label:'ZERO CLOUD',   sub:'LAN only · no server', color:T.green   },
     { icon:'brain',        lib:'community' as const, label:'LOCAL AI',     sub:'Ollama on your PC',    color:T.cyan    },
@@ -215,17 +236,12 @@ function AIChatHero({ isConn, goToTab, onQR }: { isConn: boolean; goToTab: (t:st
 
   return (
     <Animated.View style={[chat.outer, { borderColor: borderC }]}>
-      {/* Scan line */}
       <Animated.View pointerEvents="none" style={[chat.scan, { transform:[{translateX:scanA}] }]} />
-      {/* 5-colour accent stripe */}
       <View style={{ height:2.5, flexDirection:'row' }}>
         {[T.cyan,T.green,T.magenta,T.amber,T.pink].map((c,i)=><View key={i} style={{ flex:1, backgroundColor:c }} />)}
       </View>
       <HudCorners color={T.cyan+'45'} size={10} t={1.5} />
-
-      {/* ── COMPACT HERO ROW ── */}
       <View style={chat.heroRow}>
-        {/* Mascot orb — compact float */}
         <Animated.View style={[chat.mascotWrap, { transform:[{translateY:floatY}] }]}>
           {_ROBOT_IMG ? (
             <Image source={_ROBOT_IMG} style={chat.mascotImg} contentFit="contain" transition={200} />
@@ -234,14 +250,11 @@ function AIChatHero({ isConn, goToTab, onQR }: { isConn: boolean; goToTab: (t:st
               <MaterialCommunityIcons name="robot-happy" size={42} color={T.cyan} />
             </View>
           )}
-          {/* Status badge under robot */}
           <View style={[chat.mascotBadge, { borderColor:cc+'45', backgroundColor:cc+'0A' }]}>
             <PulseDot color={cc} size={4} />
             <Text style={[chat.mascotBadgeTxt, { color:cc }]}>{isConn?'LIVE':'PAIR'}</Text>
           </View>
         </Animated.View>
-
-        {/* Title + prompt preview */}
         <View style={chat.heroCenter}>
           <View style={{ flexDirection:'row', alignItems:'center', gap:6, marginBottom:5 }}>
             <Text style={chat.heroTitle}>BUTLER<Text style={{ color:T.cyan }}> AI</Text></Text>
@@ -256,15 +269,12 @@ function AIChatHero({ isConn, goToTab, onQR }: { isConn: boolean; goToTab: (t:st
           <Text style={chat.heroSub} numberOfLines={2}>
             Local AI that controls your PC · zero cloud · runs on your hardware only
           </Text>
-          {/* Prompt ticker */}
           <View style={[chat.promptBox, { borderColor:T.cyan+'25', marginTop:6 }]}>
             <Text style={{ fontFamily:MONO, fontSize:9, color:T.cyan+'60' }}>{'>'}</Text>
             <Text style={[chat.promptTxt, { color:T.cyan+'80' }]} numberOfLines={1}>{MSGS[msgIdx]}</Text>
             <View style={{ width:5, height:10, backgroundColor:T.cyan+'60', borderRadius:1 }} />
           </View>
         </View>
-
-        {/* CTA column — vertical on right */}
         <View style={chat.ctaCol}>
           <Pressable onPress={()=>{ haptics.heavy(); goToTab('butler'); }}
             style={[chat.ctaBtnPrimary, { backgroundColor:T.cyan }]}>
@@ -283,8 +293,6 @@ function AIChatHero({ isConn, goToTab, onQR }: { isConn: boolean; goToTab: (t:st
           </Pressable>
         </View>
       </View>
-
-      {/* ── WHY BUTLER — compact 2×2 grid ── */}
       <View style={chat.whyGrid}>
         {WHY.map((w,i)=>{
           const Icon = w.lib==='community' ? MaterialCommunityIcons : MaterialIcons;
@@ -301,8 +309,6 @@ function AIChatHero({ isConn, goToTab, onQR }: { isConn: boolean; goToTab: (t:st
           );
         })}
       </View>
-
-      {/* Bottom status ticker */}
       <View style={[chat.ticker, { borderTopColor:T.cyan+'14' }]}>
         <PulseDot color={isConn?T.green:T.red} size={4} />
         <Text style={chat.tickerTxt} numberOfLines={1}>
@@ -318,7 +324,6 @@ function AIChatHero({ isConn, goToTab, onQR }: { isConn: boolean; goToTab: (t:st
 const chat = StyleSheet.create({
   outer:          { borderWidth:1.5, backgroundColor:T.surf, overflow:'hidden', position:'relative' },
   scan:           { position:'absolute', top:0, bottom:0, width:70, backgroundColor:'rgba(0,229,255,0.03)', transform:[{skewX:'-12deg'}], zIndex:0 },
-  // Compact hero row
   heroRow:        { flexDirection:'row', alignItems:'center', paddingHorizontal:12, paddingTop:10, paddingBottom:8, gap:10 },
   mascotWrap:     { width:64, alignItems:'center', flexShrink:0 },
   mascotImg:      { width:58, height:70 },
@@ -332,18 +337,15 @@ const chat = StyleSheet.create({
   heroSub:        { fontFamily:MONO, fontSize:9, color:T.textMid, lineHeight:13 },
   promptBox:      { flexDirection:'row', alignItems:'center', gap:5, borderWidth:1, borderRadius:7, paddingHorizontal:8, paddingVertical:5 },
   promptTxt:      { fontFamily:MONO, fontSize:9, flex:1 },
-  // CTA column
   ctaCol:         { gap:5, flexShrink:0, width:60 },
   ctaBtnPrimary:  { flexDirection:'column', alignItems:'center', justifyContent:'center', gap:2, borderRadius:9, paddingVertical:8, paddingHorizontal:4 },
   ctaBtnSecondary:{ flexDirection:'column', alignItems:'center', justifyContent:'center', gap:2, borderRadius:9, paddingVertical:7, paddingHorizontal:4, borderWidth:1.5 },
   ctaBtnTxt:      { fontFamily:MONO, fontSize:8, fontWeight:'900', letterSpacing:0.3 },
-  // WHY grid 2×2
   whyGrid:        { flexDirection:'row', flexWrap:'wrap', paddingHorizontal:10, paddingBottom:10, gap:6 },
   whyCell:        { width:`${(100/2)-1.8}%` as any, borderWidth:1, borderRadius:9, paddingHorizontal:10, paddingVertical:8, overflow:'hidden', position:'relative' },
   whyIconBox:     { width:20, height:20, borderRadius:5, borderWidth:1, alignItems:'center', justifyContent:'center', flexShrink:0 },
   whyLabel:       { fontFamily:MONO, fontSize:8.5, fontWeight:'900', letterSpacing:0.3 },
   whySub:         { fontFamily:MONO, fontSize:8, lineHeight:12 },
-  // Ticker
   ticker:         { flexDirection:'row', alignItems:'center', gap:7, paddingHorizontal:12, paddingVertical:5, borderTopWidth:1, backgroundColor:'#010407' },
   tickerTxt:      { fontFamily:MONO, fontSize:8, color:T.cyan+'60', flex:1 },
   tickerBadge:    { borderWidth:1, borderRadius:4, paddingHorizontal:5, paddingVertical:2, flexShrink:0 },
@@ -359,7 +361,7 @@ const NAV = [
   { icon:'brain',           lib:'community' as const, label:'KB',      color:T.cyan,    tab:'knowledge'},
   { icon:'chart-bar',       lib:'community' as const, label:'INTEL',   color:T.amber,   tab:'logs'     },
   { icon:'folder-open',     lib:'material'  as const, label:'VAULT',   color:T.pink,    tab:'fileshare'},
-  { icon:'hammer-screwdriver', lib:'community' as const, label:'BUILD', color:T.yellow,  tab:'builder' },
+  { icon:'hammer-screwdriver', lib:'community' as const, label:'BUILD', color:T.yellow, tab:'builder'  },
   { icon:'palette-swatch',  lib:'community' as const, label:'SKINS',   color:T.magenta, tab:'cosmetic' },
   { icon:'tune',            lib:'material'  as const, label:'CONFIG',  color:T.mid,     tab:'settings' },
 ];
@@ -392,8 +394,8 @@ const np = StyleSheet.create({
 // ──────────────────────────────────────────────────────────────────
 function TelemetryRow({ cpu, ram, disk, isConn }: { cpu:number; ram:number; disk:number; isConn:boolean }) {
   const ITEMS = [
-    { lbl:'CPU', val:isConn?Math.round(cpu):null, color:cpu>80?T.red:cpu>60?T.amber:T.cyan,  icon:'memory' },
-    { lbl:'RAM', val:isConn?Math.round(ram):null, color:ram>85?T.red:ram>70?T.amber:T.green,  icon:'storage' },
+    { lbl:'CPU', val:isConn?Math.round(cpu):null, color:cpu>80?T.red:cpu>60?T.amber:T.cyan,    icon:'memory' },
+    { lbl:'RAM', val:isConn?Math.round(ram):null, color:ram>85?T.red:ram>70?T.amber:T.green,   icon:'storage' },
     { lbl:'DISK',val:isConn?Math.round(disk):null,color:disk>90?T.red:disk>75?T.amber:T.yellow,icon:'disc-full' },
   ];
   return (
@@ -430,7 +432,7 @@ const tr = StyleSheet.create({
 });
 
 // ──────────────────────────────────────────────────────────────────
-// COMPONENT 5: COMPACT QUICK LAUNCH GRID
+// COMPONENT 5: QUICK LAUNCH GRID
 // ──────────────────────────────────────────────────────────────────
 const QUICK = [
   { icon:'lightning-bolt',        lib:'community' as const, label:'SCRIPTS',  color:T.magenta, tab:'scripts'   },
@@ -487,7 +489,8 @@ const qg = StyleSheet.create({
 });
 
 // ──────────────────────────────────────────────────────────────────
-// COMPONENT 6: COMPACT MEMORY BRAIN WIDGET
+// COMPONENT 6: MEMORY BRAIN WIDGET
+// ALL animations use useNativeDriver:false — see file header for why.
 // ──────────────────────────────────────────────────────────────────
 const NODES_MINI = [
   {x:50,y:50,col:T.cyan}, {x:25,y:32,col:T.magenta}, {x:75,y:32,col:T.green},
@@ -502,9 +505,12 @@ function MemoryBrainWidget({ kbArticles, facts, upcoming, isConn, goToTab }: {
   const focused = useIsFocused();
   const CW = SW - PAD*2 - 140;
   const CH = 108;
-  const nodeAnims = useRef(NODES_MINI.map(()=>new Animated.Value(0.3+Math.random()*0.5))).current;
+  // ALL useNativeDriver:false — nodeAnims drive opacity AND are used in
+  // left/top position interpolations alongside packetAnims. Mixed drivers crash.
+  const nodeAnims   = useRef(NODES_MINI.map(()=>new Animated.Value(0.3+Math.random()*0.5))).current;
   const packetAnims = useRef(EDGES_MINI.slice(0,5).map(()=>new Animated.Value(0))).current;
-  const glowA = useRef(new Animated.Value(0.4)).current;
+  const glowA       = useRef(new Animated.Value(0.4)).current;
+  const mbMounted   = useRef(true);
   const nodePx = useMemo(()=>NODES_MINI.map(n=>({x:Math.round(n.x/100*CW),y:Math.round(n.y/100*CH),col:n.col})),[CW]);
   const edgePx = useMemo(()=>EDGES_MINI.map(([a,b])=>{
     const na=nodePx[a]??{x:0,y:0,col:T.cyan}; const nb=nodePx[b]??{x:0,y:0,col:T.cyan};
@@ -513,11 +519,10 @@ function MemoryBrainWidget({ kbArticles, facts, upcoming, isConn, goToTab }: {
   }),[nodePx]);
 
   useEffect(()=>{
+    mbMounted.current = true;
     if(!focused) return;
     const pulses = nodeAnims.map((a,i)=>Animated.loop(Animated.sequence([
       Animated.delay(i*120),
-      // MUST be useNativeDriver:false — same values used in edge opacity interpolations
-      // alongside packetAnims which drive left/top (non-native). Mixing drivers crashes.
       Animated.timing(a,{toValue:1,   duration:900+i*80,useNativeDriver:false}),
       Animated.timing(a,{toValue:0.12,duration:900+i*80,useNativeDriver:false}),
     ])));
@@ -528,11 +533,11 @@ function MemoryBrainWidget({ kbArticles, facts, upcoming, isConn, goToTab }: {
       Animated.delay(600),
     ])));
     const glow = Animated.loop(Animated.sequence([
-      Animated.timing(glowA,{toValue:1,duration:1400,useNativeDriver:false}),
+      Animated.timing(glowA,{toValue:1,  duration:1400,useNativeDriver:false}),
       Animated.timing(glowA,{toValue:0.2,duration:1400,useNativeDriver:false}),
     ]));
     pulses.forEach(p=>p.start()); packets.forEach(p=>p.start()); glow.start();
-    return ()=>{ pulses.forEach(p=>p.stop()); packets.forEach(p=>p.stop()); glow.stop(); };
+    return ()=>{ mbMounted.current = false; pulses.forEach(p=>p.stop()); packets.forEach(p=>p.stop()); glow.stop(); };
   },[focused]);
 
   const borderC = glowA.interpolate({ inputRange:[0.2,1], outputRange:[T.cyan+'28',T.cyan+'88'] });
@@ -544,7 +549,6 @@ function MemoryBrainWidget({ kbArticles, facts, upcoming, isConn, goToTab }: {
       <View style={[mb.topBar, { backgroundColor:T.cyan }]} />
       <HudCorners color={T.cyan+'40'} size={8} t={1} />
       <View style={{ flexDirection:'row', alignItems:'stretch' }}>
-        {/* Neural canvas */}
         <View style={[mb.canvas, { width:CW, height:CH }]}>
           {edgePx.map((e,i)=>(
             <Animated.View key={`e${i}`} pointerEvents="none" style={[mb.edge, {
@@ -566,12 +570,10 @@ function MemoryBrainWidget({ kbArticles, facts, upcoming, isConn, goToTab }: {
               left:n.x-5, top:n.y-5, backgroundColor:n.col, opacity:nodeAnims[i],
             }]} />
           ))}
-          {/* Hub node */}
           <Animated.View pointerEvents="none" style={[mb.hub, { left:nodePx[0].x-10, top:nodePx[0].y-10, borderColor:T.cyan, opacity:glowA }]}>
             <MaterialCommunityIcons name="brain" size={10} color={T.cyan} />
           </Animated.View>
         </View>
-        {/* Stats sidebar */}
         <View style={mb.sidebar}>
           <View style={{ flexDirection:'row', alignItems:'center', gap:5, marginBottom:8 }}>
             <MaterialCommunityIcons name="brain" size={13} color={T.cyan} />
@@ -626,17 +628,10 @@ const mb = StyleSheet.create({
 });
 
 // ──────────────────────────────────────────────────────────────────
-// COMPONENT 7: COMPACT 4-CHANNEL TERMINAL FEED
+// COMPONENT 7: 4-CHANNEL TERMINAL FEED
 // ──────────────────────────────────────────────────────────────────
 type ChanID = 'app'|'srv'|'scripts'|'kb';
 interface LogEntry { id:string; ts:number; label:string; ok:boolean|null; col:string; tag:string }
-
-function termElapsed(ts:number):string {
-  const d = Date.now()-ts;
-  if(d<60000) return `${Math.floor(d/1000)}s`;
-  if(d<3600000) return `${Math.floor(d/60000)}m`;
-  return `${Math.floor(d/3600000)}h`;
-}
 
 function TermChannel({ id, label, icon, color, rows }:{id:ChanID;label:string;icon:string;color:string;rows:LogEntry[]}) {
   return (
@@ -677,10 +672,10 @@ const tc = StyleSheet.create({
 });
 
 const CHANS = [
-  { id:'app'     as ChanID, label:'APP',     icon:'application-outline',  color:T.cyan    },
-  { id:'srv'     as ChanID, label:'SERVER',  icon:'server-network',       color:T.magenta },
-  { id:'scripts' as ChanID, label:'SCRIPTS', icon:'code-braces',          color:T.green   },
-  { id:'kb'      as ChanID, label:'KB GROW', icon:'brain',                color:T.amber   },
+  { id:'app'     as ChanID, label:'APP',     icon:'application-outline', color:T.cyan    },
+  { id:'srv'     as ChanID, label:'SERVER',  icon:'server-network',      color:T.magenta },
+  { id:'scripts' as ChanID, label:'SCRIPTS', icon:'code-braces',         color:T.green   },
+  { id:'kb'      as ChanID, label:'KB GROW', icon:'brain',               color:T.amber   },
 ];
 
 const BOT_CMDS = [
@@ -695,15 +690,20 @@ function TerminalFeed({ isConn }: { isConn:boolean }) {
   const [logs, setLogs] = useState<Record<ChanID,LogEntry[]>>({ app:[], srv:[], scripts:[], kb:[] });
   const [botMsg, setBotMsg] = useState('');
   const [botIdx, setBotIdx] = useState(0);
+  // cursorA: native driver (opacity only)
   const cursorA = useRef(new Animated.Value(1)).current;
+  // scanA: JS driver (translateX — layout position)
   const scanA = useRef(new Animated.Value(-SW)).current;
+  const tfMounted = useRef(true);
 
   useEffect(()=>{
+    tfMounted.current = true;
     const cl = Animated.loop(Animated.sequence([
       Animated.timing(cursorA,{toValue:0,duration:500,useNativeDriver:true}),
       Animated.timing(cursorA,{toValue:1,duration:500,useNativeDriver:true}),
     ]));
-    cl.start(); return ()=>cl.stop();
+    cl.start();
+    return ()=>{ tfMounted.current = false; cl.stop(); };
   },[]);
 
   useEffect(()=>{
@@ -712,7 +712,9 @@ function TerminalFeed({ isConn }: { isConn:boolean }) {
       Animated.timing(scanA,{toValue:SW+80,duration:3200,useNativeDriver:false}),
       Animated.timing(scanA,{toValue:-SW,duration:0,useNativeDriver:false}),
       Animated.delay(5000),
-    ]),{iterations:3}); sc.start(); return ()=>sc.stop();
+    ]),{iterations:3});
+    sc.start();
+    return ()=>sc.stop();
   },[focused]);
 
   useEffect(()=>{
@@ -744,7 +746,7 @@ function TerminalFeed({ isConn }: { isConn:boolean }) {
         { id:`${id}f2`, ts:now-2000, label:'All modules loaded', ok:true, col, tag },
         { id:`${id}f3`, ts:now-5000, label:'Encryption active', ok:true, col, tag },
       ];
-      setLogs({
+      if (tfMounted.current) setLogs({
         app:     appR.length    ? appR    : mkFallback('app',T.cyan,'SYS'),
         srv:     srvR.length    ? srvR    : mkFallback('srv',T.magenta,'SRV'),
         scripts: scriptR.length ? scriptR : [{ id:'srf1', ts:now-1000, label:'No scripts run yet', ok:null, col:T.green, tag:'—' }],
@@ -806,7 +808,7 @@ const tf = StyleSheet.create({
 });
 
 // ──────────────────────────────────────────────────────────────────
-// COMPONENT 8: COMPACT SECTION DIVIDER
+// COMPONENT 8: SECTION DIVIDER
 // ──────────────────────────────────────────────────────────────────
 function SDiv({ icon, label, color }: { icon:string; label:string; color:string }) {
   return (
@@ -820,7 +822,7 @@ function SDiv({ icon, label, color }: { icon:string; label:string; color:string 
 }
 
 // ──────────────────────────────────────────────────────────────────
-// COMPONENT 9: COMPACT SCRIPT RUNNER
+// COMPONENT 9: QUICK SCRIPT RUNNER
 // ──────────────────────────────────────────────────────────────────
 const SCRIPTS = [
   { id:'sysinfo',  icon:'desktop-mac',     lib:'community' as const, label:'SYS INFO',  color:T.cyan,
@@ -920,7 +922,7 @@ const sr = StyleSheet.create({
 });
 
 // ──────────────────────────────────────────────────────────────────
-// COMPONENT 10: SMART ALERTS + INTEL FEED (combined compact card)
+// COMPONENT 10: ALERTS + INTEL
 // ──────────────────────────────────────────────────────────────────
 function AlertsIntelCard({ isConn, cpu, goToTab, histItems }: { isConn:boolean; cpu:number; goToTab:(t:string)=>void; histItems:any[] }) {
   const left = isConn ? [
@@ -932,7 +934,7 @@ function AlertsIntelCard({ isConn, cpu, goToTab, histItems }: { isConn:boolean; 
     { col:T.cyan, label:'Scan QR to pair', tag:'TIP' },
   ];
   const right = histItems.length > 0
-    ? histItems.slice(0,4).map((h:any,i:number)=>({ label:h.scriptName||'Script', tag:h.success?'OK':'ERR', col:h.success?T.green:T.red }))
+    ? histItems.slice(0,4).map((h:any)=>({ label:h.scriptName||'Script', tag:h.success?'OK':'ERR', col:h.success?T.green:T.red }))
     : [
       { label:'AI core initialized', tag:'SYS', col:T.cyan },
       { label:'KB engine idle', tag:'KB', col:T.amber },
@@ -946,7 +948,6 @@ function AlertsIntelCard({ isConn, cpu, goToTab, histItems }: { isConn:boolean; 
         <View style={{ flex:1, backgroundColor:T.magenta }} />
       </View>
       <View style={{ flexDirection:'row' }}>
-        {/* Alerts */}
         <View style={[aic.panel, { borderRightColor:T.border }]}>
           <View style={aic.panelHdr}>
             <MaterialIcons name="notifications" size={10} color={T.amber} />
@@ -963,7 +964,6 @@ function AlertsIntelCard({ isConn, cpu, goToTab, histItems }: { isConn:boolean; 
             <Text style={[aic.footerTxt, { color:T.amber }]}>ALL LOGS {'>'}</Text>
           </TouchableOpacity>
         </View>
-        {/* Intel */}
         <View style={aic.panel}>
           <View style={aic.panelHdr}>
             <MaterialCommunityIcons name="clipboard-list" size={10} color={T.magenta} />
@@ -999,14 +999,14 @@ const aic = StyleSheet.create({
 });
 
 // ──────────────────────────────────────────────────────────────────
-// COMPONENT 11: COMPACT STAT CARDS ROW
+// COMPONENT 11: STAT CARDS ROW
 // ──────────────────────────────────────────────────────────────────
 function StatCardsRow({ isConn, metrics, scripts, kbCount }: { isConn:boolean; metrics:{cpu:number;ram:number;disk:number}; scripts:number; kbCount:number }) {
   const STATS = [
-    { label:'SCRIPTS', value:scripts>0?String(scripts):'—',       color:T.magenta, icon:'code-braces' as const,      lib:'community' as const },
-    { label:'KB FACTS',value:kbCount>0?String(kbCount):'—',       color:T.cyan,    icon:'brain'       as const,      lib:'community' as const },
-    { label:'DISK OK', value:isConn?`${Math.max(0,100-Math.round(metrics.disk))}%`:'—', color:T.green,  icon:'harddisk' as const, lib:'community' as const },
-    { label:'THREATS', value:isConn?String(Math.floor(metrics.cpu*12)):'—',  color:T.red, icon:'shield' as const, lib:'material' as const },
+    { label:'SCRIPTS', value:scripts>0?String(scripts):'—',       color:T.magenta, icon:'code-braces' as const, lib:'community' as const },
+    { label:'KB FACTS',value:kbCount>0?String(kbCount):'—',       color:T.cyan,    icon:'brain'       as const, lib:'community' as const },
+    { label:'DISK OK', value:isConn?`${Math.max(0,100-Math.round(metrics.disk))}%`:'—', color:T.green, icon:'harddisk' as const, lib:'community' as const },
+    { label:'THREATS', value:isConn?String(Math.floor(metrics.cpu*12)):'—', color:T.red, icon:'shield' as const, lib:'material' as const },
   ];
   return (
     <View style={{ flexDirection:'row', gap:GAP, marginBottom:14 }}>
@@ -1034,7 +1034,7 @@ const sc2 = StyleSheet.create({
 });
 
 // ──────────────────────────────────────────────────────────────────
-// COMPONENT 12: COMPACT CONNECT MODAL
+// COMPONENT 12: CONNECT MODAL
 // ──────────────────────────────────────────────────────────────────
 function ConnectModal({ visible, onClose, onConnected }: { visible:boolean; onClose:()=>void; onConnected:()=>void }) {
   const [ip, setIp] = useState('');
@@ -1144,7 +1144,7 @@ const cm2 = StyleSheet.create({
 });
 
 // ──────────────────────────────────────────────────────────────────
-// COMPONENT 13: SECURITY PROTOCOL STRIP
+// COMPONENT 13: SECURITY STRIP
 // ──────────────────────────────────────────────────────────────────
 function SecurityStrip({ isConn }: { isConn:boolean }) {
   const PROTO = [
@@ -1190,7 +1190,7 @@ const ss = StyleSheet.create({
 });
 
 // ──────────────────────────────────────────────────────────────────
-// COMPONENT 14: SYSTEM FOOTER TERMINAL
+// COMPONENT 14: FOOTER TERMINAL
 // ──────────────────────────────────────────────────────────────────
 function FooterTerminal({ isConn, addr }: { isConn:boolean; addr:string }) {
   return (
@@ -1236,23 +1236,23 @@ function FooterTerminal({ isConn, addr }: { isConn:boolean; addr:string }) {
 // ──────────────────────────────────────────────────────────────────
 function NexusHomeInner() {
   const insets = useSafeAreaInsets();
-  const [isConn,  setIsConn]  = useState(false);
-  const [addr,    setAddr]    = useState('');
-  const [latency, setLatency] = useState(0);
-  const [metrics, setMetrics] = useState({ cpu:0, ram:0, disk:0, net:0 });
-  const [scripts, setScripts] = useState(0);
-  const [kbCount, setKbCount] = useState(0);
-  const [kbFacts, setKbFacts] = useState(0);
+  const [isConn,   setIsConn]   = useState(false);
+  const [addr,     setAddr]     = useState('');
+  const [latency,  setLatency]  = useState(0);
+  const [metrics,  setMetrics]  = useState({ cpu:0, ram:0, disk:0, net:0 });
+  const [scripts,  setScripts]  = useState(0);
+  const [kbCount,  setKbCount]  = useState(0);
+  const [kbFacts,  setKbFacts]  = useState(0);
   const [upcoming, setUpcoming] = useState(0);
-  const [histItems, setHistItems] = useState<any[]>([]);
-  const [showQR, setShowQR] = useState(false);
-  const [refresh, setRefresh] = useState(false);
+  const [histItems,setHistItems]= useState<any[]>([]);
+  const [showQR,   setShowQR]   = useState(false);
+  const [refresh,  setRefresh]  = useState(false);
 
   const loadData = useCallback(async () => {
     try {
       const conn = serverConnection.isConnected?.() ?? false;
-      const ip = serverConnection.getIP?.() || '';
-      const port = serverConnection.getPort?.() || '';
+      const ip   = serverConnection.getIP?.()    || '';
+      const port = serverConnection.getPort?.()  || '';
       setIsConn(conn); setAddr(ip&&port?`${ip}:${port}`:'');
       if(conn && ip && port) {
         const tok = serverConnection.getToken?.() || '';
@@ -1312,13 +1312,15 @@ function NexusHomeInner() {
     return ()=>{ delete (global as any).__nexusHomeOpenQR; };
   },[]);
 
-  const goToTab = useCallback((tab:string)=>{ haptics.light(); try{ (global as any).__butlerSwitchTab?.(tab); }catch{} },[]);
+  const goToTab   = useCallback((tab:string)=>{ haptics.light(); try{ (global as any).__butlerSwitchTab?.(tab); }catch{} },[]);
   const onRefresh = useCallback(async()=>{ setRefresh(true); haptics.medium(); await loadData(); haptics.success(); setRefresh(false); },[loadData]);
 
   return (
     <View style={{ flex:1, backgroundColor:T.bg }}>
       <NexusParticleFX pageId="nexushome" active={true} />
       <ConnectModal visible={showQR} onClose={()=>setShowQR(false)} onConnected={loadData} />
+
+      {/* Compact top header — just brand + time + QR/refresh buttons */}
       <NexusHeader safeTop={insets.top} isConn={isConn} addr={addr} latency={latency} onQR={()=>setShowQR(true)} onRefresh={onRefresh} />
       <NavPills goToTab={goToTab} onQR={()=>setShowQR(true)} isConn={isConn} />
 
@@ -1332,51 +1334,66 @@ function NexusHomeInner() {
             tintColor={T.cyan} colors={[T.cyan,T.green,T.magenta]} progressBackgroundColor={T.surf} />
         }
       >
-        {/* ① REMOTE ACCESS — right under header, full-width */}
+        {/* ════════════════════════════════════════════════════════
+            ① NEXUS COMMAND CENTER — STUNNING above-the-fold hero
+               Black grid · SYS.BOOT · live crawler · 8 features
+            ════════════════════════════════════════════════════════ */}
+        <NexusCommandCenter
+          isConn={isConn}
+          addr={addr}
+          latency={latency}
+          metrics={metrics}
+          goToTab={goToTab}
+          onQR={()=>setShowQR(true)}
+          onRefresh={onRefresh}
+          safeTop={insets.top}
+        />
+
+        {/* ② REMOTE ACCESS card */}
         <View style={{ paddingHorizontal:PAD, paddingTop:10, paddingBottom:2 }}>
           <RemoteAccessMonetizationCard onConnected={loadData} />
         </View>
 
-        {/* ② AI CHAT HERO */}
+        {/* ③ AI CHAT HERO */}
         <AIChatHero isConn={isConn} goToTab={goToTab} onQR={()=>setShowQR(true)} />
 
-        {/* ③ TERMINAL FEED */}
+        {/* ④ TERMINAL FEED */}
         <TerminalFeed isConn={isConn} />
 
         {/* PADDED SECTION */}
         <View style={{ paddingHorizontal:PAD, paddingTop:14 }}>
 
-          {/* ④ QUICK LAUNCH */}
+          {/* ⑤ QUICK LAUNCH */}
           <SDiv icon="rocket-launch" label="QUICK LAUNCH" color={T.cyan} />
           <QuickGrid goToTab={goToTab} isConn={isConn} />
 
-          {/* ⑤ LIVE TELEMETRY */}
+          {/* ⑥ LIVE TELEMETRY */}
           <SDiv icon="monitor-heart" label="LIVE TELEMETRY" color={T.cyan} />
           <View style={{ marginBottom:14 }}>
             <TelemetryRow cpu={metrics.cpu} ram={metrics.ram} disk={metrics.disk} isConn={isConn} />
           </View>
 
-          {/* ⑥ STAT CARDS */}
+          {/* ⑦ STAT CARDS */}
           <SDiv icon="chart-box" label="SYSTEM STATS" color={T.green} />
           <StatCardsRow isConn={isConn} metrics={metrics} scripts={scripts} kbCount={kbCount} />
 
-          {/* ⑦ MEMORY BRAIN */}
+          {/* ⑧ MEMORY BRAIN */}
           <SDiv icon="brain" label="NEURAL MEMORY BRAIN" color={T.cyan} />
           <MemoryBrainWidget kbArticles={kbCount} facts={kbFacts} upcoming={upcoming} isConn={isConn} goToTab={goToTab} />
 
-          {/* ⑧ ALERTS + INTEL */}
+          {/* ⑨ ALERTS + INTEL */}
           <SDiv icon="alert-decagram" label="ALERTS & INTEL" color={T.amber} />
           <AlertsIntelCard isConn={isConn} cpu={metrics.cpu} goToTab={goToTab} histItems={histItems} />
 
-          {/* ⑨ QUICK PC SCRIPTS */}
+          {/* ⑩ QUICK PC SCRIPTS */}
           <SDiv icon="code-braces" label="QUICK PC SCRIPTS" color={T.green} />
           <QuickScriptRunner isConn={isConn} />
 
-          {/* ⑩ NEXUS VAULT SECURITY */}
+          {/* ⑪ NEXUS VAULT SECURITY */}
           <SDiv icon="shield-lock" label="NEXUS VAULT SECURITY" color={T.green} />
           <NexusVaultCard isConnected={isConn} serverLatencyMs={latency} />
 
-          {/* ⑪ SESSION LOG */}
+          {/* ⑫ SESSION LOG */}
           <SDiv icon="terminal" label="SESSION LOG" color={T.mid} />
           <FooterTerminal isConn={isConn} addr={addr} />
 
