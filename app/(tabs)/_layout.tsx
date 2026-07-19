@@ -262,10 +262,15 @@ export default function TabsLayout() {
       <Tabs.Screen name="settings"  options={{ title: TAB_LABELS.settings,   tabBarLabel: TAB_LABELS.settings  }} />
 
       {/* ── HIDDEN UTILITY TABS ── */}
-      <Tabs.Screen name="index"    options={{ href: null }} />
-      <Tabs.Screen name="connect"  options={{ href: null }} />
-      <Tabs.Screen name="terminal" options={{ href: null }} />
-      <Tabs.Screen name="support"  options={{ href: null }} />
+      <Tabs.Screen name="index"          options={{ href: null }} />
+      <Tabs.Screen name="connect"        options={{ href: null }} />
+      <Tabs.Screen name="terminal"       options={{ href: null }} />
+      <Tabs.Screen name="support"        options={{ href: null }} />
+
+      {/* ── LEGACY ARCHIVE TABS (hidden, preserved for reference) ── */}
+      <Tabs.Screen name="butler_v1"      options={{ href: null }} />
+      <Tabs.Screen name="knowledge_v1"   options={{ href: null }} />
+      <Tabs.Screen name="scripts_legacy" options={{ href: null }} />
     </Tabs>
   );
 }

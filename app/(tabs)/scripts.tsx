@@ -253,6 +253,77 @@ const sc2 = StyleSheet.create({
   runBtn:  { width: 38, height: 38, borderRadius: 19, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
 });
 
+// ─── LIBRARY HEADER (shown above category grid) ─────────────────
+function LibraryHeader({ total, catCount, time }: { total: number; catCount: number; time: string }) {
+  return (
+    <View style={lh.root}>
+      {/* top stripe */}
+      <View style={{ height: 3, flexDirection: 'row' }}>
+        {COLOR.stripe5.map((c, i) => <View key={i} style={{ flex: 1, backgroundColor: c }} />)}
+      </View>
+      <View style={lh.inner}>
+        <View style={{ flex: 1 }}>
+          <Text style={lh.eyebrow}>
+            PYTHON AUTOMATION · {total > 0 ? `${total}+ SCRIPTS` : '250+ SCRIPTS'}
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <MaterialCommunityIcons name="code-brackets" size={20} color={C.cyan} />
+            <Text style={lh.title}>SCRIPT LIBRARY</Text>
+          </View>
+          <View style={lh.pills}>
+            <View style={[lh.pill, { borderColor: C.cyan + '55', backgroundColor: glow(C.cyan, 10) }]}>
+              <Text style={[lh.pillTxt, { color: C.cyan }]}>{total > 0 ? `${total} SCRIPTS` : '250+ SCRIPTS'}</Text>
+            </View>
+            <View style={[lh.pill, { borderColor: C.green + '40' }]}>
+              <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: C.green }} />
+              <Text style={[lh.pillTxt, { color: C.green }]}>LOCAL</Text>
+            </View>
+            <View style={[lh.pill, { borderColor: C.amber + '40' }]}>
+              <MaterialIcons name="lock" size={8} color={C.amber} />
+              <Text style={[lh.pillTxt, { color: C.amber }]}>SECURE</Text>
+            </View>
+          </View>
+        </View>
+        <View style={{ alignItems: 'flex-end', gap: 4 }}>
+          <View style={[lh.clockBox, { borderColor: C.cyan + '35', backgroundColor: glow(C.cyan, 6) }]}>
+            <Text style={[lh.clockHH, { color: C.cyan }]}>{time.slice(0,2)}</Text>
+            <Text style={[lh.clockColon, { color: C.cyan + '70' }]}>:</Text>
+            <Text style={[lh.clockMM, { color: C.text }]}>{time.slice(3,5)}</Text>
+          </View>
+          <Text style={{ fontFamily: MONO, fontSize: 7.5, color: C.mid, letterSpacing: 0.5 }}>LOCAL · SECURE</Text>
+        </View>
+      </View>
+      {/* bottom circuit border */}
+      <View style={{ height: 1, flexDirection: 'row' }}>
+        <View style={{ flex: 1, backgroundColor: C.cyan + '25' }} />
+        <View style={{ width: 10, backgroundColor: C.cyan }} />
+        <View style={{ flex: 4, backgroundColor: C.cyan + '10' }} />
+      </View>
+      {/* section label */}
+      <View style={lh.sectionRow}>
+        <MaterialCommunityIcons name="folder-multiple" size={12} color={C.cyan} />
+        <Text style={[lh.sectionTxt, { color: C.cyan }]}>{catCount} CATEGORIES</Text>
+        <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: C.cyan + '25', marginLeft: 8 }} />
+      </View>
+    </View>
+  );
+}
+const lh = StyleSheet.create({
+  root:      { backgroundColor: '#020609', marginBottom: 8 },
+  inner:     { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: PAD, paddingTop: 10, paddingBottom: 12 },
+  eyebrow:   { fontFamily: MONO, fontSize: 7.5, color: C.cyan + '80', letterSpacing: 1.2, marginBottom: 5, fontWeight: '700' },
+  title:     { fontFamily: MONO, fontSize: 22, fontWeight: '900', color: C.text, letterSpacing: 0.5 },
+  pills:     { flexDirection: 'row', gap: 6, marginTop: 9, flexWrap: 'wrap' },
+  pill:      { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4 },
+  pillTxt:   { fontFamily: MONO, fontSize: 8.5, fontWeight: '900' },
+  clockBox:  { flexDirection: 'row', alignItems: 'baseline', gap: 1, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  clockHH:   { fontFamily: MONO, fontSize: 20, fontWeight: '900', letterSpacing: -1 },
+  clockColon:{ fontFamily: MONO, fontSize: 18, fontWeight: '900' },
+  clockMM:   { fontFamily: MONO, fontSize: 20, fontWeight: '900', letterSpacing: -1 },
+  sectionRow:{ flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: PAD, paddingVertical: 10, backgroundColor: '#010407' },
+  sectionTxt:{ fontFamily: MONO, fontSize: 10, fontWeight: '900', letterSpacing: 1.5 },
+});
+
 // ─── CATEGORY CARD ────────────────────────────────────────────────
 function CatCard({ cat, onPress }: { cat: CategoryDef; onPress: () => void }) {
   const Icon = cat.iconLibrary === 'community' ? MaterialCommunityIcons : MaterialIcons;
@@ -262,38 +333,42 @@ function CatCard({ cat, onPress }: { cat: CategoryDef; onPress: () => void }) {
       onPress={() => {
         haptics.medium();
         Animated.sequence([
-          Animated.timing(scale, { toValue: 0.94, duration: 60, useNativeDriver: true }),
-          Animated.spring(scale, { toValue: 1, tension: 300, friction: 7, useNativeDriver: true }),
+          Animated.timing(scale, { toValue: 0.93, duration: 55, useNativeDriver: true }),
+          Animated.spring(scale, { toValue: 1, tension: 320, friction: 7, useNativeDriver: true }),
         ]).start();
         onPress();
       }}
       activeOpacity={0.88}
-      style={{ width: '50%', padding: 4 }}>
-      <Animated.View style={[cc.card, { borderTopColor: cat.color, borderColor: cat.color + '30', transform: [{ scale }] }]}>
-        <View style={[cc.topBar, { backgroundColor: cat.color }]} />
-        <View style={[cc.countBadge, { borderColor: cat.color + '60', backgroundColor: glow(cat.color, 12) }]}>
+      style={{ width: '50%', padding: 5 }}>
+      <Animated.View style={[cc.card, { borderColor: cat.color + '30', transform: [{ scale }] }]}>
+        {/* top accent border */}
+        <View style={[cc.topBorder, { backgroundColor: cat.color }]} />
+        {/* count badge top-right */}
+        <View style={[cc.countBadge, { borderColor: cat.color + '70', backgroundColor: glow(cat.color, 14) }]}>
           <Text style={[cc.countTxt, { color: cat.color }]}>{cat.scripts.length}</Text>
         </View>
-        <View style={[cc.iconWrap, { borderColor: cat.color + '50', backgroundColor: glow(cat.color, 10) }]}>
-          <Icon name={cat.icon as any} size={24} color={cat.color} />
+        {/* icon circle */}
+        <View style={[cc.iconWrap, { borderColor: cat.color + '55', backgroundColor: glow(cat.color, 12) }]}>
+          <Icon name={cat.icon as any} size={22} color={cat.color} />
         </View>
-        <Text style={cc.title} numberOfLines={1}>{cat.title}</Text>
+        <Text style={cc.title} numberOfLines={2}>{cat.title}</Text>
         <Text style={cc.sub} numberOfLines={1}>{cat.subtitle}</Text>
-        <View style={[cc.bottomBar, { backgroundColor: cat.color }]} />
+        {/* bottom glow bar */}
+        <View style={[cc.bottomGlow, { backgroundColor: cat.color }]} />
       </Animated.View>
     </TouchableOpacity>
   );
 }
 const cc = StyleSheet.create({
-  card:      { backgroundColor: C.surf2, borderRadius: 14, borderWidth: 1.5, borderTopWidth: 3, paddingHorizontal: 13, paddingTop: 14, paddingBottom: 10, position: 'relative', overflow: 'hidden',
-    ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 }, android: { elevation: 4 } }) },
-  topBar:    { position: 'absolute', top: 0, left: 0, right: 0, height: 3 },
-  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, opacity: 0.3 },
-  countBadge:{ position: 'absolute', top: 8, right: 8, minWidth: 26, height: 26, borderRadius: 13, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
-  countTxt:  { fontFamily: MONO, fontSize: 11, fontWeight: '900' },
-  iconWrap:  { width: 50, height: 50, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginBottom: 10, marginTop: 4 },
-  title:     { fontFamily: MONO, fontSize: 12, fontWeight: '900', color: C.text, letterSpacing: 0.2, marginBottom: 3 },
-  sub:       { fontFamily: MONO, fontSize: 9, color: C.mid },
+  card:       { backgroundColor: '#070E1C', borderRadius: 14, borderWidth: 1, overflow: 'hidden', paddingHorizontal: 14, paddingTop: 16, paddingBottom: 14, position: 'relative', minHeight: 135,
+    ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10 }, android: { elevation: 5 } }) },
+  topBorder:  { position: 'absolute', top: 0, left: 0, right: 0, height: 2.5 },
+  bottomGlow: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, opacity: 0.25 },
+  countBadge: { position: 'absolute', top: 9, right: 9, minWidth: 28, height: 28, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  countTxt:   { fontFamily: MONO, fontSize: 12, fontWeight: '900' },
+  iconWrap:   { width: 48, height: 48, borderRadius: 24, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginBottom: 11, marginTop: 4 },
+  title:      { fontFamily: MONO, fontSize: 12.5, fontWeight: '900', color: '#D0E8F5', letterSpacing: 0.1, marginBottom: 4, lineHeight: 17 },
+  sub:        { fontFamily: MONO, fontSize: 9, color: C.mid, lineHeight: 13 },
 });
 
 // ─── CATEGORY DETAIL MODAL ────────────────────────────────────────
@@ -607,11 +682,142 @@ const ed = StyleSheet.create({
   saveTxt:   { fontFamily: MONO, fontSize: 12, fontWeight: '900', color: '#000' },
 });
 
+// ─── FLOATING AI QUICK-CHAT WIDGET ──────────────────────────────
+function QuickAIWidget({ isConn }: { isConn: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [reply, setReply] = useState('');
+  const [loading, setLoading] = useState(false);
+  const slideA = useRef(new Animated.Value(0)).current;
+  const m = useRef(true);
+
+  useEffect(() => { m.current = true; return () => { m.current = false; }; }, []);
+
+  const toggle = () => {
+    haptics.medium();
+    Animated.spring(slideA, {
+      toValue: open ? 0 : 1,
+      tension: 220, friction: 18,
+      useNativeDriver: true,
+    }).start();
+    setOpen(o => !o);
+  };
+
+  const send = async () => {
+    if (!msg.trim() || loading) return;
+    haptics.heavy(); setLoading(true); setReply('');
+    const ip = serverConnection.getIP(), port = serverConnection.getPort(), token = serverConnection.getToken();
+    if (!ip || !port) { setReply('Pair your PC from HOME tab to use AI.'); setLoading(false); return; }
+    try {
+      const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 20000);
+      const res = await fetch(`http://${ip}:${port}/api/butler/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ message: msg }),
+        signal: ctrl.signal,
+      });
+      const d = await res.json();
+      const r = (d.content || d.response || d.message || d.output || '').trim();
+      if (m.current) { setReply(r || 'No response from Butler.'); haptics.success(); }
+    } catch (e: any) {
+      if (m.current) setReply(isConn ? 'Error: ' + (e?.message || 'failed') : 'Pair PC first.');
+    } finally {
+      if (m.current) setLoading(false);
+    }
+  };
+
+  const translateY = slideA.interpolate({ inputRange: [0, 1], outputRange: [180, 0] });
+  const opacity    = slideA.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0.5, 1] });
+
+  return (
+    <View style={aiw.container} pointerEvents="box-none">
+      {/* expanded panel */}
+      {open && (
+        <Animated.View style={[aiw.panel, { transform: [{ translateY }], opacity }]}>
+          <View style={[aiw.panelHdr, { borderBottomColor: isConn ? C.cyan + '30' : C.red + '20' }]}>
+            <View style={[aiw.dot, { backgroundColor: isConn ? C.cyan : C.red }]} />
+            <Text style={[aiw.panelTitle, { color: isConn ? C.cyan : C.mid }]}>Butler · {isConn ? 'online' : 'offline'}</Text>
+            <View style={{ flex: 1 }} />
+            <TouchableOpacity onPress={toggle} style={aiw.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <MaterialIcons name="remove" size={14} color={C.mid} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { setOpen(false); setReply(''); setMsg(''); slideA.setValue(0); }} style={[aiw.iconBtn, { marginLeft: 4 }]} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <MaterialIcons name="close" size={14} color={C.mid} />
+            </TouchableOpacity>
+          </View>
+          {!isConn ? (
+            <View style={{ paddingHorizontal: 14, paddingVertical: 10 }}>
+              <Text style={{ fontFamily: MONO, fontSize: 11, color: C.mid, lineHeight: 16 }}>Quick chat. Pair PC for live AI.</Text>
+            </View>
+          ) : reply ? (
+            <ScrollView style={{ maxHeight: 130 }} contentContainerStyle={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 8 }} showsVerticalScrollIndicator={false}>
+              <Text style={{ fontFamily: MONO, fontSize: 11.5, color: C.green + 'DD', lineHeight: 18 }}>{reply}</Text>
+            </ScrollView>
+          ) : (
+            <View style={{ paddingHorizontal: 14, paddingVertical: 10 }}>
+              <Text style={{ fontFamily: MONO, fontSize: 11, color: C.mid, lineHeight: 16 }}>Ask Butler anything about your PC...</Text>
+            </View>
+          )}
+          <View style={aiw.inputRow}>
+            <TextInput
+              style={aiw.input}
+              value={msg} onChangeText={setMsg}
+              placeholder={isConn ? 'Ask...' : 'Pair PC first...'}
+              placeholderTextColor={C.dim}
+              autoCorrect={false} autoCapitalize="none"
+              onSubmitEditing={send} returnKeyType="send"
+              editable={isConn}
+            />
+            <TouchableOpacity onPress={send} disabled={loading || !msg.trim() || !isConn}
+              style={[aiw.sendBtn, { backgroundColor: isConn ? C.cyan : C.dim, opacity: (!msg.trim() || loading || !isConn) ? 0.45 : 1 }]}>
+              {loading
+                ? <ActivityIndicator size="small" color="#000" style={{ transform: [{ scale: 0.7 }] }} />
+                : <MaterialIcons name="send" size={14} color="#000" />}
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      )}
+      {/* FAB */}
+      {!open && (
+        <TouchableOpacity onPress={toggle} activeOpacity={0.85} style={[aiw.fab, { backgroundColor: isConn ? C.cyan : '#0A1A2E', borderColor: isConn ? C.cyan : C.mid + '50' }]}>
+          <MaterialCommunityIcons name="robot-happy-outline" size={22} color={isConn ? '#000' : C.mid} />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+const aiw = StyleSheet.create({
+  container: { position: 'absolute', bottom: 90, right: 14, zIndex: 999, alignItems: 'flex-end' },
+  panel:     { width: Math.min(SW - 28, 320), backgroundColor: '#040C18', borderRadius: 14, borderWidth: 1.5, borderColor: C.cyan + '35', overflow: 'hidden', marginBottom: 10,
+    ...Platform.select({ ios: { shadowColor: C.cyan, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 18 }, android: { elevation: 10 } }) },
+  panelHdr:  { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1 },
+  dot:       { width: 7, height: 7, borderRadius: 3.5 },
+  panelTitle:{ fontFamily: MONO, fontSize: 12, fontWeight: '900' },
+  iconBtn:   { width: 26, height: 26, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
+  inputRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingBottom: 12, paddingTop: 6 },
+  input:     { flex: 1, backgroundColor: '#020810', borderRadius: 22, borderWidth: 1, borderColor: C.cyan + '30', color: C.text, fontFamily: MONO, fontSize: 11.5, paddingHorizontal: 14, paddingVertical: 9 },
+  sendBtn:   { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  fab:       { width: 50, height: 50, borderRadius: 25, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center',
+    ...Platform.select({ ios: { shadowColor: C.cyan, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12 }, android: { elevation: 8 } }) },
+});
+
 // ─── MAIN SCREEN ─────────────────────────────────────────────────
 function ScriptsInner() {
   const insets = useSafeAreaInsets();
   const { T } = useCosmetic();
   const PR = T.primary || C.cyan;
+  const [clockTime, setClockTime] = useState(() => {
+    const n = new Date();
+    return `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+  });
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      const n = new Date();
+      setClockTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`);
+    }, 30000);
+    return () => clearInterval(t);
+  }, []);
 
   const [mode, setMode] = useState<'scripts' | 'library' | 'favorites'>('scripts');
   const [search, setSearch] = useState('');
@@ -862,11 +1068,21 @@ function ScriptsInner() {
           keyExtractor={c => c.id}
           numColumns={2}
           key="library-2col"
-          contentContainerStyle={{ paddingHorizontal: PAD - 4, paddingBottom: 120, paddingTop: 8 }}
+          contentContainerStyle={{ paddingHorizontal: PAD - 5, paddingBottom: 140, paddingTop: 0 }}
           showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            <LibraryHeader
+              total={ALL_CATEGORIES.reduce((s, c) => s + (c.scripts?.length || 0), 0)}
+              catCount={ALL_CATEGORIES.length}
+              time={clockTime}
+            />
+          }
           renderItem={({ item }) => <CatCard cat={item} onPress={() => setCatModal(item)} />}
         />
       )}
+
+      {/* ── FLOATING AI WIDGET ── */}
+      <QuickAIWidget isConn={isConn} />
 
       {/* ── FAVORITES MODE ── */}
       {mode === 'favorites' && (
