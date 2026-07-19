@@ -66,27 +66,33 @@ export function notifyOnboardingReset(): void {
 type IconFn = (color: string, size: number) => React.ReactNode;
 
 const ICON_MAP: Record<string, IconFn> = {
-  nexushome: (c, s) => <MaterialIcons name="home" size={s} color={c} />,
-  scripts:   (c, s) => <MaterialIcons name="code" size={s} color={c} />,
-  butler:    (c, s) => <MaterialCommunityIcons name="robot" size={s} color={c} />,
-  knowledge: (c, s) => <MaterialCommunityIcons name="brain" size={s} color={c} />,
-  logs:      (c, s) => <MaterialIcons name="bar-chart" size={s} color={c} />,
-  builder:   (c, s) => <MaterialIcons name="handyman" size={s} color={c} />,
-  fileshare: (c, s) => <MaterialIcons name="folder-open" size={s} color={c} />,
-  settings:  (c, s) => <MaterialIcons name="tune" size={s} color={c} />,
-  cosmetic:  (c, s) => <MaterialCommunityIcons name="palette-swatch" size={s} color={c} />,
+  nexushome:      (c, s) => <MaterialIcons name="home" size={s} color={c} />,
+  scripts:        (c, s) => <MaterialIcons name="code" size={s} color={c} />,
+  butler:         (c, s) => <MaterialCommunityIcons name="robot" size={s} color={c} />,
+  knowledge:      (c, s) => <MaterialCommunityIcons name="brain" size={s} color={c} />,
+  logs:           (c, s) => <MaterialIcons name="bar-chart" size={s} color={c} />,
+  builder:        (c, s) => <MaterialIcons name="handyman" size={s} color={c} />,
+  fileshare:      (c, s) => <MaterialIcons name="folder-open" size={s} color={c} />,
+  settings:       (c, s) => <MaterialIcons name="tune" size={s} color={c} />,
+  cosmetic:       (c, s) => <MaterialCommunityIcons name="palette-swatch" size={s} color={c} />,
+  butler_v1:      (c, s) => <MaterialCommunityIcons name="robot-outline" size={s} color={c} />,
+  knowledge_v1:   (c, s) => <MaterialCommunityIcons name="brain" size={s} color={c} />,
+  scripts_legacy: (c, s) => <MaterialIcons name="history" size={s} color={c} />,
 };
 
 const TAB_LABELS: Record<string, string> = {
-  nexushome: 'CORE',
-  scripts:   'FORGE',
-  butler:    'BUTLR',
-  knowledge: 'KB',
-  logs:      'INTEL',
-  builder:   'BUILD',
-  fileshare: 'VAULT',
-  settings:  'CFG',
-  cosmetic:  'SKINS',
+  nexushome:      'CORE',
+  scripts:        'FORGE',
+  butler:         'BUTLR',
+  knowledge:      'KB',
+  logs:           'INTEL',
+  builder:        'BUILD',
+  fileshare:      'VAULT',
+  settings:       'CFG',
+  cosmetic:       'SKINS',
+  butler_v1:      'AI-V1',
+  knowledge_v1:   'KB-V1',
+  scripts_legacy: 'SCR-V1',
 };
 
 // ── Loading splash — shown ONLY during the AsyncStorage read ─────
@@ -267,10 +273,10 @@ export default function TabsLayout() {
       <Tabs.Screen name="terminal"       options={{ href: null }} />
       <Tabs.Screen name="support"        options={{ href: null }} />
 
-      {/* ── LEGACY ARCHIVE TABS (hidden, preserved for reference) ── */}
-      <Tabs.Screen name="butler_v1"      options={{ href: null }} />
-      <Tabs.Screen name="knowledge_v1"   options={{ href: null }} />
-      <Tabs.Screen name="scripts_legacy" options={{ href: null }} />
+      {/* ── LEGACY ARCHIVE TABS (visible after Settings for easy reference) ── */}
+      <Tabs.Screen name="butler_v1"      options={{ title: TAB_LABELS.butler_v1,      tabBarLabel: TAB_LABELS.butler_v1      }} />
+      <Tabs.Screen name="knowledge_v1"   options={{ title: TAB_LABELS.knowledge_v1,   tabBarLabel: TAB_LABELS.knowledge_v1   }} />
+      <Tabs.Screen name="scripts_legacy" options={{ title: TAB_LABELS.scripts_legacy, tabBarLabel: TAB_LABELS.scripts_legacy }} />
     </Tabs>
   );
 }
