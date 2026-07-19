@@ -37,7 +37,6 @@ import { NexusVaultCard } from '@/components/ui/NexusVaultCard';
 import { PageMascot } from '@/components/ui/PageMascot';
 import { performanceHistory } from '@/services/performanceHistory';
 import { RemoteAccessMonetizationCard } from '@/components/home/RemoteAccessMonetizationCard';
-import { NexusCommandCenter } from '@/components/home/NexusCommandCenter';
 const QRCameraScanner = React.lazy(() => import('@/components/qr/QRCameraScanner'));
 
 const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
@@ -108,7 +107,7 @@ function SectionBar({ color, icon, label }: { color: string; icon: string; label
 }
 
 // ══════════════════════════════════════════════════════════════════
-// BLOCK A: TOP HEADER + NAV BAR (merged)
+// BLOCK A: TOP HEADER + NAV BAR — AUTOMATION ROBOT SCRIPT THEME
 // ══════════════════════════════════════════════════════════════════
 let _ROBOT_IMG: any = null;
 try { _ROBOT_IMG = require('@/assets/images/mascot_shield_v2.png'); } catch {
@@ -116,24 +115,91 @@ try { _ROBOT_IMG = require('@/assets/images/mascot_shield_v2.png'); } catch {
 }
 
 const NAV_ITEMS = [
-  { icon: 'qr-code-scanner',    lib: 'material'   as const, label: 'PAIR',    color: T.cyan,    tab: '_qr'      },
-  { icon: 'robot-excited',      lib: 'community'  as const, label: 'AI',      color: T.green,   tab: 'butler'   },
-  { icon: 'code-braces-box',    lib: 'community'  as const, label: 'SCRIPTS', color: T.magenta, tab: 'scripts'  },
-  { icon: 'brain',              lib: 'community'  as const, label: 'KB',      color: T.cyan,    tab: 'knowledge'},
-  { icon: 'chart-bar',          lib: 'community'  as const, label: 'INTEL',   color: T.amber,   tab: 'logs'     },
-  { icon: 'folder-open',        lib: 'material'   as const, label: 'VAULT',   color: T.pink,    tab: 'fileshare'},
-  { icon: 'hammer-screwdriver', lib: 'community'  as const, label: 'BUILD',   color: T.yellow,  tab: 'builder'  },
-  { icon: 'tune',               lib: 'material'   as const, label: 'CFG',     color: T.mid,     tab: 'settings' },
+  { icon: 'qr-code-scanner',    lib: 'material'   as const, label: '[PAIR]',   color: T.cyan,    tab: '_qr'      },
+  { icon: 'robot-excited',      lib: 'community'  as const, label: '[AI]',     color: T.green,   tab: 'butler'   },
+  { icon: 'code-braces-box',    lib: 'community'  as const, label: '[FORGE]',  color: T.magenta, tab: 'scripts'  },
+  { icon: 'brain',              lib: 'community'  as const, label: '[KB]',     color: T.cyan,    tab: 'knowledge'},
+  { icon: 'chart-bar',          lib: 'community'  as const, label: '[INTEL]',  color: T.amber,   tab: 'logs'     },
+  { icon: 'folder-open',        lib: 'material'   as const, label: '[VAULT]',  color: T.pink,    tab: 'fileshare'},
+  { icon: 'hammer-screwdriver', lib: 'community'  as const, label: '[BUILD]',  color: T.yellow,  tab: 'builder'  },
+  { icon: 'tune',               lib: 'material'   as const, label: '[CFG]',    color: T.mid,     tab: 'settings' },
 ];
+
+// ── ROBOT EYE — blinks randomly, glows on connection ─────────────
+function RobotEye({ color, size = 14 }: { color: string; size?: number }) {
+  const blink = useRef(new Animated.Value(1)).current;
+  const glow  = useRef(new Animated.Value(0.4)).current;
+  const m     = useRef(true);
+  useEffect(() => {
+    m.current = true;
+    const doBlink = () => {
+      if (!m.current) return;
+      Animated.sequence([
+        Animated.timing(blink, { toValue: 0.05, duration: 80,  useNativeDriver: true }),
+        Animated.timing(blink, { toValue: 1,    duration: 100, useNativeDriver: true }),
+      ]).start(() => { if (m.current) setTimeout(doBlink, 2200 + Math.random() * 4000); });
+    };
+    setTimeout(doBlink, 900 + Math.random() * 2000);
+    const glowLoop = Animated.loop(Animated.sequence([
+      Animated.timing(glow, { toValue: 1,   duration: 1100, useNativeDriver: true }),
+      Animated.timing(glow, { toValue: 0.3, duration: 1100, useNativeDriver: true }),
+    ]));
+    glowLoop.start();
+    return () => { m.current = false; glowLoop.stop(); };
+  }, []);
+  return (
+    <Animated.View style={{
+      width: size, height: size * 0.55, borderRadius: size * 0.28,
+      backgroundColor: color, opacity: Animated.multiply(blink, glow),
+      alignItems: 'center', justifyContent: 'center',
+    }}>
+      <View style={{ width: size * 0.35, height: size * 0.35, borderRadius: size * 0.18, backgroundColor: '#000', opacity: 0.6 }} />
+    </Animated.View>
+  );
+}
+
+// ── TICKER — rotating typewriter script lines ─────────────────────
+const TICKER_MSGS = [
+  '>> butler_server.py --port=8766 --hmac=active --running',
+  '>> scheduler.run() :: 3_jobs_queued :: next_run=02:00',
+  '>> kb.sync(sigma_net=True) :: vectors=847 :: SAGE',
+  '>> psutil.cpu_percent()=23.4 :: ram=58% :: disk=61%',
+  '>> AES-256-GCM :: HMAC-SHA256 :: zero_cloud=True',
+  '>> lan_scanner.discover() :: nodes=3 :: butler@192.168.1.100',
+];
+
+function AutoTicker() {
+  const [idx, setIdx] = useState(0);
+  const [chars, setChars] = useState(0);
+  const m = useRef(true);
+  useEffect(() => { m.current = true; return () => { m.current = false; }; }, []);
+  useEffect(() => {
+    const target = TICKER_MSGS[idx];
+    if (chars < target.length) {
+      const t = setTimeout(() => { if (m.current) setChars(c => c + 1); }, 28);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => { if (m.current) { setIdx(i => (i + 1) % TICKER_MSGS.length); setChars(0); } }, 2600);
+    return () => clearTimeout(t);
+  }, [chars, idx]);
+  const line = TICKER_MSGS[idx];
+  return (
+    <Text style={{ fontFamily: MONO, fontSize: 8.5, color: T.green, flex: 1 }} numberOfLines={1}>
+      {line.slice(0, chars)}<Text style={{ color: T.cyan + '80' }}>▌</Text>
+    </Text>
+  );
+}
 
 function NexusHeaderNav({ safeTop, isConn, addr, latency, onQR, onRefresh, goToTab }: {
   safeTop: number; isConn: boolean; addr: string; latency: number;
   onQR: () => void; onRefresh: () => void; goToTab: (t: string) => void;
 }) {
-  const pulseA  = useRef(new Animated.Value(0.4)).current;
-  const focused = useIsFocused();
-  const loopRef = useRef<ReturnType<typeof Animated.loop> | null>(null);
-  const mounted = useRef(true);
+  const focused   = useIsFocused();
+  const loopRef   = useRef<ReturnType<typeof Animated.loop> | null>(null);
+  const mounted   = useRef(true);
+  const pulseA    = useRef(new Animated.Value(0.4)).current;  // native — status dot
+  const gearRotA  = useRef(new Animated.Value(0)).current;   // native — gear spin
+  const scanLineA = useRef(new Animated.Value(-200)).current; // JS — horiz scanline
   const [time, setTime] = useState('');
   const isHttp = isConn && !addr.startsWith('https');
 
@@ -145,65 +211,152 @@ function NexusHeaderNav({ safeTop, isConn, addr, latency, onQR, onRefresh, goToT
   useEffect(() => {
     mounted.current = true;
     if (!focused) { loopRef.current?.stop(); return; }
+    // Pulse (native)
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(pulseA, { toValue: 1,   duration: 900, useNativeDriver: true }),
       Animated.timing(pulseA, { toValue: 0.2, duration: 900, useNativeDriver: true }),
     ]));
     loopRef.current = loop; loop.start();
-    return () => { mounted.current = false; loop.stop(); loopRef.current = null; };
+    // Gear spin (native)
+    const gearLoop = Animated.loop(
+      Animated.timing(gearRotA, { toValue: 1, duration: 9000, useNativeDriver: true })
+    );
+    gearLoop.start();
+    // Scanline sweep (JS — translateX)
+    const scanLoop = Animated.loop(Animated.sequence([
+      Animated.timing(scanLineA, { toValue: SW + 200, duration: 2600, useNativeDriver: false }),
+      Animated.timing(scanLineA, { toValue: -200, duration: 0, useNativeDriver: false }),
+      Animated.delay(5000),
+    ]));
+    scanLoop.start();
+    return () => {
+      mounted.current = false;
+      loop.stop(); loopRef.current = null;
+      gearLoop.stop();
+      scanLoop.stop();
+    };
   }, [focused]);
 
   const cc = isConn ? T.green : T.red;
+  const gearSpin = gearRotA.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+
   return (
     <View style={[hdr.root, { paddingTop: safeTop }]}>
-      {/* 5-color stripe */}
-      <View style={{ height: 3, flexDirection: 'row' }}>
-        {[T.cyan, T.green, T.magenta, T.amber, T.pink].map((c,i) => <View key={i} style={{ flex: 1, backgroundColor: c }} />)}
+      {/* Horizontal scanline sweep (JS driver — translateX only) */}
+      <Animated.View pointerEvents="none" style={[hdr.scanLine, { transform: [{ translateX: scanLineA }] }]} />
+
+      {/* Circuit-trace grid lines */}
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        {[0.28, 0.56, 0.82].map((p, i) => (
+          <View key={i} style={{ position: 'absolute', top: 0, bottom: 0, left: `${p * 100}%` as any,
+            width: StyleSheet.hairlineWidth, backgroundColor: T.cyan + '07' }} />
+        ))}
       </View>
 
-      {/* Brand row */}
+      {/* 5-color stripe */}
+      <View style={{ height: 3, flexDirection: 'row' }}>
+        {[T.cyan, T.green, T.magenta, T.amber, T.pink].map((c, i) => <View key={i} style={{ flex: 1, backgroundColor: c }} />)}
+      </View>
+
+      {/* ── BRAND ROW ── */}
       <View style={hdr.brandRow}>
-        <Animated.View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: cc, opacity: pulseA }} />
-        <Text style={hdr.brand}>BUTLER<Text style={{ color: T.cyan }}>·AI</Text></Text>
-        <View style={{ flex: 1 }} />
-        <Text style={hdr.clock}>{time}</Text>
+        {/* Robot face */}
+        <View style={[hdr.robotHead, { borderColor: T.cyan + '60', backgroundColor: T.cyan + '07' }]}>
+          {/* Antenna */}
+          <View style={[hdr.antenna, { backgroundColor: T.cyan }]} />
+          <Animated.View style={[hdr.antennaDot, { backgroundColor: cc, opacity: pulseA }]} />
+          {/* Eyes */}
+          <View style={{ flexDirection: 'row', gap: 4, marginBottom: 3 }}>
+            <RobotEye color={cc} size={11} />
+            <RobotEye color={cc} size={11} />
+          </View>
+          {/* Mouth pixel grid */}
+          <View style={{ flexDirection: 'row', gap: 2 }}>
+            {[0,1,2,3].map(i => (
+              <View key={i} style={{ width: 3, height: 2, borderRadius: 1,
+                backgroundColor: i % 2 === 0 ? T.cyan : T.cyan + '30' }} />
+            ))}
+          </View>
+        </View>
+
+        {/* Brand text */}
+        <View style={{ flex: 1, gap: 2 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={hdr.brand}>
+              <Text style={{ color: T.cyan }}>{'{'}</Text>
+              <Text style={{ color: '#FFF' }}>BUTLER</Text>
+              <Text style={{ color: T.green }}>_AI</Text>
+              <Text style={{ color: T.cyan }}>{'}'}</Text>
+            </Text>
+            <View style={[hdr.verBadge, { borderColor: T.cyan + '40', backgroundColor: T.cyan + '0A' }]}>
+              <Text style={[hdr.verTxt, { color: T.cyan }]}>v7.3</Text>
+            </View>
+          </View>
+          <Text style={hdr.brandSub} numberOfLines={1}>
+            <Text style={{ color: T.green + '60' }}>{'# '}</Text>
+            <Text style={{ color: T.mid }}>automation_robot · local_ai · zero_cloud</Text>
+          </Text>
+        </View>
+
+        {/* Right: clock + actions */}
+        <View style={{ alignItems: 'flex-end', gap: 5 }}>
+          <View style={[hdr.clockBox, { borderColor: T.amber + '35', backgroundColor: T.amber + '08' }]}>
+            <MaterialCommunityIcons name="clock-outline" size={9} color={T.amber} />
+            <Text style={[hdr.clock, { color: T.amber }]}>{time}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 5 }}>
+            <TouchableOpacity onPress={() => { haptics.heavy(); onQR(); }} activeOpacity={0.8}
+              style={[hdr.iconBtn, { borderColor: T.cyan + '55', backgroundColor: T.cyan + '0C' }]}>
+              <MaterialIcons name="qr-code-scanner" size={13} color={T.cyan} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { haptics.light(); onRefresh(); }} activeOpacity={0.8}
+              style={[hdr.iconBtn, { borderColor: T.mid + '35' }]}>
+              <Animated.View style={{ transform: [{ rotate: gearSpin }] }}>
+                <MaterialCommunityIcons name="cog" size={13} color={T.mid} />
+              </Animated.View>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+
+      {/* ── STATUS + TICKER ROW ── */}
+      <View style={hdr.statusRow}>
         <View style={[hdr.connPill, { borderColor: cc + '55', backgroundColor: cc + '0A' }]}>
-          <PulseDot color={cc} size={5} />
+          <Animated.View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: cc, opacity: pulseA }} />
           <Text style={[hdr.connTxt, { color: cc }]} numberOfLines={1}>
             {isConn ? (addr || 'ONLINE') : 'OFFLINE'}
           </Text>
-          {isConn && latency > 0 && <Text style={[hdr.latTxt, { color: T.mid }]}>{latency}ms</Text>}
+          {isConn && latency > 0 && (
+            <View style={[hdr.latBadge, { borderColor: T.mid + '35' }]}>
+              <Text style={[hdr.latTxt, { color: T.mid }]}>{latency}ms</Text>
+            </View>
+          )}
         </View>
-        <TouchableOpacity onPress={() => { haptics.heavy(); onQR(); }} activeOpacity={0.8}
-          style={[hdr.iconBtn, { borderColor: T.cyan + '55', backgroundColor: T.cyan + '0C' }]}>
-          <MaterialIcons name="qr-code-scanner" size={15} color={T.cyan} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => { haptics.light(); onRefresh(); }} activeOpacity={0.8}
-          style={[hdr.iconBtn, { borderColor: T.mid + '30' }]}>
-          <MaterialIcons name="refresh" size={15} color={T.mid} />
-        </TouchableOpacity>
-        <PageMascot page="home" size="sm" showBubble />
+        {/* Typewriter ticker */}
+        <View style={{ flex: 1, overflow: 'hidden', paddingLeft: 8 }}>
+          <AutoTicker />
+        </View>
       </View>
 
       {/* HTTP warning */}
       {isHttp && (
         <View style={hdr.httpWarn}>
           <MaterialIcons name="lock-open" size={9} color={T.amber} />
-          <Text style={hdr.httpTxt}>HTTP (unencrypted) — enable --tls flag on server</Text>
+          <Text style={hdr.httpTxt}>http:// unencrypted — pass --tls to butler_server.py</Text>
         </View>
       )}
 
-      {/* Nav pills row */}
+      {/* ── NAV PILLS — bracket-style labels ── */}
       <View style={hdr.navRow}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: PAD, paddingVertical: 8, gap: 6 }}>
+          contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: PAD, paddingVertical: 7, gap: 5 }}>
           {NAV_ITEMS.map((n, i) => {
             const Icon = n.lib === 'community' ? MaterialCommunityIcons : MaterialIcons;
             return (
               <TouchableOpacity key={i} activeOpacity={0.75}
                 onPress={() => { haptics.light(); n.tab === '_qr' ? onQR() : goToTab(n.tab); }}
-                style={[hdr.pill, { borderColor: n.color + '45', backgroundColor: n.color + '09' }]}>
-                <Icon name={n.icon as any} size={11} color={n.color} />
+                style={[hdr.pill, { borderColor: n.color + '50', backgroundColor: n.color + '09' }]}>
+                <Icon name={n.icon as any} size={10} color={n.color} />
                 <Text style={[hdr.pillTxt, { color: n.color }]}>{n.label}</Text>
               </TouchableOpacity>
             );
@@ -211,27 +364,296 @@ function NexusHeaderNav({ safeTop, isConn, addr, latency, onQR, onRefresh, goToT
         </ScrollView>
       </View>
 
-      <View style={{ height: 1, backgroundColor: T.cyan + '15' }} />
+      {/* Circuit trace bottom border */}
+      <View style={{ height: 1, flexDirection: 'row' }}>
+        <View style={{ flex: 1, backgroundColor: T.cyan + '30' }} />
+        <View style={{ width: 8, backgroundColor: T.cyan }} />
+        <View style={{ flex: 3, backgroundColor: T.cyan + '15' }} />
+        <View style={{ width: 4, backgroundColor: T.green }} />
+        <View style={{ flex: 2, backgroundColor: T.cyan + '18' }} />
+      </View>
     </View>
   );
 }
 
 const hdr = StyleSheet.create({
-  root:     { backgroundColor: '#020609', overflow: 'hidden',
-    ...Platform.select({ ios: { shadowColor: T.cyan, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 10 }, android: { elevation: 4 } }) },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: PAD, paddingVertical: 8 },
-  brand:    { fontFamily: MONO, fontSize: 14, fontWeight: '900', color: '#FFF', letterSpacing: 1 },
-  clock:    { fontFamily: MONO, fontSize: 14, fontWeight: '900', color: T.cyan },
-  connPill: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, maxWidth: 160 },
-  connTxt:  { fontFamily: MONO, fontSize: 8, fontWeight: '900', flexShrink: 1 },
-  latTxt:   { fontFamily: MONO, fontSize: 7, flexShrink: 0 },
-  iconBtn:  { width: 32, height: 32, borderRadius: 9, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  httpWarn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: PAD, paddingVertical: 4,
+  root:       { backgroundColor: '#020609', overflow: 'hidden',
+    ...Platform.select({ ios: { shadowColor: T.cyan, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 12 }, android: { elevation: 6 } }) },
+  scanLine:   { position: 'absolute', top: 0, bottom: 0, width: 130, backgroundColor: 'rgba(0,229,255,0.03)', zIndex: 0, transform: [{ skewX: '-8deg' }] },
+  brandRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: PAD, paddingTop: 8, paddingBottom: 6, zIndex: 1 },
+  // Robot face
+  robotHead:  { width: 40, height: 36, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', paddingTop: 5, flexShrink: 0, overflow: 'visible', position: 'relative' },
+  antenna:    { position: 'absolute', top: -9, left: '50%', width: 1.5, height: 9, marginLeft: -0.75 },
+  antennaDot: { position: 'absolute', top: -13, left: '50%', width: 6, height: 6, borderRadius: 3, marginLeft: -3 },
+  // Brand text
+  brand:      { fontFamily: MONO, fontSize: 14, fontWeight: '900', letterSpacing: 0.4 },
+  brandSub:   { fontFamily: MONO, fontSize: 8, letterSpacing: 0.2 },
+  verBadge:   { borderWidth: 1, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 },
+  verTxt:     { fontFamily: MONO, fontSize: 7.5, fontWeight: '900' },
+  // Clock
+  clockBox:   { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
+  clock:      { fontFamily: MONO, fontSize: 11, fontWeight: '900' },
+  iconBtn:    { width: 30, height: 30, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  // Status row
+  statusRow:  { flexDirection: 'row', alignItems: 'center', paddingHorizontal: PAD, paddingVertical: 5,
+    borderTopWidth: 1, borderTopColor: T.cyan + '10', backgroundColor: '#010508', zIndex: 1 },
+  connPill:   { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 4, maxWidth: 145 },
+  connTxt:    { fontFamily: MONO, fontSize: 8, fontWeight: '900', flexShrink: 1 },
+  latBadge:   { borderWidth: 1, borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1, marginLeft: 2 },
+  latTxt:     { fontFamily: MONO, fontSize: 7 },
+  httpWarn:   { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: PAD, paddingVertical: 4,
     backgroundColor: 'rgba(255,176,32,0.07)', borderTopWidth: 1, borderTopColor: 'rgba(255,176,32,0.18)' },
-  httpTxt:  { fontFamily: MONO, fontSize: 8, color: 'rgba(255,176,32,0.8)', flex: 1 },
-  navRow:   { backgroundColor: '#02060E', borderTopWidth: 1, borderTopColor: T.cyan + '12' },
-  pill:     { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1.5, borderRadius: 22, paddingHorizontal: 11, paddingVertical: 7 },
-  pillTxt:  { fontFamily: MONO, fontSize: 8.5, fontWeight: '900', letterSpacing: 0.3 },
+  httpTxt:    { fontFamily: MONO, fontSize: 8, color: 'rgba(255,176,32,0.8)', flex: 1 },
+  navRow:     { backgroundColor: '#01050C', borderTopWidth: 1, borderTopColor: T.cyan + '10', zIndex: 1 },
+  pill:       { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 6 },
+  pillTxt:    { fontFamily: MONO, fontSize: 8, fontWeight: '900', letterSpacing: 0.2 },
+});
+
+// ══════════════════════════════════════════════════════════════════
+// AI FEATURES SHOWCASE — horizontal scroll cards with glow borders
+// ══════════════════════════════════════════════════════════════════
+const AI_FEATURES = [
+  { icon: 'robot-happy',        lib: 'community' as const, title: 'LOCAL AI CHAT',      sub: 'Ollama · LLaMA · Mistral · Phi', color: T.cyan,    badge: 'LAN-ONLY' },
+  { icon: 'code-braces-box',    lib: 'community' as const, title: '250+ SCRIPTS',        sub: 'Python · Bash · PowerShell',      color: T.magenta, badge: 'FORGE'    },
+  { icon: 'brain',              lib: 'community' as const, title: 'SIGMA-NET KB',         sub: 'Auto-learning vector store',      color: T.amber,   badge: 'NEURAL'   },
+  { icon: 'shield-lock',        lib: 'community' as const, title: 'AES-256 VAULT',       sub: 'Dead man switch · DNA check',     color: T.green,   badge: 'SECURE'   },
+  { icon: 'desktop-tower-monitor', lib: 'community' as const, title: 'PC REMOTE CTRL',  sub: 'Execute · Monitor · Schedule',   color: T.blue,    badge: 'LIVE'     },
+  { icon: 'pipe',               lib: 'community' as const, title: 'PIPELINE BUILDER',    sub: 'Drag-drop automation nodes',      color: T.yellow,  badge: 'BUILD'    },
+  { icon: 'wifi-off',           lib: 'community' as const, title: 'ZERO CLOUD',          sub: 'Your PC · Your data · Forever',   color: T.teal,    badge: 'PRIVATE'  },
+  { icon: 'satellite-uplink',   lib: 'community' as const, title: 'REMOTE ACCESS',       sub: 'Tailscale · Cloudflare tunnel',   color: T.pink,    badge: 'PRO'      },
+];
+
+function AIFeaturesShowcase({ goToTab }: { goToTab: (t: string) => void }) {
+  const scrollRef = useRef<any>(null);
+  const [active, setActive] = useState(0);
+  const slideA   = useRef(new Animated.Value(0)).current; // native translateX
+  const m        = useRef(true);
+
+  useEffect(() => {
+    m.current = true;
+    return () => { m.current = false; };
+  }, []);
+
+  const TAB_MAP: Record<string, string> = {
+    'LOCAL AI CHAT': 'butler', '250+ SCRIPTS': 'scripts', 'SIGMA-NET KB': 'knowledge',
+    'AES-256 VAULT': 'fileshare', 'PC REMOTE CTRL': 'nexushome', 'PIPELINE BUILDER': 'builder',
+    'ZERO CLOUD': 'settings', 'REMOTE ACCESS': 'nexushome',
+  };
+
+  return (
+    <View style={af.outer}>
+      {/* Header */}
+      <View style={af.header}>
+        <View style={[af.headerBar, { backgroundColor: T.cyan }]} />
+        <MaterialCommunityIcons name="star-four-points" size={11} color={T.cyan} />
+        <Text style={[af.headerTitle, { color: T.cyan }]}>AI CAPABILITIES</Text>
+        <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: T.cyan + '25' }} />
+        <View style={[af.headerBadge, { borderColor: T.cyan + '40', backgroundColor: T.cyan + '0A' }]}>
+          <Text style={[af.headerBadgeTxt, { color: T.cyan }]}>8 MODULES</Text>
+        </View>
+      </View>
+
+      {/* Horizontal card scroll */}
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: PAD, paddingBottom: 14, gap: 8 }}
+        decelerationRate="fast"
+      >
+        {AI_FEATURES.map((f, i) => {
+          const Icon = f.lib === 'community' ? MaterialCommunityIcons : MaterialIcons;
+          return (
+            <TouchableOpacity
+              key={i}
+              onPress={() => { haptics.light(); goToTab(TAB_MAP[f.title] || 'nexushome'); }}
+              activeOpacity={0.82}
+              style={[af.card, { borderColor: f.color + '45', borderTopColor: f.color }]}
+            >
+              <HudCorners color={f.color + '35'} size={7} t={1} />
+              <View style={[af.cardIcon, { borderColor: f.color + '55', backgroundColor: f.color + '0E' }]}>
+                <Icon name={f.icon as any} size={22} color={f.color} />
+              </View>
+              <Text style={[af.cardTitle, { color: f.color }]}>{f.title}</Text>
+              <Text style={[af.cardSub, { color: T.mid }]}>{f.sub}</Text>
+              <View style={[af.cardBadge, { borderColor: f.color + '40', backgroundColor: f.color + '0A' }]}>
+                <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: f.color }} />
+                <Text style={[af.cardBadgeTxt, { color: f.color }]}>{f.badge}</Text>
+              </View>
+              <View style={[af.cardBar, { backgroundColor: f.color }]} />
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
+const af = StyleSheet.create({
+  outer:         { backgroundColor: T.surf, borderWidth: 1, borderColor: T.border,
+    ...Platform.select({ ios: { shadowColor: T.cyan, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.14, shadowRadius: 10 }, android: { elevation: 5 } }) },
+  header:        { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: PAD, paddingTop: 12, paddingBottom: 10 },
+  headerBar:     { width: 3, height: 13, borderRadius: 2 },
+  headerTitle:   { fontFamily: MONO, fontSize: 9.5, fontWeight: '900', letterSpacing: 1.5 },
+  headerBadge:   { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
+  headerBadgeTxt:{ fontFamily: MONO, fontSize: 7.5, fontWeight: '900' },
+  card:          { width: 130, backgroundColor: T.surf2, borderWidth: 1.5, borderTopWidth: 3, borderRadius: 13,
+    paddingHorizontal: 10, paddingTop: 12, paddingBottom: 10, gap: 5, overflow: 'hidden', position: 'relative' },
+  cardIcon:      { width: 44, height: 44, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  cardTitle:     { fontFamily: MONO, fontSize: 9.5, fontWeight: '900', letterSpacing: 0.2, lineHeight: 13 },
+  cardSub:       { fontFamily: MONO, fontSize: 7.5, lineHeight: 11 },
+  cardBadge:     { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2.5, alignSelf: 'flex-start', marginTop: 2 },
+  cardBadgeTxt:  { fontFamily: MONO, fontSize: 7, fontWeight: '900' },
+  cardBar:       { position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, opacity: 0.5 },
+});
+
+// ══════════════════════════════════════════════════════════════════
+// LIVE AUTOMATION PIPELINE — visual left-to-right pipeline flow
+// ══════════════════════════════════════════════════════════════════
+const PIPELINE_STEPS = [
+  { icon: 'bell-ring',        lib: 'community' as const, label: 'TRIGGER',  sub: 'Schedule\nEvent\nFile change', color: T.cyan    },
+  { icon: 'arrow-right-bold', lib: 'community' as const, label: '',         sub: '',                               color: T.mid     },
+  { icon: 'robot-happy',      lib: 'community' as const, label: 'AI THINK', sub: 'LLM\nAnalyze\nDecide',         color: T.magenta },
+  { icon: 'arrow-right-bold', lib: 'community' as const, label: '',         sub: '',                               color: T.mid     },
+  { icon: 'code-braces',      lib: 'community' as const, label: 'EXECUTE',  sub: 'Python\nBash\nPowerShell',     color: T.green   },
+  { icon: 'arrow-right-bold', lib: 'community' as const, label: '',         sub: '',                               color: T.mid     },
+  { icon: 'check-circle',     lib: 'community' as const, label: 'RESULT',   sub: 'Output\nLog\nAlert',           color: T.amber   },
+];
+
+function AutomationPipeline({ isConn, goToTab }: { isConn: boolean; goToTab: (t: string) => void }) {
+  const packetA = useRef(new Animated.Value(0)).current; // JS — pipeline packet left
+  const glowA   = useRef(new Animated.Value(0.3)).current; // JS
+  const m       = useRef(true);
+  const [activeStep, setActiveStep] = useState(0);
+
+  useEffect(() => {
+    m.current = true;
+    const packet = Animated.loop(Animated.sequence([
+      Animated.timing(packetA, { toValue: 1, duration: 3200, useNativeDriver: false }),
+      Animated.timing(packetA, { toValue: 0, duration: 0, useNativeDriver: false }),
+      Animated.delay(600),
+    ]));
+    const glow = Animated.loop(Animated.sequence([
+      Animated.timing(glowA, { toValue: 1,   duration: 1600, useNativeDriver: false }),
+      Animated.timing(glowA, { toValue: 0.2, duration: 1600, useNativeDriver: false }),
+    ]));
+    packet.start(); glow.start();
+    const tick = setInterval(() => { if (m.current) setActiveStep(s => (s + 1) % 4); }, 1200);
+    return () => { m.current = false; packet.stop(); glow.stop(); clearInterval(tick); };
+  }, []);
+
+  const borderC = glowA.interpolate({ inputRange: [0.2, 1], outputRange: [T.magenta + '20', T.magenta + '70'] });
+  // Compute pipeline width for packet travel
+  const PIPE_W = SW - PAD * 2 - 24;
+
+  const NODES = PIPELINE_STEPS.filter(s => s.label !== '');
+  const ARROWS = PIPELINE_STEPS.filter(s => s.label === '');
+
+  return (
+    <Animated.View style={[pipe.outer, { borderColor: borderC }]}>
+      <View style={{ height: 2.5, flexDirection: 'row' }}>
+        {[T.cyan, T.magenta, T.green, T.amber, T.cyan].map((c, i) => <View key={i} style={{ flex: 1, backgroundColor: c }} />)}
+      </View>
+      <HudCorners color={T.magenta + '40'} size={9} t={1} />
+
+      {/* Header */}
+      <View style={pipe.header}>
+        <MaterialCommunityIcons name="pipe" size={11} color={T.magenta} />
+        <Text style={[pipe.headerTitle, { color: T.magenta }]}>AUTOMATION PIPELINE</Text>
+        <View style={{ flex: 1 }} />
+        <View style={[pipe.statusPill, { borderColor: (isConn ? T.green : T.red) + '45', backgroundColor: (isConn ? T.green : T.red) + '09' }]}>
+          <PulseDot color={isConn ? T.green : T.red} size={4} />
+          <Text style={[pipe.statusTxt, { color: isConn ? T.green : T.red }]}>{isConn ? 'LIVE' : 'READY'}</Text>
+        </View>
+        <TouchableOpacity onPress={() => { haptics.light(); goToTab('builder'); }}
+          style={[pipe.buildBtn, { borderColor: T.magenta + '55', backgroundColor: T.magenta + '0A' }]}>
+          <Text style={[pipe.buildBtnTxt, { color: T.magenta }]}>BUILD {'>'}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Pipeline flow row */}
+      <View style={pipe.flowRow}>
+        {PIPELINE_STEPS.map((step, i) => {
+          const Icon = step.lib === 'community' ? MaterialCommunityIcons : MaterialIcons;
+          if (step.label === '') {
+            // Arrow connector
+            return (
+              <View key={i} style={{ alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+                <View style={{ height: 1.5, backgroundColor: step.color + '50', width: '80%' }} />
+                <MaterialCommunityIcons name="arrow-right" size={10} color={step.color + '60'} style={{ position: 'absolute' }} />
+              </View>
+            );
+          }
+          const nodeIdx = NODES.indexOf(step);
+          const isActive = nodeIdx === activeStep;
+          return (
+            <View key={i} style={[pipe.node, { borderColor: isActive ? step.color : step.color + '35', borderTopColor: step.color,
+              backgroundColor: isActive ? step.color + '12' : T.surf2 }]}>
+              <View style={[pipe.nodeIcon, { borderColor: step.color + (isActive ? 'AA' : '45'), backgroundColor: step.color + (isActive ? '18' : '09') }]}>
+                <Icon name={step.icon as any} size={14} color={step.color} />
+                {isActive && <Animated.View style={[pipe.nodeGlow, { backgroundColor: step.color + '25' }]} />}
+              </View>
+              <Text style={[pipe.nodeLabel, { color: isActive ? step.color : step.color + 'BB' }]}>{step.label}</Text>
+              <Text style={[pipe.nodeSub, { color: step.color + '55' }]}>{step.sub}</Text>
+            </View>
+          );
+        })}
+      </View>
+
+      {/* Animated packet along pipeline line */}
+      <View style={pipe.packetTrack}>
+        <View style={{ flex: 1, height: 2, backgroundColor: T.cyan + '15', borderRadius: 1 }}>
+          <Animated.View style={[pipe.packet, {
+            left: packetA.interpolate({ inputRange: [0, 1], outputRange: [0, PIPE_W - 10] }),
+            backgroundColor: T.cyan,
+          }]} />
+        </View>
+      </View>
+
+      {/* Preset pipeline chips */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: PAD, paddingBottom: 12, gap: 7 }}>
+        {[
+          { label: 'CLEANUP PC',   color: T.green,   sub: 'Temp → Clean → Report'  },
+          { label: 'CPU GUARD',    color: T.amber,   sub: 'Monitor → Alert → Kill'  },
+          { label: 'NIGHTLY BK',   color: T.cyan,    sub: 'Schedule → Zip → Move'   },
+          { label: 'NET SCAN',     color: T.blue,    sub: 'Scan → Map → Log'        },
+          { label: 'KB SYNC',      color: T.magenta, sub: 'Crawl → Index → Embed'   },
+        ].map((p, i) => (
+          <TouchableOpacity key={i} onPress={() => { haptics.light(); goToTab('builder'); }} activeOpacity={0.8}
+            style={[pipe.presetChip, { borderColor: p.color + '45', backgroundColor: p.color + '09' }]}>
+            <MaterialCommunityIcons name="play-circle-outline" size={12} color={p.color} />
+            <View>
+              <Text style={[pipe.presetLabel, { color: p.color }]}>{p.label}</Text>
+              <Text style={[pipe.presetSub, { color: p.color + '60' }]}>{p.sub}</Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </Animated.View>
+  );
+}
+
+const pipe = StyleSheet.create({
+  outer:       { backgroundColor: T.surf, borderWidth: 1.5, overflow: 'hidden', position: 'relative',
+    ...Platform.select({ ios: { shadowColor: T.magenta, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.14, shadowRadius: 12 }, android: { elevation: 6 } }) },
+  header:      { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: PAD, paddingVertical: 11 },
+  headerTitle: { fontFamily: MONO, fontSize: 9.5, fontWeight: '900', letterSpacing: 1.5 },
+  statusPill:  { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, marginRight: 6 },
+  statusTxt:   { fontFamily: MONO, fontSize: 7.5, fontWeight: '900' },
+  buildBtn:    { borderWidth: 1, borderRadius: 7, paddingHorizontal: 9, paddingVertical: 5 },
+  buildBtnTxt: { fontFamily: MONO, fontSize: 8, fontWeight: '900' },
+  flowRow:     { flexDirection: 'row', alignItems: 'stretch', paddingHorizontal: PAD, paddingBottom: 8, gap: 2 },
+  node:        { flex: 2, alignItems: 'center', paddingVertical: 10, borderWidth: 1.5, borderTopWidth: 3, borderRadius: 10, gap: 4, backgroundColor: T.surf2, overflow: 'hidden', position: 'relative' },
+  nodeIcon:    { width: 32, height: 32, borderRadius: 9, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' },
+  nodeGlow:    { position: 'absolute', inset: 0, borderRadius: 9 } as any,
+  nodeLabel:   { fontFamily: MONO, fontSize: 7.5, fontWeight: '900', letterSpacing: 0.3 },
+  nodeSub:     { fontFamily: MONO, fontSize: 6.5, textAlign: 'center', lineHeight: 9 },
+  packetTrack: { paddingHorizontal: PAD, paddingBottom: 10, position: 'relative' },
+  packet:      { position: 'absolute', top: -4, width: 10, height: 10, borderRadius: 5, opacity: 0.9 },
+  presetChip:  { flexDirection: 'row', alignItems: 'center', gap: 7, borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 11, paddingVertical: 9 },
+  presetLabel: { fontFamily: MONO, fontSize: 8.5, fontWeight: '900' },
+  presetSub:   { fontFamily: MONO, fontSize: 7, lineHeight: 10 },
 });
 
 // ══════════════════════════════════════════════════════════════════
@@ -1347,12 +1769,6 @@ function NexusHomeInner() {
             tintColor={T.cyan} colors={[T.cyan, T.green, T.magenta]} progressBackgroundColor={T.surf} />
         }
       >
-        {/* ══ NEXUS COMMAND CENTER (above-fold hero) ══ */}
-        <NexusCommandCenter
-          isConn={isConn} addr={addr} latency={latency} metrics={metrics}
-          goToTab={goToTab} onQR={() => setShowQR(true)} onRefresh={onRefresh} safeTop={insets.top}
-        />
-
         {/* ══ REMOTE ACCESS ══ */}
         <View style={{ paddingHorizontal: PAD, paddingTop: 10, paddingBottom: 2 }}>
           <RemoteAccessMonetizationCard onConnected={loadData} />
@@ -1360,6 +1776,14 @@ function NexusHomeInner() {
 
         {/* ══ BLOCK B: NEXUS CONTROL HUB (AI chat + terminal feed merged) ══ */}
         <NexusControlHub isConn={isConn} goToTab={goToTab} onQR={() => setShowQR(true)} />
+
+        {/* ══ AI FEATURES SHOWCASE ══ */}
+        <SectionBar color={T.cyan} icon="star-four-points" label="AI CAPABILITIES" />
+        <AIFeaturesShowcase goToTab={goToTab} />
+
+        {/* ══ AUTOMATION PIPELINE ══ */}
+        <SectionBar color={T.magenta} icon="pipe" label="AUTOMATION PIPELINE" />
+        <AutomationPipeline isConn={isConn} goToTab={goToTab} />
 
         {/* ══ BLOCK C: METRICS DASHBOARD (telemetry + stats + quick launch merged) ══ */}
         <SectionBar color={T.cyan} icon="monitor-dashboard" label="NEXUS METRICS DASHBOARD" />
