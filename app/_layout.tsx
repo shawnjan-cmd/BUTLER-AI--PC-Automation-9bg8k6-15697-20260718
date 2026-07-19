@@ -89,11 +89,13 @@ if (typeof global !== 'undefined') {
             const safeMsg = msg.replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, '[IP]')
                                .replace(/Bearer\s+\S+/gi, '[TOKEN]');
             const summary = `Butler AI crash at ${ts}: ${safeMsg}`;
+            // Use expo-clipboard (always available in Expo) — never require
+            // @react-native-clipboard/clipboard which needs manual native linking.
             try {
-              require('@react-native-clipboard/clipboard').default.setString(summary);
-            } catch (_) {
-              try { require('react-native').Clipboard.setString(summary); } catch (_2) {}
-            }
+              import('expo-clipboard').then(m => {
+                m.setStringAsync(summary).catch(() => {});
+              }).catch(() => {});
+            } catch (_) {}
           } catch (_) {}
         }).catch(() => {});
       } catch {}
