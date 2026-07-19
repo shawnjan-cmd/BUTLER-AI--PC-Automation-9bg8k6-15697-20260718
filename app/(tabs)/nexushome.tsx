@@ -1,17 +1,17 @@
 /**
- * BUTLER AI — NEXUS HOME v50.0
- * Merged terminal cyberpunk dashboard — 6 cohesive blocks from 14 fragments
+ * BUTLER AI — NEXUS HOME v60.0 (FRESH)
+ * ─────────────────────────────────────────────────────────────────
+ * Complete rewrite: clean architecture, shared token system,
+ * CyberPanel throughout, crash-proof animations.
  *
- * ANIMATION SAFETY (permanent, never change):
- *  - Native driver: opacity, translateX/Y, scale — ONLY
- *  - JS driver: borderColor, backgroundColor, width% — ONLY
- *  - NEVER mix drivers on the same Animated.Value
- *  - MemoryBrain: ALL useNativeDriver:false (positional + opacity on same values)
- *  - Mounted guard (useRef(true)) on every loop — checked before setState
+ * ANIMATION CONTRACT (never violate):
+ *  • useNativeDriver:true  → opacity, translateX/Y, scale ONLY
+ *  • useNativeDriver:false → borderColor, backgroundColor, width% ONLY
+ *  • NEVER mix both drivers on the same Animated.Value
+ *  • Every Animated.loop has a mounted-ref guard
  */
 
-import React, { Suspense, useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useIsFocused } from '@react-navigation/native';
+import React, { Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable,
   Animated, Platform, Dimensions, Modal, TextInput,
@@ -21,1046 +21,541 @@ import { Image } from 'expo-image';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
-import { haptics } from '@/services/haptics';
+import { useIsFocused } from '@react-navigation/native';
+
+import { COLOR, FONT, SHADOW, glow, hex } from '@/constants/tokens';
+import { CyberPanel } from '@/components/ui/CyberPanel';
 import { TabErrorBoundary } from '@/components/ui/TabErrorBoundary';
+import { RemoteAccessMonetizationCard } from '@/components/home/RemoteAccessMonetizationCard';
+import { NexusVaultCard } from '@/components/ui/NexusVaultCard';
+import { haptics } from '@/services/haptics';
 import { serverConnection } from '@/services/serverConnection';
 import { connectionHub } from '@/services/connectionHub';
 import { executionHistory } from '@/services/executionHistory';
-import { kbGrowthTracker } from '@/services/kbGrowthTracker';
-import { parseQRConnection } from '@/services/qrParser';
 import { knowledgeAccumulator } from '@/services/knowledgeAccumulator';
 import { personalMemory } from '@/services/personalMemory';
-import { autoErrorLogger } from '@/services/autoErrorLogger';
-import { logger } from '@/utils/logger';
-import NexusParticleFX from '@/components/ui/NexusParticleFX';
-import { NexusVaultCard } from '@/components/ui/NexusVaultCard';
-import { PageMascot } from '@/components/ui/PageMascot';
+import { parseQRConnection } from '@/services/qrParser';
 import { performanceHistory } from '@/services/performanceHistory';
-import { RemoteAccessMonetizationCard } from '@/components/home/RemoteAccessMonetizationCard';
+import { logger } from '@/utils/logger';
+
 const QRCameraScanner = React.lazy(() => import('@/components/qr/QRCameraScanner'));
 
-const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
-const { width: SCREEN_W } = Dimensions.get('window');
-const SW = Math.max(320, SCREEN_W);
-const PAD = 12;
-const GAP = 8;
+// ─── CONSTANTS ────────────────────────────────────────────────────
+const MONO: any = FONT.mono;
+const SW = Math.max(320, Dimensions.get('window').width);
+const PAD = 14;
 
-// ─── DESIGN TOKENS ────────────────────────────────────────────────
-const T = {
-  bg:      '#010407',
-  surf:    '#060D18',
-  surf2:   '#0A1422',
-  surf3:   '#0D1C30',
-  cyan:    '#00E5FF',
-  green:   '#00FF88',
-  magenta: '#CC44FF',
-  amber:   '#FFB020',
-  red:     '#FF3344',
-  blue:    '#4488FF',
-  pink:    '#FF6EB4',
-  yellow:  '#FFD400',
-  teal:    '#00CCBB',
-  text:    '#C8E4F0',
-  mid:     '#4A7090',
-  dim:     '#1A2E44',
-  border:  'rgba(0,229,255,0.10)',
-};
-
-// ─── SHARED ATOMS ─────────────────────────────────────────────────
+// ─── SHARED MICRO-ATOMS ───────────────────────────────────────────
 function PulseDot({ color, size = 6 }: { color: string; size?: number }) {
   const a = useRef(new Animated.Value(0.4)).current;
   const m = useRef(true);
   useEffect(() => {
     m.current = true;
     const loop = Animated.loop(Animated.sequence([
-      Animated.timing(a, { toValue: 1,    duration: 700, useNativeDriver: true }),
-      Animated.timing(a, { toValue: 0.15, duration: 700, useNativeDriver: true }),
+      Animated.timing(a, { toValue: 1,    duration: 750, useNativeDriver: true }),
+      Animated.timing(a, { toValue: 0.15, duration: 750, useNativeDriver: true }),
     ]));
     loop.start();
     return () => { m.current = false; loop.stop(); };
   }, []);
-  return <Animated.View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color, opacity: a }} />;
-}
-
-function HudCorners({ color, size = 10, t = 1.5 }: { color: string; size?: number; t?: number }) {
-  const b: any = { position: 'absolute', width: size, height: size, borderColor: color };
   return (
-    <>
-      <View style={[b, { top: 0, left: 0,     borderTopWidth: t,    borderLeftWidth: t    }]} />
-      <View style={[b, { top: 0, right: 0,    borderTopWidth: t,    borderRightWidth: t   }]} />
-      <View style={[b, { bottom: 0, left: 0,  borderBottomWidth: t, borderLeftWidth: t    }]} />
-      <View style={[b, { bottom: 0, right: 0, borderBottomWidth: t, borderRightWidth: t   }]} />
-    </>
+    <Animated.View style={{
+      width: size, height: size, borderRadius: size / 2,
+      backgroundColor: color, opacity: a,
+    }} />
   );
 }
 
-function SectionBar({ color, icon, label }: { color: string; icon: string; label: string }) {
+function Divider({ color = COLOR.border }: { color?: string }) {
+  return <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: color, marginHorizontal: PAD }} />;
+}
+
+function SectionLabel({ icon, label, color }: { icon: string; label: string; color: string }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: PAD, paddingVertical: 10,
-      backgroundColor: color + '06', borderTopWidth: 1, borderBottomWidth: 1, borderColor: color + '20' }}>
-      <View style={{ width: 4, height: 16, borderRadius: 2, backgroundColor: color }} />
-      <MaterialCommunityIcons name={icon as any} size={11} color={color} />
-      <Text style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: '900', color, letterSpacing: 2 }}>{label}</Text>
+    <View style={{
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      paddingHorizontal: PAD, paddingTop: 20, paddingBottom: 8,
+    }}>
+      <View style={{ width: 3, height: 14, borderRadius: 2, backgroundColor: color }} />
+      <MaterialCommunityIcons name={icon as any} size={12} color={color} />
+      <Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '900', color, letterSpacing: 2 }}>{label}</Text>
       <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: color + '30' }} />
     </View>
   );
 }
 
 // ══════════════════════════════════════════════════════════════════
-// BLOCK A: TOP HEADER + NAV BAR — AUTOMATION ROBOT SCRIPT THEME
+// HEADER — Robot automation theme
 // ══════════════════════════════════════════════════════════════════
-let _ROBOT_IMG: any = null;
-try { _ROBOT_IMG = require('@/assets/images/mascot_shield_v2.png'); } catch {
-  try { _ROBOT_IMG = require('@/assets/images/nexus-robot-mascot.png'); } catch {}
-}
-
-const NAV_ITEMS = [
-  { icon: 'qr-code-scanner',    lib: 'material'   as const, label: '[PAIR]',   color: T.cyan,    tab: '_qr'      },
-  { icon: 'robot-excited',      lib: 'community'  as const, label: '[AI]',     color: T.green,   tab: 'butler'   },
-  { icon: 'code-braces-box',    lib: 'community'  as const, label: '[FORGE]',  color: T.magenta, tab: 'scripts'  },
-  { icon: 'brain',              lib: 'community'  as const, label: '[KB]',     color: T.cyan,    tab: 'knowledge'},
-  { icon: 'chart-bar',          lib: 'community'  as const, label: '[INTEL]',  color: T.amber,   tab: 'logs'     },
-  { icon: 'folder-open',        lib: 'material'   as const, label: '[VAULT]',  color: T.pink,    tab: 'fileshare'},
-  { icon: 'hammer-screwdriver', lib: 'community'  as const, label: '[BUILD]',  color: T.yellow,  tab: 'builder'  },
-  { icon: 'tune',               lib: 'material'   as const, label: '[CFG]',    color: T.mid,     tab: 'settings' },
+const TICKER_LINES = [
+  '>> butler.run() :: hmac=active :: port=8766',
+  '>> scheduler.next_job=02:00 :: 3_queued',
+  '>> kb.vectors=847 :: sigma_net=True',
+  '>> psutil.cpu=23% :: ram=58% :: disk=61%',
+  '>> aes256+hmac_sha256 :: zero_cloud=True',
 ];
 
-// ── ROBOT EYE — blinks randomly, glows on connection ─────────────
-function RobotEye({ color, size = 14 }: { color: string; size?: number }) {
-  const blink = useRef(new Animated.Value(1)).current;
-  const glow  = useRef(new Animated.Value(0.4)).current;
-  const m     = useRef(true);
-  useEffect(() => {
-    m.current = true;
-    const doBlink = () => {
-      if (!m.current) return;
-      Animated.sequence([
-        Animated.timing(blink, { toValue: 0.05, duration: 80,  useNativeDriver: true }),
-        Animated.timing(blink, { toValue: 1,    duration: 100, useNativeDriver: true }),
-      ]).start(() => { if (m.current) setTimeout(doBlink, 2200 + Math.random() * 4000); });
-    };
-    setTimeout(doBlink, 900 + Math.random() * 2000);
-    const glowLoop = Animated.loop(Animated.sequence([
-      Animated.timing(glow, { toValue: 1,   duration: 1100, useNativeDriver: true }),
-      Animated.timing(glow, { toValue: 0.3, duration: 1100, useNativeDriver: true }),
-    ]));
-    glowLoop.start();
-    return () => { m.current = false; glowLoop.stop(); };
-  }, []);
-  return (
-    <Animated.View style={{
-      width: size, height: size * 0.55, borderRadius: size * 0.28,
-      backgroundColor: color, opacity: Animated.multiply(blink, glow),
-      alignItems: 'center', justifyContent: 'center',
-    }}>
-      <View style={{ width: size * 0.35, height: size * 0.35, borderRadius: size * 0.18, backgroundColor: '#000', opacity: 0.6 }} />
-    </Animated.View>
-  );
-}
-
-// ── TICKER — rotating typewriter script lines ─────────────────────
-const TICKER_MSGS = [
-  '>> butler_server.py --port=8766 --hmac=active --running',
-  '>> scheduler.run() :: 3_jobs_queued :: next_run=02:00',
-  '>> kb.sync(sigma_net=True) :: vectors=847 :: SAGE',
-  '>> psutil.cpu_percent()=23.4 :: ram=58% :: disk=61%',
-  '>> AES-256-GCM :: HMAC-SHA256 :: zero_cloud=True',
-  '>> lan_scanner.discover() :: nodes=3 :: butler@192.168.1.100',
-];
-
-function AutoTicker() {
-  const [idx, setIdx] = useState(0);
+function Ticker() {
+  const [idx,   setIdx]   = useState(0);
   const [chars, setChars] = useState(0);
   const m = useRef(true);
   useEffect(() => { m.current = true; return () => { m.current = false; }; }, []);
   useEffect(() => {
-    const target = TICKER_MSGS[idx];
-    if (chars < target.length) {
-      const t = setTimeout(() => { if (m.current) setChars(c => c + 1); }, 28);
+    const line = TICKER_LINES[idx];
+    if (chars < line.length) {
+      const t = setTimeout(() => { if (m.current) setChars(c => c + 1); }, 26);
       return () => clearTimeout(t);
     }
-    const t = setTimeout(() => { if (m.current) { setIdx(i => (i + 1) % TICKER_MSGS.length); setChars(0); } }, 2600);
+    const t = setTimeout(() => {
+      if (m.current) { setIdx(i => (i + 1) % TICKER_LINES.length); setChars(0); }
+    }, 2800);
     return () => clearTimeout(t);
   }, [chars, idx]);
-  const line = TICKER_MSGS[idx];
+  const line = TICKER_LINES[idx];
   return (
-    <Text style={{ fontFamily: MONO, fontSize: 8.5, color: T.green, flex: 1 }} numberOfLines={1}>
-      {line.slice(0, chars)}<Text style={{ color: T.cyan + '80' }}>▌</Text>
+    <Text style={{ fontFamily: MONO, fontSize: 8, color: COLOR.green, flex: 1 }} numberOfLines={1}>
+      {line.slice(0, chars)}<Text style={{ color: COLOR.cyan + '70' }}>▌</Text>
     </Text>
   );
 }
 
-function NexusHeaderNav({ safeTop, isConn, addr, latency, onQR, onRefresh, goToTab }: {
-  safeTop: number; isConn: boolean; addr: string; latency: number;
-  onQR: () => void; onRefresh: () => void; goToTab: (t: string) => void;
-}) {
+function RobotLED({ color }: { color: string }) {
+  const a = useRef(new Animated.Value(0.4)).current;
+  const m = useRef(true);
+  useEffect(() => {
+    m.current = true;
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(a, { toValue: 1,   duration: 1000, useNativeDriver: true }),
+      Animated.timing(a, { toValue: 0.2, duration: 1000, useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => { m.current = false; loop.stop(); };
+  }, []);
+  return (
+    <Animated.View style={{
+      width: 8, height: 5, borderRadius: 3,
+      backgroundColor: color, opacity: a,
+    }} />
+  );
+}
+
+const NAV_TABS = [
+  { icon: 'robot-excited',    lib: 'c' as const, label: 'AI',     tab: 'butler'    },
+  { icon: 'code-braces-box',  lib: 'c' as const, label: 'FORGE',  tab: 'scripts'   },
+  { icon: 'brain',            lib: 'c' as const, label: 'KB',     tab: 'knowledge' },
+  { icon: 'chart-bar',        lib: 'c' as const, label: 'INTEL',  tab: 'logs'      },
+  { icon: 'folder-open',      lib: 'm' as const, label: 'VAULT',  tab: 'fileshare' },
+  { icon: 'hammer-screwdriver',lib:'c' as const, label: 'BUILD',  tab: 'builder'   },
+  { icon: 'palette-swatch',   lib: 'c' as const, label: 'SKINS',  tab: 'cosmetic'  },
+  { icon: 'tune',             lib: 'm' as const, label: 'CFG',    tab: 'settings'  },
+];
+
+const NAV_COLORS = [COLOR.green, COLOR.magenta, COLOR.cyan, COLOR.amber, COLOR.pink, COLOR.yellow, COLOR.magenta, COLOR.mid];
+
+interface HeaderProps {
+  safeTop: number;
+  isConn: boolean;
+  addr: string;
+  latency: number;
+  onQR: () => void;
+  onRefresh: () => void;
+  goToTab: (t: string) => void;
+}
+
+function NexusHeader({ safeTop, isConn, addr, latency, onQR, onRefresh, goToTab }: HeaderProps) {
   const focused   = useIsFocused();
-  const loopRef   = useRef<ReturnType<typeof Animated.loop> | null>(null);
-  const mounted   = useRef(true);
-  const pulseA    = useRef(new Animated.Value(0.4)).current;  // native — status dot
-  const gearRotA  = useRef(new Animated.Value(0)).current;   // native — gear spin
-  const scanLineA = useRef(new Animated.Value(-200)).current; // JS — horiz scanline
-  const [time, setTime] = useState('');
-  const isHttp = isConn && !addr.startsWith('https');
+  const gearA     = useRef(new Animated.Value(0)).current;    // native — rotate
+  const scanA     = useRef(new Animated.Value(-200)).current; // JS — translateX
+  const loopGear  = useRef<any>(null);
+  const loopScan  = useRef<any>(null);
+  const m         = useRef(true);
+  const [time, setTime] = useState(() => {
+    const n = new Date(); return `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+  });
 
   useEffect(() => {
-    const upd = () => { const n = new Date(); setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`); };
-    upd(); const t = setInterval(upd, 30000); return () => clearInterval(t);
+    const t = setInterval(() => {
+      const n = new Date();
+      setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`);
+    }, 30000);
+    return () => clearInterval(t);
   }, []);
 
   useEffect(() => {
-    mounted.current = true;
-    if (!focused) { loopRef.current?.stop(); return; }
-    // Pulse (native)
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(pulseA, { toValue: 1,   duration: 900, useNativeDriver: true }),
-      Animated.timing(pulseA, { toValue: 0.2, duration: 900, useNativeDriver: true }),
-    ]));
-    loopRef.current = loop; loop.start();
-    // Gear spin (native)
-    const gearLoop = Animated.loop(
-      Animated.timing(gearRotA, { toValue: 1, duration: 9000, useNativeDriver: true })
+    m.current = true;
+    if (!focused) {
+      loopGear.current?.stop();
+      loopScan.current?.stop();
+      return;
+    }
+    loopGear.current = Animated.loop(
+      Animated.timing(gearA, { toValue: 1, duration: 9000, useNativeDriver: true })
     );
-    gearLoop.start();
-    // Scanline sweep (JS — translateX)
-    const scanLoop = Animated.loop(Animated.sequence([
-      Animated.timing(scanLineA, { toValue: SW + 200, duration: 2600, useNativeDriver: false }),
-      Animated.timing(scanLineA, { toValue: -200, duration: 0, useNativeDriver: false }),
-      Animated.delay(5000),
+    loopScan.current = Animated.loop(Animated.sequence([
+      Animated.timing(scanA, { toValue: SW + 200, duration: 2800, useNativeDriver: false }),
+      Animated.timing(scanA, { toValue: -200,     duration: 0,    useNativeDriver: false }),
+      Animated.delay(6000),
     ]));
-    scanLoop.start();
+    loopGear.current.start();
+    loopScan.current.start();
     return () => {
-      mounted.current = false;
-      loop.stop(); loopRef.current = null;
-      gearLoop.stop();
-      scanLoop.stop();
+      m.current = false;
+      loopGear.current?.stop();
+      loopScan.current?.stop();
     };
   }, [focused]);
 
-  const cc = isConn ? T.green : T.red;
-  const gearSpin = gearRotA.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const gearSpin = gearA.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const cc = isConn ? COLOR.green : COLOR.red;
 
   return (
     <View style={[hdr.root, { paddingTop: safeTop }]}>
-      {/* Horizontal scanline sweep (JS driver — translateX only) */}
-      <Animated.View pointerEvents="none" style={[hdr.scanLine, { transform: [{ translateX: scanLineA }] }]} />
-
-      {/* Circuit-trace grid lines */}
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        {[0.28, 0.56, 0.82].map((p, i) => (
-          <View key={i} style={{ position: 'absolute', top: 0, bottom: 0, left: `${p * 100}%` as any,
-            width: StyleSheet.hairlineWidth, backgroundColor: T.cyan + '07' }} />
-        ))}
-      </View>
+      {/* Scanline sweep — JS driver only */}
+      <Animated.View pointerEvents="none" style={[hdr.scanline, { transform: [{ translateX: scanA }] }]} />
 
       {/* 5-color stripe */}
       <View style={{ height: 3, flexDirection: 'row' }}>
-        {[T.cyan, T.green, T.magenta, T.amber, T.pink].map((c, i) => <View key={i} style={{ flex: 1, backgroundColor: c }} />)}
+        {COLOR.stripe5.map((c, i) => <View key={i} style={{ flex: 1, backgroundColor: c }} />)}
       </View>
 
       {/* ── BRAND ROW ── */}
       <View style={hdr.brandRow}>
         {/* Robot face */}
-        <View style={[hdr.robotHead, { borderColor: T.cyan + '60', backgroundColor: T.cyan + '07' }]}>
-          {/* Antenna */}
-          <View style={[hdr.antenna, { backgroundColor: T.cyan }]} />
-          <Animated.View style={[hdr.antennaDot, { backgroundColor: cc, opacity: pulseA }]} />
-          {/* Eyes */}
-          <View style={{ flexDirection: 'row', gap: 4, marginBottom: 3 }}>
-            <RobotEye color={cc} size={11} />
-            <RobotEye color={cc} size={11} />
+        <View style={[hdr.robot, { borderColor: COLOR.cyan + '50', backgroundColor: glow(COLOR.cyan, 6) }]}>
+          <View style={[hdr.antenna, { backgroundColor: COLOR.cyan }]} />
+          <Animated.View style={[hdr.antennaDot, { backgroundColor: cc, opacity: gearA.interpolate({ inputRange: [0, 0.1, 0.9, 1], outputRange: [0.3, 1, 1, 0.3] }) }]} />
+          <View style={{ flexDirection: 'row', gap: 5, marginBottom: 3 }}>
+            <RobotLED color={cc} />
+            <RobotLED color={cc} />
           </View>
-          {/* Mouth pixel grid */}
           <View style={{ flexDirection: 'row', gap: 2 }}>
             {[0,1,2,3].map(i => (
-              <View key={i} style={{ width: 3, height: 2, borderRadius: 1,
-                backgroundColor: i % 2 === 0 ? T.cyan : T.cyan + '30' }} />
+              <View key={i} style={{ width: 3, height: 2, borderRadius: 1, backgroundColor: i % 2 === 0 ? COLOR.cyan : COLOR.cyan + '30' }} />
             ))}
           </View>
         </View>
 
-        {/* Brand text */}
-        <View style={{ flex: 1, gap: 2 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        {/* Title */}
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
             <Text style={hdr.brand}>
-              <Text style={{ color: T.cyan }}>{'{'}</Text>
+              <Text style={{ color: COLOR.cyan }}>{'{'}</Text>
               <Text style={{ color: '#FFF' }}>BUTLER</Text>
-              <Text style={{ color: T.green }}>_AI</Text>
-              <Text style={{ color: T.cyan }}>{'}'}</Text>
+              <Text style={{ color: COLOR.green }}>_AI</Text>
+              <Text style={{ color: COLOR.cyan }}>{'}'}</Text>
             </Text>
-            <View style={[hdr.verBadge, { borderColor: T.cyan + '40', backgroundColor: T.cyan + '0A' }]}>
-              <Text style={[hdr.verTxt, { color: T.cyan }]}>v7.3</Text>
+            <View style={[hdr.badge, { borderColor: COLOR.cyan + '40', backgroundColor: glow(COLOR.cyan, 7) }]}>
+              <Text style={[hdr.badgeTxt, { color: COLOR.cyan }]}>v7.3</Text>
             </View>
           </View>
-          <Text style={hdr.brandSub} numberOfLines={1}>
-            <Text style={{ color: T.green + '60' }}>{'# '}</Text>
-            <Text style={{ color: T.mid }}>automation_robot · local_ai · zero_cloud</Text>
+          <Text style={hdr.sub}>
+            <Text style={{ color: COLOR.green + '55' }}>{'# '}</Text>
+            <Text style={{ color: COLOR.mid }}>automation · local_ai · zero_cloud</Text>
           </Text>
         </View>
 
-        {/* Right: clock + actions */}
-        <View style={{ alignItems: 'flex-end', gap: 5 }}>
-          <View style={[hdr.clockBox, { borderColor: T.amber + '35', backgroundColor: T.amber + '08' }]}>
-            <MaterialCommunityIcons name="clock-outline" size={9} color={T.amber} />
-            <Text style={[hdr.clock, { color: T.amber }]}>{time}</Text>
+        {/* Clock + actions */}
+        <View style={{ alignItems: 'flex-end', gap: 6 }}>
+          <View style={[hdr.clock, { borderColor: COLOR.amber + '35', backgroundColor: glow(COLOR.amber, 7) }]}>
+            <MaterialCommunityIcons name="clock-outline" size={9} color={COLOR.amber} />
+            <Text style={[hdr.clockTxt, { color: COLOR.amber }]}>{time}</Text>
           </View>
-          <View style={{ flexDirection: 'row', gap: 5 }}>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
             <TouchableOpacity onPress={() => { haptics.heavy(); onQR(); }} activeOpacity={0.8}
-              style={[hdr.iconBtn, { borderColor: T.cyan + '55', backgroundColor: T.cyan + '0C' }]}>
-              <MaterialIcons name="qr-code-scanner" size={13} color={T.cyan} />
+              style={[hdr.iconBtn, { borderColor: COLOR.cyan + '55', backgroundColor: glow(COLOR.cyan, 8) }]}>
+              <MaterialIcons name="qr-code-scanner" size={14} color={COLOR.cyan} />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => { haptics.light(); onRefresh(); }} activeOpacity={0.8}
-              style={[hdr.iconBtn, { borderColor: T.mid + '35' }]}>
+              style={[hdr.iconBtn, { borderColor: COLOR.mid + '30' }]}>
               <Animated.View style={{ transform: [{ rotate: gearSpin }] }}>
-                <MaterialCommunityIcons name="cog" size={13} color={T.mid} />
+                <MaterialCommunityIcons name="cog" size={14} color={COLOR.mid} />
               </Animated.View>
             </TouchableOpacity>
           </View>
         </View>
       </View>
 
-      {/* ── STATUS + TICKER ROW ── */}
+      {/* ── STATUS ROW ── */}
       <View style={hdr.statusRow}>
         <View style={[hdr.connPill, { borderColor: cc + '55', backgroundColor: cc + '0A' }]}>
-          <Animated.View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: cc, opacity: pulseA }} />
+          <PulseDot color={cc} size={5} />
           <Text style={[hdr.connTxt, { color: cc }]} numberOfLines={1}>
-            {isConn ? (addr || 'ONLINE') : 'OFFLINE'}
+            {isConn ? (addr || 'ONLINE') : 'OFFLINE · PAIR PC'}
           </Text>
           {isConn && latency > 0 && (
-            <View style={[hdr.latBadge, { borderColor: T.mid + '35' }]}>
-              <Text style={[hdr.latTxt, { color: T.mid }]}>{latency}ms</Text>
-            </View>
+            <Text style={{ fontFamily: MONO, fontSize: 7, color: COLOR.mid }}>{latency}ms</Text>
           )}
         </View>
-        {/* Typewriter ticker */}
-        <View style={{ flex: 1, overflow: 'hidden', paddingLeft: 8 }}>
-          <AutoTicker />
+        <View style={{ flex: 1, paddingLeft: 8, overflow: 'hidden' }}>
+          <Ticker />
         </View>
       </View>
 
-      {/* HTTP warning */}
-      {isHttp && (
-        <View style={hdr.httpWarn}>
-          <MaterialIcons name="lock-open" size={9} color={T.amber} />
-          <Text style={hdr.httpTxt}>http:// unencrypted — pass --tls to butler_server.py</Text>
-        </View>
-      )}
-
-      {/* ── NAV PILLS — bracket-style labels ── */}
-      <View style={hdr.navRow}>
+      {/* ── NAV PILLS ── */}
+      <View style={hdr.navWrap}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: PAD, paddingVertical: 7, gap: 5 }}>
-          {NAV_ITEMS.map((n, i) => {
-            const Icon = n.lib === 'community' ? MaterialCommunityIcons : MaterialIcons;
+          contentContainerStyle={{ paddingHorizontal: PAD, paddingVertical: 8, gap: 6 }}>
+          {/* QR quick access */}
+          <TouchableOpacity onPress={() => { haptics.heavy(); onQR(); }} activeOpacity={0.8}
+            style={[hdr.pill, { borderColor: COLOR.cyan + '55', backgroundColor: glow(COLOR.cyan, 8) }]}>
+            <MaterialIcons name="qr-code-scanner" size={10} color={COLOR.cyan} />
+            <Text style={[hdr.pillTxt, { color: COLOR.cyan }]}>[PAIR]</Text>
+          </TouchableOpacity>
+          {NAV_TABS.map((n, i) => {
+            const color = NAV_COLORS[i];
+            const Icon = n.lib === 'c' ? MaterialCommunityIcons : MaterialIcons;
             return (
-              <TouchableOpacity key={i} activeOpacity={0.75}
-                onPress={() => { haptics.light(); n.tab === '_qr' ? onQR() : goToTab(n.tab); }}
-                style={[hdr.pill, { borderColor: n.color + '50', backgroundColor: n.color + '09' }]}>
-                <Icon name={n.icon as any} size={10} color={n.color} />
-                <Text style={[hdr.pillTxt, { color: n.color }]}>{n.label}</Text>
+              <TouchableOpacity key={n.tab} onPress={() => { haptics.light(); goToTab(n.tab); }} activeOpacity={0.8}
+                style={[hdr.pill, { borderColor: color + '50', backgroundColor: glow(color, 7) }]}>
+                <Icon name={n.icon as any} size={10} color={color} />
+                <Text style={[hdr.pillTxt, { color }]}>[{n.label}]</Text>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
       </View>
 
-      {/* Circuit trace bottom border */}
+      {/* Circuit bottom border */}
       <View style={{ height: 1, flexDirection: 'row' }}>
-        <View style={{ flex: 1, backgroundColor: T.cyan + '30' }} />
-        <View style={{ width: 8, backgroundColor: T.cyan }} />
-        <View style={{ flex: 3, backgroundColor: T.cyan + '15' }} />
-        <View style={{ width: 4, backgroundColor: T.green }} />
-        <View style={{ flex: 2, backgroundColor: T.cyan + '18' }} />
+        <View style={{ flex: 1, backgroundColor: COLOR.cyan + '30' }} />
+        <View style={{ width: 10, backgroundColor: COLOR.cyan }} />
+        <View style={{ flex: 3, backgroundColor: COLOR.cyan + '14' }} />
+        <View style={{ width: 5, backgroundColor: COLOR.green }} />
+        <View style={{ flex: 2, backgroundColor: COLOR.cyan + '18' }} />
       </View>
     </View>
   );
 }
 
 const hdr = StyleSheet.create({
-  root:       { backgroundColor: '#020609', overflow: 'hidden',
-    ...Platform.select({ ios: { shadowColor: T.cyan, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 12 }, android: { elevation: 6 } }) },
-  scanLine:   { position: 'absolute', top: 0, bottom: 0, width: 130, backgroundColor: 'rgba(0,229,255,0.03)', zIndex: 0, transform: [{ skewX: '-8deg' }] },
-  brandRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: PAD, paddingTop: 8, paddingBottom: 6, zIndex: 1 },
-  // Robot face
-  robotHead:  { width: 40, height: 36, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', paddingTop: 5, flexShrink: 0, overflow: 'visible', position: 'relative' },
-  antenna:    { position: 'absolute', top: -9, left: '50%', width: 1.5, height: 9, marginLeft: -0.75 },
-  antennaDot: { position: 'absolute', top: -13, left: '50%', width: 6, height: 6, borderRadius: 3, marginLeft: -3 },
-  // Brand text
-  brand:      { fontFamily: MONO, fontSize: 14, fontWeight: '900', letterSpacing: 0.4 },
-  brandSub:   { fontFamily: MONO, fontSize: 8, letterSpacing: 0.2 },
-  verBadge:   { borderWidth: 1, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 },
-  verTxt:     { fontFamily: MONO, fontSize: 7.5, fontWeight: '900' },
-  // Clock
-  clockBox:   { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
-  clock:      { fontFamily: MONO, fontSize: 11, fontWeight: '900' },
-  iconBtn:    { width: 30, height: 30, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  // Status row
-  statusRow:  { flexDirection: 'row', alignItems: 'center', paddingHorizontal: PAD, paddingVertical: 5,
-    borderTopWidth: 1, borderTopColor: T.cyan + '10', backgroundColor: '#010508', zIndex: 1 },
-  connPill:   { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 4, maxWidth: 145 },
-  connTxt:    { fontFamily: MONO, fontSize: 8, fontWeight: '900', flexShrink: 1 },
-  latBadge:   { borderWidth: 1, borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1, marginLeft: 2 },
-  latTxt:     { fontFamily: MONO, fontSize: 7 },
-  httpWarn:   { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: PAD, paddingVertical: 4,
-    backgroundColor: 'rgba(255,176,32,0.07)', borderTopWidth: 1, borderTopColor: 'rgba(255,176,32,0.18)' },
-  httpTxt:    { fontFamily: MONO, fontSize: 8, color: 'rgba(255,176,32,0.8)', flex: 1 },
-  navRow:     { backgroundColor: '#01050C', borderTopWidth: 1, borderTopColor: T.cyan + '10', zIndex: 1 },
-  pill:       { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 6 },
-  pillTxt:    { fontFamily: MONO, fontSize: 8, fontWeight: '900', letterSpacing: 0.2 },
+  root:      { backgroundColor: '#020609', overflow: 'hidden', ...SHADOW.dark },
+  scanline:  { position: 'absolute', top: 0, bottom: 0, width: 140, backgroundColor: 'rgba(0,229,255,0.025)', transform: [{ skewX: '-8deg' }], zIndex: 0 },
+  brandRow:  { flexDirection: 'row', alignItems: 'center', gap: 11, paddingHorizontal: PAD, paddingTop: 10, paddingBottom: 7, zIndex: 1 },
+  robot:     { width: 44, height: 40, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', paddingTop: 5, flexShrink: 0, position: 'relative' },
+  antenna:   { position: 'absolute', top: -9, left: '50%', width: 1.5, height: 9, marginLeft: -0.75 },
+  antennaDot:{ position: 'absolute', top: -13, left: '50%', width: 6, height: 6, borderRadius: 3, marginLeft: -3 },
+  brand:     { fontFamily: MONO, fontSize: 15, fontWeight: '900', letterSpacing: 0.3 },
+  sub:       { fontFamily: MONO, fontSize: 8, letterSpacing: 0.2, marginTop: 2 },
+  badge:     { borderWidth: 1, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
+  badgeTxt:  { fontFamily: MONO, fontSize: 7.5, fontWeight: '900' },
+  clock:     { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 3 },
+  clockTxt:  { fontFamily: MONO, fontSize: 11, fontWeight: '900' },
+  iconBtn:   { width: 30, height: 30, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  statusRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: PAD, paddingVertical: 6, borderTopWidth: 1, borderTopColor: COLOR.cyan + '0F', backgroundColor: '#010508', zIndex: 1 },
+  connPill:  { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4, maxWidth: 160 },
+  connTxt:   { fontFamily: MONO, fontSize: 8, fontWeight: '900', flexShrink: 1 },
+  navWrap:   { backgroundColor: '#01050C', borderTopWidth: 1, borderTopColor: COLOR.cyan + '0F', zIndex: 1 },
+  pill:      { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 6 },
+  pillTxt:   { fontFamily: MONO, fontSize: 8, fontWeight: '900', letterSpacing: 0.2 },
 });
 
 // ══════════════════════════════════════════════════════════════════
-// AI FEATURES SHOWCASE — horizontal scroll cards with glow borders
+// HERO PANEL — mascot + AI chat CTA + quick actions
 // ══════════════════════════════════════════════════════════════════
-const AI_FEATURES = [
-  { icon: 'robot-happy',        lib: 'community' as const, title: 'LOCAL AI CHAT',      sub: 'Ollama · LLaMA · Mistral · Phi', color: T.cyan,    badge: 'LAN-ONLY' },
-  { icon: 'code-braces-box',    lib: 'community' as const, title: '250+ SCRIPTS',        sub: 'Python · Bash · PowerShell',      color: T.magenta, badge: 'FORGE'    },
-  { icon: 'brain',              lib: 'community' as const, title: 'SIGMA-NET KB',         sub: 'Auto-learning vector store',      color: T.amber,   badge: 'NEURAL'   },
-  { icon: 'shield-lock',        lib: 'community' as const, title: 'AES-256 VAULT',       sub: 'Dead man switch · DNA check',     color: T.green,   badge: 'SECURE'   },
-  { icon: 'desktop-tower-monitor', lib: 'community' as const, title: 'PC REMOTE CTRL',  sub: 'Execute · Monitor · Schedule',   color: T.blue,    badge: 'LIVE'     },
-  { icon: 'pipe',               lib: 'community' as const, title: 'PIPELINE BUILDER',    sub: 'Drag-drop automation nodes',      color: T.yellow,  badge: 'BUILD'    },
-  { icon: 'wifi-off',           lib: 'community' as const, title: 'ZERO CLOUD',          sub: 'Your PC · Your data · Forever',   color: T.teal,    badge: 'PRIVATE'  },
-  { icon: 'satellite-uplink',   lib: 'community' as const, title: 'REMOTE ACCESS',       sub: 'Tailscale · Cloudflare tunnel',   color: T.pink,    badge: 'PRO'      },
-];
-
-function AIFeaturesShowcase({ goToTab }: { goToTab: (t: string) => void }) {
-  const scrollRef = useRef<any>(null);
-  const [active, setActive] = useState(0);
-  const slideA   = useRef(new Animated.Value(0)).current; // native translateX
-  const m        = useRef(true);
-
-  useEffect(() => {
-    m.current = true;
-    return () => { m.current = false; };
-  }, []);
-
-  const TAB_MAP: Record<string, string> = {
-    'LOCAL AI CHAT': 'butler', '250+ SCRIPTS': 'scripts', 'SIGMA-NET KB': 'knowledge',
-    'AES-256 VAULT': 'fileshare', 'PC REMOTE CTRL': 'nexushome', 'PIPELINE BUILDER': 'builder',
-    'ZERO CLOUD': 'settings', 'REMOTE ACCESS': 'nexushome',
-  };
-
-  return (
-    <View style={af.outer}>
-      {/* Header */}
-      <View style={af.header}>
-        <View style={[af.headerBar, { backgroundColor: T.cyan }]} />
-        <MaterialCommunityIcons name="star-four-points" size={11} color={T.cyan} />
-        <Text style={[af.headerTitle, { color: T.cyan }]}>AI CAPABILITIES</Text>
-        <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: T.cyan + '25' }} />
-        <View style={[af.headerBadge, { borderColor: T.cyan + '40', backgroundColor: T.cyan + '0A' }]}>
-          <Text style={[af.headerBadgeTxt, { color: T.cyan }]}>8 MODULES</Text>
-        </View>
-      </View>
-
-      {/* Horizontal card scroll */}
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: PAD, paddingBottom: 14, gap: 8 }}
-        decelerationRate="fast"
-      >
-        {AI_FEATURES.map((f, i) => {
-          const Icon = f.lib === 'community' ? MaterialCommunityIcons : MaterialIcons;
-          return (
-            <TouchableOpacity
-              key={i}
-              onPress={() => { haptics.light(); goToTab(TAB_MAP[f.title] || 'nexushome'); }}
-              activeOpacity={0.82}
-              style={[af.card, { borderColor: f.color + '45', borderTopColor: f.color }]}
-            >
-              <HudCorners color={f.color + '35'} size={7} t={1} />
-              <View style={[af.cardIcon, { borderColor: f.color + '55', backgroundColor: f.color + '0E' }]}>
-                <Icon name={f.icon as any} size={22} color={f.color} />
-              </View>
-              <Text style={[af.cardTitle, { color: f.color }]}>{f.title}</Text>
-              <Text style={[af.cardSub, { color: T.mid }]}>{f.sub}</Text>
-              <View style={[af.cardBadge, { borderColor: f.color + '40', backgroundColor: f.color + '0A' }]}>
-                <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: f.color }} />
-                <Text style={[af.cardBadgeTxt, { color: f.color }]}>{f.badge}</Text>
-              </View>
-              <View style={[af.cardBar, { backgroundColor: f.color }]} />
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-    </View>
-  );
+let _MASCOT: any = null;
+try { _MASCOT = require('@/assets/images/mascot_shield_v2.png'); } catch {
+  try { _MASCOT = require('@/assets/images/nexus-robot-mascot.png'); } catch {}
 }
-
-const af = StyleSheet.create({
-  outer:         { backgroundColor: T.surf, borderWidth: 1, borderColor: T.border,
-    ...Platform.select({ ios: { shadowColor: T.cyan, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.14, shadowRadius: 10 }, android: { elevation: 5 } }) },
-  header:        { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: PAD, paddingTop: 12, paddingBottom: 10 },
-  headerBar:     { width: 3, height: 13, borderRadius: 2 },
-  headerTitle:   { fontFamily: MONO, fontSize: 9.5, fontWeight: '900', letterSpacing: 1.5 },
-  headerBadge:   { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
-  headerBadgeTxt:{ fontFamily: MONO, fontSize: 7.5, fontWeight: '900' },
-  card:          { width: 130, backgroundColor: T.surf2, borderWidth: 1.5, borderTopWidth: 3, borderRadius: 13,
-    paddingHorizontal: 10, paddingTop: 12, paddingBottom: 10, gap: 5, overflow: 'hidden', position: 'relative' },
-  cardIcon:      { width: 44, height: 44, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-  cardTitle:     { fontFamily: MONO, fontSize: 9.5, fontWeight: '900', letterSpacing: 0.2, lineHeight: 13 },
-  cardSub:       { fontFamily: MONO, fontSize: 7.5, lineHeight: 11 },
-  cardBadge:     { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2.5, alignSelf: 'flex-start', marginTop: 2 },
-  cardBadgeTxt:  { fontFamily: MONO, fontSize: 7, fontWeight: '900' },
-  cardBar:       { position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, opacity: 0.5 },
-});
-
-// ══════════════════════════════════════════════════════════════════
-// LIVE AUTOMATION PIPELINE — visual left-to-right pipeline flow
-// ══════════════════════════════════════════════════════════════════
-const PIPELINE_STEPS = [
-  { icon: 'bell-ring',        lib: 'community' as const, label: 'TRIGGER',  sub: 'Schedule\nEvent\nFile change', color: T.cyan    },
-  { icon: 'arrow-right-bold', lib: 'community' as const, label: '',         sub: '',                               color: T.mid     },
-  { icon: 'robot-happy',      lib: 'community' as const, label: 'AI THINK', sub: 'LLM\nAnalyze\nDecide',         color: T.magenta },
-  { icon: 'arrow-right-bold', lib: 'community' as const, label: '',         sub: '',                               color: T.mid     },
-  { icon: 'code-braces',      lib: 'community' as const, label: 'EXECUTE',  sub: 'Python\nBash\nPowerShell',     color: T.green   },
-  { icon: 'arrow-right-bold', lib: 'community' as const, label: '',         sub: '',                               color: T.mid     },
-  { icon: 'check-circle',     lib: 'community' as const, label: 'RESULT',   sub: 'Output\nLog\nAlert',           color: T.amber   },
-];
-
-function AutomationPipeline({ isConn, goToTab }: { isConn: boolean; goToTab: (t: string) => void }) {
-  const packetA = useRef(new Animated.Value(0)).current; // JS — pipeline packet left
-  const glowA   = useRef(new Animated.Value(0.3)).current; // JS
-  const m       = useRef(true);
-  const [activeStep, setActiveStep] = useState(0);
-
-  useEffect(() => {
-    m.current = true;
-    const packet = Animated.loop(Animated.sequence([
-      Animated.timing(packetA, { toValue: 1, duration: 3200, useNativeDriver: false }),
-      Animated.timing(packetA, { toValue: 0, duration: 0, useNativeDriver: false }),
-      Animated.delay(600),
-    ]));
-    const glow = Animated.loop(Animated.sequence([
-      Animated.timing(glowA, { toValue: 1,   duration: 1600, useNativeDriver: false }),
-      Animated.timing(glowA, { toValue: 0.2, duration: 1600, useNativeDriver: false }),
-    ]));
-    packet.start(); glow.start();
-    const tick = setInterval(() => { if (m.current) setActiveStep(s => (s + 1) % 4); }, 1200);
-    return () => { m.current = false; packet.stop(); glow.stop(); clearInterval(tick); };
-  }, []);
-
-  const borderC = glowA.interpolate({ inputRange: [0.2, 1], outputRange: [T.magenta + '20', T.magenta + '70'] });
-  // Compute pipeline width for packet travel
-  const PIPE_W = SW - PAD * 2 - 24;
-
-  const NODES = PIPELINE_STEPS.filter(s => s.label !== '');
-  const ARROWS = PIPELINE_STEPS.filter(s => s.label === '');
-
-  return (
-    <Animated.View style={[pipe.outer, { borderColor: borderC }]}>
-      <View style={{ height: 2.5, flexDirection: 'row' }}>
-        {[T.cyan, T.magenta, T.green, T.amber, T.cyan].map((c, i) => <View key={i} style={{ flex: 1, backgroundColor: c }} />)}
-      </View>
-      <HudCorners color={T.magenta + '40'} size={9} t={1} />
-
-      {/* Header */}
-      <View style={pipe.header}>
-        <MaterialCommunityIcons name="pipe" size={11} color={T.magenta} />
-        <Text style={[pipe.headerTitle, { color: T.magenta }]}>AUTOMATION PIPELINE</Text>
-        <View style={{ flex: 1 }} />
-        <View style={[pipe.statusPill, { borderColor: (isConn ? T.green : T.red) + '45', backgroundColor: (isConn ? T.green : T.red) + '09' }]}>
-          <PulseDot color={isConn ? T.green : T.red} size={4} />
-          <Text style={[pipe.statusTxt, { color: isConn ? T.green : T.red }]}>{isConn ? 'LIVE' : 'READY'}</Text>
-        </View>
-        <TouchableOpacity onPress={() => { haptics.light(); goToTab('builder'); }}
-          style={[pipe.buildBtn, { borderColor: T.magenta + '55', backgroundColor: T.magenta + '0A' }]}>
-          <Text style={[pipe.buildBtnTxt, { color: T.magenta }]}>BUILD {'>'}</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Pipeline flow row */}
-      <View style={pipe.flowRow}>
-        {PIPELINE_STEPS.map((step, i) => {
-          const Icon = step.lib === 'community' ? MaterialCommunityIcons : MaterialIcons;
-          if (step.label === '') {
-            // Arrow connector
-            return (
-              <View key={i} style={{ alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-                <View style={{ height: 1.5, backgroundColor: step.color + '50', width: '80%' }} />
-                <MaterialCommunityIcons name="arrow-right" size={10} color={step.color + '60'} style={{ position: 'absolute' }} />
-              </View>
-            );
-          }
-          const nodeIdx = NODES.indexOf(step);
-          const isActive = nodeIdx === activeStep;
-          return (
-            <View key={i} style={[pipe.node, { borderColor: isActive ? step.color : step.color + '35', borderTopColor: step.color,
-              backgroundColor: isActive ? step.color + '12' : T.surf2 }]}>
-              <View style={[pipe.nodeIcon, { borderColor: step.color + (isActive ? 'AA' : '45'), backgroundColor: step.color + (isActive ? '18' : '09') }]}>
-                <Icon name={step.icon as any} size={14} color={step.color} />
-                {isActive && <Animated.View style={[pipe.nodeGlow, { backgroundColor: step.color + '25' }]} />}
-              </View>
-              <Text style={[pipe.nodeLabel, { color: isActive ? step.color : step.color + 'BB' }]}>{step.label}</Text>
-              <Text style={[pipe.nodeSub, { color: step.color + '55' }]}>{step.sub}</Text>
-            </View>
-          );
-        })}
-      </View>
-
-      {/* Animated packet along pipeline line */}
-      <View style={pipe.packetTrack}>
-        <View style={{ flex: 1, height: 2, backgroundColor: T.cyan + '15', borderRadius: 1 }}>
-          <Animated.View style={[pipe.packet, {
-            left: packetA.interpolate({ inputRange: [0, 1], outputRange: [0, PIPE_W - 10] }),
-            backgroundColor: T.cyan,
-          }]} />
-        </View>
-      </View>
-
-      {/* Preset pipeline chips */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: PAD, paddingBottom: 12, gap: 7 }}>
-        {[
-          { label: 'CLEANUP PC',   color: T.green,   sub: 'Temp → Clean → Report'  },
-          { label: 'CPU GUARD',    color: T.amber,   sub: 'Monitor → Alert → Kill'  },
-          { label: 'NIGHTLY BK',   color: T.cyan,    sub: 'Schedule → Zip → Move'   },
-          { label: 'NET SCAN',     color: T.blue,    sub: 'Scan → Map → Log'        },
-          { label: 'KB SYNC',      color: T.magenta, sub: 'Crawl → Index → Embed'   },
-        ].map((p, i) => (
-          <TouchableOpacity key={i} onPress={() => { haptics.light(); goToTab('builder'); }} activeOpacity={0.8}
-            style={[pipe.presetChip, { borderColor: p.color + '45', backgroundColor: p.color + '09' }]}>
-            <MaterialCommunityIcons name="play-circle-outline" size={12} color={p.color} />
-            <View>
-              <Text style={[pipe.presetLabel, { color: p.color }]}>{p.label}</Text>
-              <Text style={[pipe.presetSub, { color: p.color + '60' }]}>{p.sub}</Text>
-            </View>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </Animated.View>
-  );
-}
-
-const pipe = StyleSheet.create({
-  outer:       { backgroundColor: T.surf, borderWidth: 1.5, overflow: 'hidden', position: 'relative',
-    ...Platform.select({ ios: { shadowColor: T.magenta, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.14, shadowRadius: 12 }, android: { elevation: 6 } }) },
-  header:      { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: PAD, paddingVertical: 11 },
-  headerTitle: { fontFamily: MONO, fontSize: 9.5, fontWeight: '900', letterSpacing: 1.5 },
-  statusPill:  { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, marginRight: 6 },
-  statusTxt:   { fontFamily: MONO, fontSize: 7.5, fontWeight: '900' },
-  buildBtn:    { borderWidth: 1, borderRadius: 7, paddingHorizontal: 9, paddingVertical: 5 },
-  buildBtnTxt: { fontFamily: MONO, fontSize: 8, fontWeight: '900' },
-  flowRow:     { flexDirection: 'row', alignItems: 'stretch', paddingHorizontal: PAD, paddingBottom: 8, gap: 2 },
-  node:        { flex: 2, alignItems: 'center', paddingVertical: 10, borderWidth: 1.5, borderTopWidth: 3, borderRadius: 10, gap: 4, backgroundColor: T.surf2, overflow: 'hidden', position: 'relative' },
-  nodeIcon:    { width: 32, height: 32, borderRadius: 9, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' },
-  nodeGlow:    { position: 'absolute', inset: 0, borderRadius: 9 } as any,
-  nodeLabel:   { fontFamily: MONO, fontSize: 7.5, fontWeight: '900', letterSpacing: 0.3 },
-  nodeSub:     { fontFamily: MONO, fontSize: 6.5, textAlign: 'center', lineHeight: 9 },
-  packetTrack: { paddingHorizontal: PAD, paddingBottom: 10, position: 'relative' },
-  packet:      { position: 'absolute', top: -4, width: 10, height: 10, borderRadius: 5, opacity: 0.9 },
-  presetChip:  { flexDirection: 'row', alignItems: 'center', gap: 7, borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 11, paddingVertical: 9 },
-  presetLabel: { fontFamily: MONO, fontSize: 8.5, fontWeight: '900' },
-  presetSub:   { fontFamily: MONO, fontSize: 7, lineHeight: 10 },
-});
-
-// ══════════════════════════════════════════════════════════════════
-// BLOCK B: NEXUS CONTROL HUB
-// Merges: AIChatHero + TerminalFeed into one unified panel
-// ══════════════════════════════════════════════════════════════════
-type ChanID = 'app' | 'srv' | 'scripts' | 'kb';
-interface LogEntry { id: string; ts: number; label: string; ok: boolean | null; col: string; tag: string }
-
-const CHANS = [
-  { id: 'app'     as ChanID, label: 'APP',     icon: 'application-outline', color: T.cyan    },
-  { id: 'srv'     as ChanID, label: 'SERVER',  icon: 'server-network',      color: T.magenta },
-  { id: 'scripts' as ChanID, label: 'SCRIPTS', icon: 'code-braces',         color: T.green   },
-  { id: 'kb'      as ChanID, label: 'KB',      icon: 'brain',               color: T.amber   },
-];
-
-const BUTLER_CMDS = [
-  'butler-nexus:~$ status --json --live',
-  'butler-nexus:~$ kb sync --sigma-net',
-  'butler-nexus:~$ scan --lan --discover',
-  'butler-nexus:~$ auth --verify --hmac',
-];
 
 const AI_PROMPTS = [
-  '"Run Python on my PC remotely..."',
+  '"Run a Python script on my PC remotely"',
   '"Clean temp files and free disk space"',
-  '"What processes are eating my CPU?"',
+  '"Which process is killing my CPU?"',
   '"Schedule a backup for tonight 11 PM"',
-  '"Show me my disk usage by folder"',
+  '"Show disk usage breakdown by folder"',
 ];
 
-function NexusControlHub({ isConn, goToTab, onQR }: {
-  isConn: boolean; goToTab: (t: string) => void; onQR: () => void;
-}) {
-  const focused  = useIsFocused();
-  // JS-driver values (color/position interpolations)
-  const glowA    = useRef(new Animated.Value(0.3)).current;
-  const scanA    = useRef(new Animated.Value(-SW)).current;
-  // Native-driver value (translateY only — safe)
-  const floatA   = useRef(new Animated.Value(0)).current;
-  // Cursor opacity — native
-  const cursorA  = useRef(new Animated.Value(1)).current;
-
-  const mounted  = useRef(true);
+function HeroPanel({ isConn, goToTab, onQR }: { isConn: boolean; goToTab: (t: string) => void; onQR: () => void }) {
+  const floatA  = useRef(new Animated.Value(0)).current; // native — translateY
+  const cursorA = useRef(new Animated.Value(1)).current; // native — opacity
+  const m       = useRef(true);
   const [promptIdx, setPromptIdx] = useState(0);
-  const [botIdx,    setBotIdx]    = useState(0);
-  const [botMsg,    setBotMsg]    = useState('');
-  const [logs, setLogs] = useState<Record<ChanID, LogEntry[]>>({ app: [], srv: [], scripts: [], kb: [] });
 
-  // Animations
   useEffect(() => {
-    mounted.current = true;
-    if (!focused) return;
-
-    const glow = Animated.loop(Animated.sequence([
-      Animated.timing(glowA, { toValue: 1,   duration: 1800, useNativeDriver: false }),
-      Animated.timing(glowA, { toValue: 0.2, duration: 1800, useNativeDriver: false }),
-    ]));
-    const scan = Animated.loop(Animated.sequence([
-      Animated.timing(scanA, { toValue: SW + 80, duration: 3800, useNativeDriver: false }),
-      Animated.timing(scanA, { toValue: -SW,     duration: 0,    useNativeDriver: false }),
-      Animated.delay(6000),
-    ]), { iterations: 3 });
+    m.current = true;
     const float = Animated.loop(Animated.sequence([
-      Animated.timing(floatA, { toValue: 1, duration: 2600, useNativeDriver: true }),
-      Animated.timing(floatA, { toValue: 0, duration: 2600, useNativeDriver: true }),
+      Animated.timing(floatA,  { toValue: 1, duration: 2800, useNativeDriver: true }),
+      Animated.timing(floatA,  { toValue: 0, duration: 2800, useNativeDriver: true }),
     ]));
     const cursor = Animated.loop(Animated.sequence([
-      Animated.timing(cursorA, { toValue: 0, duration: 500, useNativeDriver: true }),
-      Animated.timing(cursorA, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.timing(cursorA, { toValue: 0, duration: 500,  useNativeDriver: true }),
+      Animated.timing(cursorA, { toValue: 1, duration: 500,  useNativeDriver: true }),
     ]));
+    float.start(); cursor.start();
+    const ti = setInterval(() => { if (m.current) setPromptIdx(i => (i + 1) % AI_PROMPTS.length); }, 3400);
+    return () => { m.current = false; float.stop(); cursor.stop(); clearInterval(ti); };
+  }, []);
 
-    glow.start(); scan.start(); float.start(); cursor.start();
-
-    const ti = setInterval(() => { if (mounted.current) setPromptIdx(i => (i + 1) % AI_PROMPTS.length); }, 3200);
-    return () => { mounted.current = false; glow.stop(); scan.stop(); float.stop(); cursor.stop(); clearInterval(ti); };
-  }, [focused]);
-
-  // Bot typewriter
-  useEffect(() => {
-    const target = BUTLER_CMDS[botIdx];
-    let i = 0; setBotMsg('');
-    const tid = setInterval(() => {
-      i++;
-      if (mounted.current) setBotMsg(target.slice(0, i));
-      if (i >= target.length) { clearInterval(tid); setTimeout(() => { if (mounted.current) setBotIdx(x => (x + 1) % BUTLER_CMDS.length); }, 3200); }
-    }, 38);
-    return () => clearInterval(tid);
-  }, [botIdx]);
-
-  // Load terminal logs
-  const loadLogs = useCallback(async () => {
-    const now = Date.now();
-    try {
-      const appE  = logger.getEntries().slice(-3).reverse();
-      const appR  = appE.map(e => ({ id: `a${e.ts}`, ts: e.ts, label: e.msg.slice(0, 45), ok: e.level === 'error' ? false : e.level === 'warn' ? null : true, col: T.cyan,    tag: e.level.slice(0, 3).toUpperCase() }));
-      const srvE  = autoErrorLogger.getLogs().slice(0, 3);
-      const srvR  = srvE.map(e => ({ id: e.id, ts: e.timestamp, label: `${e.source}: ${e.message.slice(0, 35)}`, ok: e.level === 'error' ? false : e.level === 'warn' ? null : true, col: T.magenta, tag: e.level.slice(0, 3).toUpperCase() }));
-      const hist  = (await executionHistory.getAll()).slice(0, 3);
-      const scrR  = hist.map(h => ({ id: h.id, ts: new Date(h.timestamp).getTime(), label: h.scriptName || 'Script', ok: h.success, col: T.green, tag: h.success ? 'OK' : 'ERR' }));
-      let kbR: LogEntry[] = [];
-      try {
-        const stats = await knowledgeAccumulator.getStats?.();
-        const total = stats?.totalFindings ?? 0;
-        kbR = [{ id: 'kb-total', ts: now, label: `${total} vectors indexed`, ok: true, col: T.amber, tag: 'KB' }];
-      } catch {}
-      const mk = (id: ChanID, col: string, tag: string): LogEntry[] => [
-        { id: `${id}f1`, ts: now - 500,  label: 'System nominal',    ok: true, col, tag },
-        { id: `${id}f2`, ts: now - 2000, label: 'Encryption active', ok: true, col, tag },
-      ];
-      if (mounted.current) setLogs({
-        app:     appR.length ? appR : mk('app', T.cyan, 'SYS'),
-        srv:     srvR.length ? srvR : mk('srv', T.magenta, 'SRV'),
-        scripts: scrR.length ? scrR : [{ id: 'srf1', ts: now - 1000, label: 'No scripts run yet', ok: null, col: T.green, tag: '—' }],
-        kb:      kbR.length  ? kbR  : mk('kb',  T.amber, 'KB'),
-      });
-    } catch {}
-  }, [isConn]);
-
-  useFocusEffect(useCallback(() => { loadLogs(); const t = setInterval(loadLogs, 12000); return () => clearInterval(t); }, [loadLogs]));
-
-  const borderC = glowA.interpolate({ inputRange: [0.2, 1], outputRange: [T.cyan + '20', T.cyan + '75'] });
-  const floatY  = floatA.interpolate({ inputRange: [0, 1], outputRange: [0, -5] });
-  const cc = isConn ? T.green : T.red;
-
-  const CAPS = [
-    { icon: 'shield-check',  lib: 'community' as const, label: 'ZERO CLOUD',   sub: 'LAN only',           color: T.green   },
-    { icon: 'brain',         lib: 'community' as const, label: 'LOCAL AI',      sub: 'Ollama on PC',       color: T.cyan    },
-    { icon: 'code-braces',   lib: 'community' as const, label: '250+ SCRIPTS', sub: 'Python automations', color: T.magenta },
-    { icon: 'lock',          lib: 'material'  as const, label: 'AES-256',       sub: 'E2E encrypted',      color: T.amber   },
-  ];
+  const floatY = floatA.interpolate({ inputRange: [0, 1], outputRange: [0, -6] });
+  const cc = isConn ? COLOR.green : COLOR.red;
 
   return (
-    <Animated.View style={[hub.outer, { borderColor: borderC }]}>
-      {/* Scanline */}
-      <Animated.View pointerEvents="none" style={[hub.scanLine, { transform: [{ translateX: scanA }] }]} />
-      {/* 5-color top stripe */}
-      <View style={{ height: 3, flexDirection: 'row' }}>
-        {[T.cyan, T.green, T.magenta, T.amber, T.pink].map((c, i) => <View key={i} style={{ flex: 1, backgroundColor: c }} />)}
-      </View>
-      <HudCorners color={T.cyan + '40'} size={12} t={1.5} />
-
-      {/* ── HERO ROW: mascot + title + CTAs ── */}
-      <View style={hub.heroRow}>
-        <Animated.View style={[hub.mascotCol, { transform: [{ translateY: floatY }] }]}>
-          {_ROBOT_IMG ? (
-            <Image source={_ROBOT_IMG} style={hub.mascotImg} contentFit="contain" transition={200} />
+    <CyberPanel accentColor={COLOR.cyan} stripe scanline screenWidth={SW}>
+      <View style={hero.inner}>
+        {/* Mascot */}
+        <Animated.View style={[hero.mascotWrap, { transform: [{ translateY: floatY }] }]}>
+          {_MASCOT ? (
+            <Image source={_MASCOT} style={hero.mascot} contentFit="contain" transition={200} />
           ) : (
-            <View style={hub.mascotFallback}><MaterialCommunityIcons name="robot-happy" size={44} color={T.cyan} /></View>
+            <View style={hero.mascotFallback}>
+              <MaterialCommunityIcons name="robot-happy" size={48} color={COLOR.cyan} />
+            </View>
           )}
-          <View style={[hub.mascotBadge, { borderColor: cc + '50', backgroundColor: cc + '0C' }]}>
+          <View style={[hero.connBadge, { borderColor: cc + '55', backgroundColor: cc + '0C' }]}>
             <PulseDot color={cc} size={4} />
-            <Text style={[hub.mascotBadgeTxt, { color: cc }]}>{isConn ? 'LIVE' : 'PAIR'}</Text>
+            <Text style={[hero.connBadgeTxt, { color: cc }]}>{isConn ? 'LIVE' : 'PAIR'}</Text>
           </View>
         </Animated.View>
 
-        <View style={hub.titleCol}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
-            <Text style={hub.title}>BUTLER<Text style={{ color: T.cyan }}> AI</Text></Text>
-            <View style={[hub.badge, { borderColor: T.cyan + '45', backgroundColor: T.cyan + '0A' }]}>
-              <Text style={[hub.badgeTxt, { color: T.cyan }]}>v7.3</Text>
-            </View>
-            <View style={[hub.badge, { borderColor: cc + '45', backgroundColor: cc + '0A' }]}>
-              <PulseDot color={cc} size={4} />
-              <Text style={[hub.badgeTxt, { color: cc }]}>{isConn ? 'ONLINE' : 'OFFLINE'}</Text>
-            </View>
-          </View>
-          <Text style={hub.sub} numberOfLines={2}>Local AI · controls your PC · zero cloud · your hardware only</Text>
-          <View style={[hub.promptBox, { borderColor: T.cyan + '28' }]}>
-            <Text style={{ fontFamily: MONO, fontSize: 9, color: T.cyan + '55' }}>{'>'}</Text>
-            <Text style={[hub.promptTxt, { color: T.cyan + '75' }]} numberOfLines={1}>{AI_PROMPTS[promptIdx]}</Text>
-            <View style={{ width: 5, height: 10, backgroundColor: T.cyan + '55', borderRadius: 1 }} />
+        {/* Title + prompt */}
+        <View style={hero.titleCol}>
+          <Text style={hero.title}>
+            BUTLER<Text style={{ color: COLOR.cyan }}> AI</Text>
+          </Text>
+          <Text style={hero.sub} numberOfLines={2}>
+            Local AI · controls your PC · zero cloud · your hardware
+          </Text>
+          {/* Prompt box */}
+          <View style={[hero.promptBox, { borderColor: COLOR.cyan + '28' }]}>
+            <Text style={{ fontFamily: MONO, fontSize: 9, color: COLOR.cyan + '50' }}>{'>'}</Text>
+            <Text style={[hero.promptTxt, { color: COLOR.cyan + '70' }]} numberOfLines={2}>
+              {AI_PROMPTS[promptIdx]}
+            </Text>
+            <Animated.View style={{ width: 5, height: 10, backgroundColor: COLOR.cyan + '55', borderRadius: 1, opacity: cursorA }} />
           </View>
         </View>
 
-        <View style={hub.ctaCol}>
+        {/* CTAs */}
+        <View style={hero.ctaCol}>
           <Pressable onPress={() => { haptics.heavy(); goToTab('butler'); }}
-            style={({ pressed }) => [hub.ctaPrimary, { backgroundColor: T.cyan, opacity: pressed ? 0.85 : 1 }]}>
-            <MaterialCommunityIcons name="robot-happy-outline" size={14} color="#000" />
-            <Text style={[hub.ctaTxt, { color: '#000' }]}>CHAT</Text>
+            style={({ pressed }) => [hero.ctaMain, { backgroundColor: COLOR.cyan, opacity: pressed ? 0.85 : 1 }]}>
+            <MaterialCommunityIcons name="robot-happy-outline" size={16} color="#000" />
+            <Text style={hero.ctaMainTxt}>CHAT</Text>
           </Pressable>
           <Pressable onPress={() => { haptics.medium(); onQR(); }}
-            style={({ pressed }) => [hub.ctaSecondary, { borderColor: T.green + '55', opacity: pressed ? 0.8 : 1 }]}>
-            <MaterialIcons name="qr-code-scanner" size={14} color={T.green} />
-            <Text style={[hub.ctaTxt, { color: T.green }]}>PAIR</Text>
+            style={({ pressed }) => [hero.ctaSec, { borderColor: COLOR.green + '55', opacity: pressed ? 0.8 : 1 }]}>
+            <MaterialIcons name="qr-code-scanner" size={14} color={COLOR.green} />
+            <Text style={[hero.ctaSecTxt, { color: COLOR.green }]}>PAIR</Text>
           </Pressable>
           <Pressable onPress={() => { haptics.light(); goToTab('scripts'); }}
-            style={({ pressed }) => [hub.ctaSecondary, { borderColor: T.magenta + '55', opacity: pressed ? 0.8 : 1 }]}>
-            <MaterialIcons name="code" size={14} color={T.magenta} />
-            <Text style={[hub.ctaTxt, { color: T.magenta }]}>CODE</Text>
+            style={({ pressed }) => [hero.ctaSec, { borderColor: COLOR.magenta + '55', opacity: pressed ? 0.8 : 1 }]}>
+            <MaterialIcons name="code" size={14} color={COLOR.magenta} />
+            <Text style={[hero.ctaSecTxt, { color: COLOR.magenta }]}>CODE</Text>
           </Pressable>
         </View>
       </View>
 
-      {/* ── CAPABILITY CHIPS ── */}
-      <View style={hub.capsRow}>
-        {CAPS.map((c, i) => {
-          const Icon = c.lib === 'community' ? MaterialCommunityIcons : MaterialIcons;
+      {/* Capability chips */}
+      <View style={hero.chips}>
+        {[
+          { icon: 'shield-check', lib: 'c', label: 'ZERO CLOUD',  sub: 'LAN only',    color: COLOR.green   },
+          { icon: 'brain',        lib: 'c', label: 'LOCAL AI',    sub: 'Ollama · LLM',color: COLOR.cyan    },
+          { icon: 'code-braces',  lib: 'c', label: '250+ SCRIPTS',sub: 'Python · Bash',color: COLOR.magenta },
+          { icon: 'lock',         lib: 'm', label: 'AES-256',     sub: 'E2E encrypted',color: COLOR.amber   },
+        ].map((c, i) => {
+          const Icon = c.lib === 'c' ? MaterialCommunityIcons : MaterialIcons;
           return (
-            <View key={i} style={[hub.capChip, { borderColor: c.color + '35', backgroundColor: c.color + '08' }]}>
-              <View style={[hub.capIcon, { borderColor: c.color + '50', backgroundColor: c.color + '12' }]}>
-                <Icon name={c.icon as any} size={11} color={c.color} />
+            <View key={i} style={[hero.chip, { borderColor: c.color + '35', backgroundColor: glow(c.color, 8) }]}>
+              <View style={[hero.chipIcon, { borderColor: c.color + '50', backgroundColor: glow(c.color, 12) }]}>
+                <Icon name={c.icon as any} size={12} color={c.color} />
               </View>
               <View>
-                <Text style={[hub.capLabel, { color: c.color }]}>{c.label}</Text>
-                <Text style={[hub.capSub,   { color: c.color + '60' }]}>{c.sub}</Text>
+                <Text style={[hero.chipLabel, { color: c.color }]}>{c.label}</Text>
+                <Text style={[hero.chipSub,   { color: c.color + '60' }]}>{c.sub}</Text>
               </View>
             </View>
           );
         })}
       </View>
-
-      {/* ── TERMINAL FEED PANEL ── */}
-      <View style={hub.termOuter}>
-        {/* Terminal chrome header */}
-        <View style={hub.termChrome}>
-          <View style={{ flexDirection: 'row', gap: 5 }}>
-            {['#FF5F57', '#FEBC2E', '#28C840'].map((c, i) => <View key={i} style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c }} />)}
-          </View>
-          <MaterialCommunityIcons name="monitor-dashboard" size={9} color={T.cyan} />
-          <Text style={hub.termChromeTitle}>NEXUS LIVE FEED</Text>
-          <View style={{ flex: 1 }} />
-          <View style={[hub.termStatusPill, { borderColor: (isConn ? T.green : T.red) + '45', backgroundColor: (isConn ? T.green : T.red) + '08' }]}>
-            <PulseDot color={isConn ? T.green : T.red} size={4} />
-            <Text style={[hub.termStatusTxt, { color: isConn ? T.green : T.red }]}>{isConn ? 'LIVE' : 'OFF'}</Text>
-          </View>
-        </View>
-
-        {/* 4-channel grid */}
-        <View style={hub.chanGrid}>
-          {CHANS.map(ch => (
-            <View key={ch.id} style={[hub.chan, { borderColor: ch.color + '28' }]}>
-              <View style={[hub.chanHdr, { borderBottomColor: ch.color + '18' }]}>
-                <MaterialCommunityIcons name={ch.icon as any} size={9} color={ch.color} />
-                <Text style={[hub.chanLabel, { color: ch.color }]}>{ch.label}</Text>
-                <View style={[hub.chanCount, { borderColor: ch.color + '40', backgroundColor: ch.color + '0A' }]}>
-                  <Text style={[hub.chanCountTxt, { color: ch.color }]}>{logs[ch.id].length}</Text>
-                </View>
-              </View>
-              {logs[ch.id].length === 0
-                ? <Text style={hub.chanEmpty}>{'>'} idle</Text>
-                : logs[ch.id].slice(0, 3).map((r, ri) => (
-                  <View key={r.id} style={[hub.chanRow, { borderLeftColor: r.ok === true ? T.green : r.ok === false ? T.red : ch.color }]}>
-                    <Text style={[hub.chanRowTxt, { color: ch.color }]} numberOfLines={1}>{r.label}</Text>
-                    <View style={[hub.chanTag, { borderColor: ch.color + '35' }]}>
-                      <Text style={[hub.chanTagTxt, { color: ch.color }]}>{r.tag}</Text>
-                    </View>
-                  </View>
-                ))
-              }
-            </View>
-          ))}
-        </View>
-
-        {/* Bot command line */}
-        <View style={hub.botRow}>
-          <View style={hub.botAvatar}>
-            <MaterialCommunityIcons name="robot-happy-outline" size={11} color={T.cyan} />
-            <View style={{ position: 'absolute', bottom: -1, right: -1, width: 5, height: 5, borderRadius: 3, backgroundColor: T.green, borderWidth: 1, borderColor: T.bg }} />
-          </View>
-          <Text style={hub.botTxt} numberOfLines={1}>{botMsg}</Text>
-          <Animated.View style={{ width: 5, height: 11, backgroundColor: T.cyan, borderRadius: 1, opacity: cursorA }} />
-        </View>
-      </View>
-
-      {/* Bottom ticker */}
-      <View style={hub.ticker}>
-        <PulseDot color={isConn ? T.green : T.red} size={4} />
-        <Text style={hub.tickerTxt} numberOfLines={1}>
-          LOCAL LLM · LAN ONLY · AES-256-GCM · HMAC-SHA256 · ZERO TELEMETRY · NO CLOUD
-        </Text>
-        <View style={[hub.tickerBadge, { borderColor: T.cyan + '30' }]}>
-          <Text style={{ fontFamily: MONO, fontSize: 7, color: T.cyan, fontWeight: '900' }}>NEXUS</Text>
-        </View>
-      </View>
-
-      {/* Bottom stripe */}
-      <View style={{ height: 2.5, flexDirection: 'row', opacity: 0.5 }}>
-        {[T.cyan, T.green, T.magenta, T.amber, T.pink].map((c, i) => <View key={i} style={{ flex: 1, backgroundColor: c }} />)}
-      </View>
-    </Animated.View>
+    </CyberPanel>
   );
 }
 
-const hub = StyleSheet.create({
-  outer:          { borderWidth: 1.5, backgroundColor: T.surf, overflow: 'hidden', position: 'relative',
-    ...Platform.select({ ios: { shadowColor: T.cyan, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 16 }, android: { elevation: 8 } }) },
-  scanLine:       { position: 'absolute', top: 0, bottom: 0, width: 80, backgroundColor: 'rgba(0,229,255,0.025)', transform: [{ skewX: '-12deg' }], zIndex: 0 },
-  heroRow:        { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8, gap: 10, zIndex: 1 },
-  mascotCol:      { width: 66, alignItems: 'center', flexShrink: 0 },
-  mascotImg:      { width: 58, height: 72 },
-  mascotFallback: { width: 58, height: 58, alignItems: 'center', justifyContent: 'center' },
-  mascotBadge:    { flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 1, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2, marginTop: 5 },
-  mascotBadgeTxt: { fontFamily: MONO, fontSize: 7, fontWeight: '900', letterSpacing: 0.5 },
-  titleCol:       { flex: 1 },
-  title:          { fontFamily: MONO, fontSize: 18, fontWeight: '900', color: '#FFF', letterSpacing: 0.3 },
-  badge:          { flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 1, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
-  badgeTxt:       { fontFamily: MONO, fontSize: 7, fontWeight: '900' },
-  sub:            { fontFamily: MONO, fontSize: 8.5, color: T.mid, lineHeight: 13, marginBottom: 6 },
-  promptBox:      { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
-  promptTxt:      { fontFamily: MONO, fontSize: 8.5, flex: 1 },
-  ctaCol:         { gap: 6, flexShrink: 0, width: 62 },
-  ctaPrimary:     { flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 4 },
-  ctaSecondary:   { flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 4, borderWidth: 1.5 },
-  ctaTxt:         { fontFamily: MONO, fontSize: 8, fontWeight: '900', letterSpacing: 0.3 },
-  // Capabilities
-  capsRow:        { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10, paddingBottom: 10, gap: 6, zIndex: 1 },
-  capChip:        { width: `${(100 / 2) - 1.8}%` as any, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
-  capIcon:        { width: 22, height: 22, borderRadius: 6, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  capLabel:       { fontFamily: MONO, fontSize: 8.5, fontWeight: '900', letterSpacing: 0.3 },
-  capSub:         { fontFamily: MONO, fontSize: 7.5, lineHeight: 11 },
-  // Terminal feed
-  termOuter:      { backgroundColor: '#020810', borderTopWidth: 1, borderTopColor: T.cyan + '18', zIndex: 1 },
-  termChrome:     { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 7,
-    backgroundColor: '#010407', borderBottomWidth: 1, borderBottomColor: T.cyan + '14' },
-  termChromeTitle:{ fontFamily: MONO, fontSize: 8, color: T.cyan + '55', letterSpacing: 0.8, flex: 1, marginLeft: 2 },
-  termStatusPill: { flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 1, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 },
-  termStatusTxt:  { fontFamily: MONO, fontSize: 7, fontWeight: '900' },
-  chanGrid:       { flexDirection: 'row', flexWrap: 'wrap', padding: 8, gap: 5 },
-  chan:           { width: `${(100 / 2) - 1.5}%` as any, borderWidth: 1, borderRadius: 8, backgroundColor: '#030A14', overflow: 'hidden' },
-  chanHdr:        { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 7, paddingVertical: 5, borderBottomWidth: 1, backgroundColor: '#020609' },
-  chanLabel:      { fontFamily: MONO, fontSize: 8, fontWeight: '900', letterSpacing: 0.4, flex: 1 },
-  chanCount:      { borderWidth: 1, borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 },
-  chanCountTxt:   { fontFamily: MONO, fontSize: 7, fontWeight: '900' },
-  chanRow:        { borderLeftWidth: 2, paddingLeft: 5, paddingVertical: 3.5, paddingRight: 6, flexDirection: 'row', alignItems: 'center', gap: 4 },
-  chanRowTxt:     { fontFamily: MONO, fontSize: 8, flex: 1 },
-  chanTag:        { borderWidth: 1, borderRadius: 3, paddingHorizontal: 4, paddingVertical: 1 },
-  chanTagTxt:     { fontFamily: MONO, fontSize: 6.5, fontWeight: '900' },
-  chanEmpty:      { fontFamily: MONO, fontSize: 7.5, color: T.dim, padding: 7 },
-  botRow:         { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, paddingVertical: 7,
-    borderTopWidth: 1, borderTopColor: T.cyan + '14', backgroundColor: '#010508' },
-  botAvatar:      { width: 20, height: 20, borderRadius: 6, borderWidth: 1, borderColor: T.cyan + '40',
-    backgroundColor: T.cyan + '0C', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 },
-  botTxt:         { fontFamily: MONO, fontSize: 8.5, color: T.cyan + '90', flex: 1 },
-  ticker:         { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12, paddingVertical: 5,
-    borderTopWidth: 1, borderTopColor: T.cyan + '12', backgroundColor: '#010407' },
-  tickerTxt:      { fontFamily: MONO, fontSize: 7.5, color: T.cyan + '55', flex: 1 },
-  tickerBadge:    { borderWidth: 1, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 },
+const hero = StyleSheet.create({
+  inner:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: PAD, paddingTop: 14, paddingBottom: 10, gap: 10 },
+  mascotWrap:  { width: 68, alignItems: 'center', flexShrink: 0 },
+  mascot:      { width: 60, height: 76 },
+  mascotFallback: { width: 60, height: 60, alignItems: 'center', justifyContent: 'center' },
+  connBadge:   { flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 1, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2.5, marginTop: 6 },
+  connBadgeTxt:{ fontFamily: MONO, fontSize: 7.5, fontWeight: '900' },
+  titleCol:    { flex: 1 },
+  title:       { fontFamily: MONO, fontSize: 20, fontWeight: '900', color: '#FFF', letterSpacing: 0.3 },
+  sub:         { fontFamily: MONO, fontSize: 8.5, color: COLOR.mid, lineHeight: 13, marginTop: 3, marginBottom: 8 },
+  promptBox:   { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 6 },
+  promptTxt:   { fontFamily: MONO, fontSize: 8.5, flex: 1, lineHeight: 13 },
+  ctaCol:      { gap: 7, flexShrink: 0, width: 64 },
+  ctaMain:     { alignItems: 'center', justifyContent: 'center', gap: 4, borderRadius: 11, paddingVertical: 10 },
+  ctaMainTxt:  { fontFamily: MONO, fontSize: 8, fontWeight: '900', color: '#000', letterSpacing: 0.3 },
+  ctaSec:      { alignItems: 'center', justifyContent: 'center', gap: 4, borderRadius: 11, paddingVertical: 8, borderWidth: 1.5 },
+  ctaSecTxt:   { fontFamily: MONO, fontSize: 8, fontWeight: '900' },
+  chips:       { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: PAD, paddingBottom: 14, gap: 7 },
+  chip:        { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, width: `${50 - 1.5}%` as any },
+  chipIcon:    { width: 24, height: 24, borderRadius: 7, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  chipLabel:   { fontFamily: MONO, fontSize: 8.5, fontWeight: '900' },
+  chipSub:     { fontFamily: MONO, fontSize: 7.5 },
 });
 
 // ══════════════════════════════════════════════════════════════════
-// BLOCK C: NEXUS METRICS DASHBOARD
-// Merges: TelemetryRow + StatCardsRow + QuickGrid into one block
+// TELEMETRY DASHBOARD — CPU / RAM / DISK + quick launch
 // ══════════════════════════════════════════════════════════════════
 const QUICK_ITEMS = [
-  { icon: 'lightning-bolt',         lib: 'community' as const, label: 'SCRIPTS',  color: T.magenta, tab: 'scripts'   },
-  { icon: 'robot-excited',          lib: 'community' as const, label: 'AI CHAT',  color: T.green,   tab: 'butler'    },
-  { icon: 'folder-network-outline', lib: 'community' as const, label: 'VAULT',    color: T.pink,    tab: 'fileshare' },
-  { icon: 'chart-bar',              lib: 'community' as const, label: 'INTEL',    color: T.amber,   tab: 'logs'      },
-  { icon: 'hammer-screwdriver',     lib: 'community' as const, label: 'BUILD',    color: T.yellow,  tab: 'builder'   },
-  { icon: 'brain',                  lib: 'community' as const, label: 'KB',       color: T.cyan,    tab: 'knowledge' },
-  { icon: 'palette-swatch',         lib: 'community' as const, label: 'SKINS',    color: T.magenta, tab: 'cosmetic'  },
-  { icon: 'tune-variant',           lib: 'community' as const, label: 'CONFIG',   color: T.mid,     tab: 'settings'  },
+  { icon: 'lightning-bolt',       lib: 'c', label: 'SCRIPTS',  color: COLOR.magenta, tab: 'scripts'   },
+  { icon: 'robot-excited',        lib: 'c', label: 'AI CHAT',  color: COLOR.green,   tab: 'butler'    },
+  { icon: 'folder-network-outline',lib:'c', label: 'VAULT',    color: COLOR.pink,    tab: 'fileshare' },
+  { icon: 'chart-bar',            lib: 'c', label: 'INTEL',    color: COLOR.amber,   tab: 'logs'      },
+  { icon: 'hammer-screwdriver',   lib: 'c', label: 'BUILD',    color: COLOR.yellow,  tab: 'builder'   },
+  { icon: 'brain',                lib: 'c', label: 'KB',       color: COLOR.cyan,    tab: 'knowledge' },
+  { icon: 'palette-swatch',       lib: 'c', label: 'SKINS',    color: COLOR.magenta, tab: 'cosmetic'  },
+  { icon: 'tune-variant',         lib: 'c', label: 'CONFIG',   color: COLOR.mid,     tab: 'settings'  },
 ];
 
-function NexusMetricsDashboard({ isConn, metrics, scripts, kbCount, goToTab }: {
+interface MetricsProps {
   isConn: boolean;
-  metrics: { cpu: number; ram: number; disk: number };
+  cpu: number; ram: number; disk: number;
   scripts: number; kbCount: number;
   goToTab: (t: string) => void;
-}) {
-  const TELEMETRY = [
-    { lbl: 'CPU',  val: isConn ? Math.round(metrics.cpu)  : null, color: metrics.cpu  > 80 ? T.red : metrics.cpu  > 60 ? T.amber : T.cyan,   icon: 'memory'     },
-    { lbl: 'RAM',  val: isConn ? Math.round(metrics.ram)  : null, color: metrics.ram  > 85 ? T.red : metrics.ram  > 70 ? T.amber : T.green,  icon: 'storage'    },
-    { lbl: 'DISK', val: isConn ? Math.round(metrics.disk) : null, color: metrics.disk > 90 ? T.red : metrics.disk > 75 ? T.amber : T.yellow, icon: 'disc-full'  },
+}
+
+function TelemetryDashboard({ isConn, cpu, ram, disk, scripts, kbCount, goToTab }: MetricsProps) {
+  const bars = [
+    { label: 'CPU',  val: cpu,  color: cpu  > 80 ? COLOR.red : cpu  > 60 ? COLOR.amber : COLOR.cyan   },
+    { label: 'RAM',  val: ram,  color: ram  > 85 ? COLOR.red : ram  > 70 ? COLOR.amber : COLOR.green  },
+    { label: 'DISK', val: disk, color: disk > 90 ? COLOR.red : disk > 75 ? COLOR.amber : COLOR.yellow },
   ];
 
-  const STATS = [
-    { label: 'SCRIPTS', value: scripts > 0  ? String(scripts)  : '—', color: T.magenta, icon: 'code-braces' as const, lib: 'community' as const },
-    { label: 'VECTORS', value: kbCount > 0  ? String(kbCount)  : '—', color: T.cyan,    icon: 'brain'        as const, lib: 'community' as const },
-    { label: 'FREE',    value: isConn ? `${Math.max(0, 100 - Math.round(metrics.disk))}%` : '—', color: T.green, icon: 'harddisk' as const, lib: 'community' as const },
-    { label: 'SEC',     value: isConn ? 'OK' : '—',                   color: T.teal,    icon: 'shield-check'  as const, lib: 'community' as const },
+  const stats = [
+    { label: 'SCRIPTS', value: scripts > 0 ? String(scripts)  : '—', icon: 'code-braces',  lib: 'c', color: COLOR.magenta },
+    { label: 'VECTORS', value: kbCount  > 0 ? String(kbCount)  : '—', icon: 'brain',        lib: 'c', color: COLOR.cyan    },
+    { label: 'FREE',    value: isConn ? `${Math.max(0, 100 - Math.round(disk))}%` : '—', icon: 'harddisk', lib: 'c', color: COLOR.green },
+    { label: 'STATUS',  value: isConn ? 'OK' : 'OFF', icon: 'shield-check', lib: 'c', color: isConn ? COLOR.teal : COLOR.mid },
   ];
 
   return (
-    <View style={dash.outer}>
-      {/* 5-color top stripe */}
-      <View style={{ height: 2.5, flexDirection: 'row' }}>
-        {[T.cyan, T.amber, T.green, T.magenta, T.yellow].map((c, i) => <View key={i} style={{ flex: 1, backgroundColor: c }} />)}
-      </View>
-
-      {/* ── TELEMETRY ROW ── */}
-      <View style={dash.section}>
-        <View style={dash.sectionHdr}>
-          <MaterialIcons name="monitor-heart" size={10} color={T.cyan} />
-          <Text style={[dash.sectionTitle, { color: T.cyan }]}>LIVE TELEMETRY</Text>
-          <View style={[dash.livePill, { borderColor: (isConn ? T.green : T.red) + '45', backgroundColor: (isConn ? T.green : T.red) + '09' }]}>
-            <PulseDot color={isConn ? T.green : T.red} size={4} />
-            <Text style={[dash.liveTxt, { color: isConn ? T.green : T.red }]}>{isConn ? 'LIVE' : 'OFFLINE'}</Text>
+    <CyberPanel accentColor={COLOR.amber} stripe stripeColors={[COLOR.cyan, COLOR.amber, COLOR.green, COLOR.magenta, COLOR.yellow]}>
+      {/* Telemetry bars */}
+      <View style={tel.section}>
+        <View style={tel.sectionHdr}>
+          <MaterialIcons name="monitor-heart" size={11} color={COLOR.cyan} />
+          <Text style={[tel.sectionTitle, { color: COLOR.cyan }]}>LIVE TELEMETRY</Text>
+          <View style={[tel.livePill, { borderColor: (isConn ? COLOR.green : COLOR.red) + '45', backgroundColor: (isConn ? COLOR.green : COLOR.red) + '09' }]}>
+            <PulseDot color={isConn ? COLOR.green : COLOR.red} size={4} />
+            <Text style={[tel.liveTxt, { color: isConn ? COLOR.green : COLOR.red }]}>{isConn ? 'LIVE' : 'OFFLINE'}</Text>
           </View>
         </View>
-        <View style={{ flexDirection: 'row', gap: GAP }}>
-          {TELEMETRY.map(({ lbl, val, color, icon }) => (
-            <View key={lbl} style={[dash.metricCard, { borderTopColor: color, borderColor: color + '28' }]}>
-              <HudCorners color={color + '45'} size={7} t={1} />
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 5 }}>
-                <MaterialIcons name={icon as any} size={10} color={color} />
-                <Text style={[dash.metricLbl, { color: color + '80' }]}>{lbl}</Text>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {bars.map(b => (
+            <View key={b.label} style={[tel.metricCard, { borderTopColor: b.color, borderColor: b.color + '28' }]}>
+              <Text style={[tel.metricLbl, { color: b.color + '80' }]}>{b.label}</Text>
+              <Text style={[tel.metricVal, { color: b.color }]}>
+                {isConn ? `${Math.round(b.val)}%` : '—'}
+              </Text>
+              <View style={tel.metricTrack}>
+                <View style={[tel.metricFill, { width: `${isConn ? b.val : 0}%` as any, backgroundColor: b.color }]} />
               </View>
-              <Text style={[dash.metricVal, { color }]}>{val !== null ? `${val}%` : '—'}</Text>
-              <View style={dash.metricTrack}>
-                <View style={[dash.metricFill, { width: `${val ?? 0}%` as any, backgroundColor: color }]} />
-              </View>
-              <View style={[dash.metricBadge, { borderColor: color + '40', backgroundColor: color + '0A' }]}>
-                <PulseDot color={isConn ? color : T.mid} size={4} />
-                <Text style={[dash.metricBadgeTxt, { color: isConn ? color : T.mid }]}>
-                  {isConn ? (val !== null && val > 80 ? 'WARN' : 'OK') : 'OFF'}
+              <View style={[tel.metricPill, { borderColor: b.color + '40', backgroundColor: b.color + '09' }]}>
+                <PulseDot color={isConn ? b.color : COLOR.mid} size={4} />
+                <Text style={[tel.metricPillTxt, { color: isConn ? b.color : COLOR.mid }]}>
+                  {isConn ? (b.val > 80 ? 'WARN' : 'OK') : 'OFF'}
                 </Text>
               </View>
             </View>
@@ -1068,590 +563,409 @@ function NexusMetricsDashboard({ isConn, metrics, scripts, kbCount, goToTab }: {
         </View>
       </View>
 
-      {/* ── STAT CARDS ── */}
-      <View style={[dash.section, { paddingTop: 0 }]}>
-        <View style={{ flexDirection: 'row', gap: GAP }}>
-          {STATS.map((s, i) => {
-            const Icon = s.lib === 'community' ? MaterialCommunityIcons : MaterialIcons;
+      <Divider />
+
+      {/* Stat cards */}
+      <View style={tel.section}>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {stats.map((s, i) => {
+            const Icon = s.lib === 'c' ? MaterialCommunityIcons : MaterialIcons;
             return (
-              <View key={i} style={[dash.statCard, { borderTopColor: s.color, borderColor: s.color + '28' }]}>
-                <View style={{ position: 'absolute', top: 6, right: 8, opacity: 0.35 }}>
-                  <Icon name={s.icon as any} size={12} color={s.color} />
+              <View key={i} style={[tel.statCard, { borderTopColor: s.color, borderColor: s.color + '28' }]}>
+                <View style={{ position: 'absolute', top: 7, right: 8, opacity: 0.3 }}>
+                  <Icon name={s.icon as any} size={14} color={s.color} />
                 </View>
-                <HudCorners color={s.color + '30'} size={6} t={1} />
-                <Text style={[dash.statVal, { color: s.color }]} adjustsFontSizeToFit minimumFontScale={0.4} numberOfLines={1}>{s.value}</Text>
-                <Text style={[dash.statLbl, { color: s.color + '65' }]}>{s.label}</Text>
+                <Text style={[tel.statVal, { color: s.color }]} adjustsFontSizeToFit minimumFontScale={0.4} numberOfLines={1}>{s.value}</Text>
+                <Text style={[tel.statLbl, { color: s.color + '60' }]}>{s.label}</Text>
               </View>
             );
           })}
         </View>
       </View>
 
-      {/* ── QUICK LAUNCH GRID ── */}
-      <View style={[dash.section, { paddingTop: 0 }]}>
-        <View style={dash.sectionHdr}>
-          <MaterialCommunityIcons name="rocket-launch" size={10} color={T.amber} />
-          <Text style={[dash.sectionTitle, { color: T.amber }]}>QUICK LAUNCH</Text>
+      <Divider />
+
+      {/* Quick launch grid */}
+      <View style={tel.section}>
+        <View style={tel.sectionHdr}>
+          <MaterialCommunityIcons name="rocket-launch" size={11} color={COLOR.amber} />
+          <Text style={[tel.sectionTitle, { color: COLOR.amber }]}>QUICK LAUNCH</Text>
         </View>
-        <View style={dash.quickGrid}>
+        <View style={tel.grid}>
           {QUICK_ITEMS.map((q, i) => {
-            const Icon = q.lib === 'community' ? MaterialCommunityIcons : MaterialIcons;
+            const Icon = q.lib === 'c' ? MaterialCommunityIcons : MaterialIcons;
             return (
-              <TouchableOpacity key={i} onPress={() => { haptics.light(); goToTab(q.tab); }}
-                activeOpacity={0.75} style={dash.quickCell}>
-                <View style={[dash.quickGlass, { borderColor: q.color + '40', borderTopColor: q.color }]}>
-                  <View style={[dash.quickIcon, { borderColor: q.color + '55', backgroundColor: q.color + '0E' }]}>
-                    <Icon name={q.icon as any} size={18} color={q.color} />
+              <TouchableOpacity key={i} onPress={() => { haptics.light(); goToTab(q.tab); }} activeOpacity={0.75}
+                style={tel.gridCell}>
+                <View style={[tel.gridCard, { borderTopColor: q.color, borderColor: q.color + '35' }]}>
+                  <View style={[tel.gridIcon, { borderColor: q.color + '55', backgroundColor: glow(q.color, 10) }]}>
+                    <Icon name={q.icon as any} size={19} color={q.color} />
                   </View>
-                  <Text style={[dash.quickLbl, { color: q.color }]}>{q.label}</Text>
-                  <View style={[dash.quickBar, { backgroundColor: q.color }]} />
+                  <Text style={[tel.gridLbl, { color: q.color }]}>{q.label}</Text>
+                  <View style={[tel.gridBar, { backgroundColor: q.color }]} />
                 </View>
               </TouchableOpacity>
             );
           })}
         </View>
       </View>
+    </CyberPanel>
+  );
+}
 
-      {/* Bottom security strip */}
-      <View style={dash.secStrip}>
-        {[
-          { icon: 'lock',         lbl: 'AES-256',     col: T.cyan    },
-          { icon: 'verified-user',lbl: 'HMAC-256',    col: T.green   },
-          { icon: 'wifi-off',     lbl: 'LAN ONLY',    col: T.amber   },
-          { icon: 'no-accounts',  lbl: 'NO ACCOUNTS', col: T.magenta },
-          { icon: 'storage',      lbl: 'LOCAL DB',    col: T.blue    },
-          { icon: 'block',        lbl: 'NO TELEMETRY',col: T.red     },
-        ].map((p, i) => (
-          <View key={i} style={[dash.secChip, { borderColor: p.col + '35', backgroundColor: p.col + '07' }]}>
-            <MaterialIcons name={p.icon as any} size={10} color={p.col} />
-            <Text style={[dash.secChipTxt, { color: p.col }]}>{p.lbl}</Text>
-          </View>
-        ))}
-      </View>
+const tel = StyleSheet.create({
+  section:    { paddingHorizontal: PAD, paddingTop: 13, paddingBottom: 11 },
+  sectionHdr: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 },
+  sectionTitle:{ fontFamily: MONO, fontSize: 9, fontWeight: '900', letterSpacing: 1.5, flex: 1 },
+  livePill:   { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 7, paddingHorizontal: 7, paddingVertical: 3 },
+  liveTxt:    { fontFamily: MONO, fontSize: 8, fontWeight: '900' },
+  metricCard: { flex: 1, backgroundColor: COLOR.surf2, borderRadius: 12, borderWidth: 1.5, borderTopWidth: 3, padding: 11, alignItems: 'center', overflow: 'hidden' },
+  metricLbl:  { fontFamily: MONO, fontSize: 8, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4 },
+  metricVal:  { fontFamily: MONO, fontSize: 24, fontWeight: '900', letterSpacing: -1 },
+  metricTrack:{ width: '100%', height: 3, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 2, marginTop: 6, overflow: 'hidden' },
+  metricFill: { height: '100%', borderRadius: 2 },
+  metricPill: { flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 1, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2, marginTop: 7 },
+  metricPillTxt: { fontFamily: MONO, fontSize: 7, fontWeight: '900' },
+  statCard:   { flex: 1, backgroundColor: COLOR.surf2, borderRadius: 10, borderWidth: 1.5, borderTopWidth: 3, padding: 10, alignItems: 'center', overflow: 'hidden', position: 'relative' },
+  statVal:    { fontFamily: MONO, fontSize: 20, fontWeight: '900', letterSpacing: -1, lineHeight: 24 },
+  statLbl:    { fontFamily: MONO, fontSize: 7, fontWeight: '700', letterSpacing: 0.5 },
+  grid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  gridCell:   { width: `${25 - 2}%` as any },
+  gridCard:   { alignItems: 'center', gap: 6, paddingVertical: 12, borderRadius: 13, borderWidth: 1.5, borderTopWidth: 3, backgroundColor: COLOR.surf2, overflow: 'hidden', position: 'relative' },
+  gridIcon:   { width: 38, height: 38, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  gridLbl:    { fontFamily: MONO, fontSize: 7, fontWeight: '900', letterSpacing: 0.3, textAlign: 'center', paddingHorizontal: 2 },
+  gridBar:    { position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, opacity: 0.5 },
+});
+
+// ══════════════════════════════════════════════════════════════════
+// AI CAPABILITIES SHOWCASE — horizontal scroll
+// ══════════════════════════════════════════════════════════════════
+const FEATURES = [
+  { icon: 'robot-happy',           lib: 'c', title: 'LOCAL AI CHAT',   sub: 'Ollama · LLaMA · Mistral',   color: COLOR.cyan,    badge: 'LAN-ONLY', tab: 'butler'    },
+  { icon: 'code-braces-box',       lib: 'c', title: '250+ SCRIPTS',    sub: 'Python · Bash · PowerShell', color: COLOR.magenta, badge: 'FORGE',    tab: 'scripts'   },
+  { icon: 'brain',                 lib: 'c', title: 'SIGMA-NET KB',    sub: 'Auto-learning vectors',       color: COLOR.amber,   badge: 'NEURAL',   tab: 'knowledge' },
+  { icon: 'shield-lock',           lib: 'c', title: 'AES-256 VAULT',   sub: 'Dead man switch · DNA',       color: COLOR.green,   badge: 'SECURE',   tab: 'fileshare' },
+  { icon: 'desktop-tower-monitor', lib: 'c', title: 'PC REMOTE',       sub: 'Execute · Monitor · Sched',  color: COLOR.blue,    badge: 'LIVE',     tab: 'nexushome' },
+  { icon: 'pipe',                  lib: 'c', title: 'PIPELINE',        sub: 'Drag-drop automation',        color: COLOR.yellow,  badge: 'BUILD',    tab: 'builder'   },
+  { icon: 'wifi-off',              lib: 'c', title: 'ZERO CLOUD',      sub: 'Your PC · Your data',         color: COLOR.teal,    badge: 'PRIVATE',  tab: 'settings'  },
+  { icon: 'satellite-uplink',      lib: 'c', title: 'REMOTE ACCESS',   sub: 'Tailscale · Cloudflare',      color: COLOR.pink,    badge: 'PRO',      tab: 'nexushome' },
+];
+
+function AICapabilities({ goToTab }: { goToTab: (t: string) => void }) {
+  return (
+    <View style={{ backgroundColor: COLOR.surf, borderWidth: 1, borderColor: COLOR.border, ...SHADOW.dark }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: PAD, paddingTop: 12, paddingBottom: 14, gap: 9 }}>
+        {FEATURES.map((f, i) => {
+          const Icon = f.lib === 'c' ? MaterialCommunityIcons : MaterialIcons;
+          return (
+            <TouchableOpacity key={i} onPress={() => { haptics.light(); goToTab(f.tab); }} activeOpacity={0.82}
+              style={[feat.card, { borderColor: f.color + '45', borderTopColor: f.color }]}>
+              <View style={[feat.iconBox, { borderColor: f.color + '55', backgroundColor: glow(f.color, 10) }]}>
+                <Icon name={f.icon as any} size={22} color={f.color} />
+              </View>
+              <Text style={[feat.title, { color: f.color }]}>{f.title}</Text>
+              <Text style={[feat.sub,   { color: COLOR.mid }]}>{f.sub}</Text>
+              <View style={[feat.badge, { borderColor: f.color + '40', backgroundColor: glow(f.color, 8) }]}>
+                <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: f.color }} />
+                <Text style={[feat.badgeTxt, { color: f.color }]}>{f.badge}</Text>
+              </View>
+              <View style={[feat.bar, { backgroundColor: f.color }]} />
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }
 
-const dash = StyleSheet.create({
-  outer:        { backgroundColor: T.surf, borderWidth: 1, borderColor: T.border, overflow: 'hidden',
-    ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 12 }, android: { elevation: 6 } }) },
-  section:      { paddingHorizontal: PAD, paddingTop: 12, paddingBottom: 10 },
-  sectionHdr:   { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
-  sectionTitle: { fontFamily: MONO, fontSize: 9, fontWeight: '900', letterSpacing: 1.5, flex: 1 },
-  livePill:     { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 7, paddingHorizontal: 7, paddingVertical: 3 },
-  liveTxt:      { fontFamily: MONO, fontSize: 8, fontWeight: '900' },
-  // Telemetry cards
-  metricCard:   { flex: 1, backgroundColor: T.surf2, borderRadius: 12, borderWidth: 1.5, borderTopWidth: 3, paddingHorizontal: 10, paddingVertical: 11, alignItems: 'center', overflow: 'hidden', position: 'relative' },
-  metricLbl:    { fontFamily: MONO, fontSize: 8, fontWeight: '700', letterSpacing: 0.5 },
-  metricVal:    { fontFamily: MONO, fontSize: 26, fontWeight: '900', letterSpacing: -1 },
-  metricTrack:  { width: '100%', height: 3, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 2, marginTop: 5, overflow: 'hidden' },
-  metricFill:   { height: '100%', borderRadius: 2 },
-  metricBadge:  { flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 1, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2, marginTop: 6 },
-  metricBadgeTxt:{ fontFamily: MONO, fontSize: 7.5, fontWeight: '900' },
-  // Stat cards
-  statCard:     { flex: 1, backgroundColor: T.surf2, borderRadius: 10, borderWidth: 1.5, borderTopWidth: 3, padding: 10, alignItems: 'center', gap: 2, overflow: 'hidden', position: 'relative' },
-  statVal:      { fontFamily: MONO, fontSize: 20, fontWeight: '900', lineHeight: 24, letterSpacing: -1 },
-  statLbl:      { fontFamily: MONO, fontSize: 7, fontWeight: '700', letterSpacing: 0.5 },
-  // Quick launch grid
-  quickGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  quickCell:    { width: `${(100 / 4) - 1.9}%` as any },
-  quickGlass:   { alignItems: 'center', gap: 6, paddingVertical: 11, paddingHorizontal: 4, borderRadius: 13, borderWidth: 1.5, borderTopWidth: 2.5, backgroundColor: T.surf2, overflow: 'hidden', position: 'relative' },
-  quickIcon:    { width: 38, height: 38, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  quickLbl:     { fontFamily: MONO, fontSize: 7, fontWeight: '900', letterSpacing: 0.3, textAlign: 'center' },
-  quickBar:     { position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, opacity: 0.6 },
-  // Security strip
-  secStrip:     { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: PAD, paddingBottom: 12, paddingTop: 4, gap: 6,
-    borderTopWidth: 1, borderTopColor: T.cyan + '14', backgroundColor: '#020810' },
-  secChip:      { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 6 },
-  secChipTxt:   { fontFamily: MONO, fontSize: 8.5, fontWeight: '900' },
+const feat = StyleSheet.create({
+  card:    { width: 128, backgroundColor: COLOR.surf2, borderWidth: 1.5, borderTopWidth: 3, borderRadius: 13, paddingHorizontal: 10, paddingTop: 12, paddingBottom: 10, gap: 5, overflow: 'hidden', position: 'relative' },
+  iconBox: { width: 44, height: 44, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginBottom: 3 },
+  title:   { fontFamily: MONO, fontSize: 9.5, fontWeight: '900', lineHeight: 13 },
+  sub:     { fontFamily: MONO, fontSize: 7.5, lineHeight: 11 },
+  badge:   { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2.5, alignSelf: 'flex-start', marginTop: 3 },
+  badgeTxt:{ fontFamily: MONO, fontSize: 7, fontWeight: '900' },
+  bar:     { position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, opacity: 0.4 },
 });
 
 // ══════════════════════════════════════════════════════════════════
-// BLOCK D: MEMORY BRAIN WIDGET (standalone — unique animated canvas)
-// ALL animations useNativeDriver:false — nodeAnims drive opacity AND
-// are referenced in left/top interpolations alongside packetAnims.
+// QUICK SCRIPTS PANEL
 // ══════════════════════════════════════════════════════════════════
-const NODES_MINI = [
-  { x: 50, y: 50, col: T.cyan    }, { x: 25, y: 32, col: T.magenta },
-  { x: 75, y: 32, col: T.green  }, { x: 18, y: 57, col: T.amber   },
-  { x: 82, y: 57, col: T.pink   }, { x: 30, y: 70, col: T.teal    },
-  { x: 70, y: 70, col: T.blue   }, { x: 50, y: 18, col: '#CC33FF' },
-];
-const EDGES_MINI = [[0,1],[0,2],[0,6],[1,3],[2,4],[3,5],[4,6],[5,7],[6,7],[1,7]];
-
-function MemoryBrainWidget({ kbArticles, facts, upcoming, goToTab }: {
-  kbArticles: number; facts: number; upcoming: number; goToTab: (t: string) => void;
-}) {
-  const focused   = useIsFocused();
-  const CW        = SW - PAD * 2 - 140;
-  const CH        = 108;
-  const nodeAnims = useRef(NODES_MINI.map(() => new Animated.Value(0.3 + Math.random() * 0.5))).current;
-  const packAnims = useRef(EDGES_MINI.slice(0, 5).map(() => new Animated.Value(0))).current;
-  const glowA     = useRef(new Animated.Value(0.4)).current;
-  const mbMounted = useRef(true);
-
-  const nodePx = useMemo(() => NODES_MINI.map(n => ({ x: Math.round(n.x / 100 * CW), y: Math.round(n.y / 100 * CH), col: n.col })), [CW]);
-  const edgePx = useMemo(() => EDGES_MINI.map(([a, b]) => {
-    const na = nodePx[a] ?? { x: 0, y: 0, col: T.cyan };
-    const nb = nodePx[b] ?? { x: 0, y: 0, col: T.cyan };
-    const dx = nb.x - na.x; const dy = nb.y - na.y;
-    const len = Math.sqrt(dx * dx + dy * dy);
-    return { mx: (na.x + nb.x) / 2, my: (na.y + nb.y) / 2, len, angle: Math.atan2(dy, dx) * 180 / Math.PI, ax: na.x, ay: na.y, bx: nb.x, by: nb.y, colA: na.col };
-  }), [nodePx]);
-
-  useEffect(() => {
-    mbMounted.current = true;
-    if (!focused) return;
-    const pulses = nodeAnims.map((a, i) => Animated.loop(Animated.sequence([
-      Animated.delay(i * 120),
-      Animated.timing(a, { toValue: 1,    duration: 900 + i * 80, useNativeDriver: false }),
-      Animated.timing(a, { toValue: 0.12, duration: 900 + i * 80, useNativeDriver: false }),
-    ])));
-    const packets = packAnims.map((a, i) => Animated.loop(Animated.sequence([
-      Animated.delay(i * 350),
-      Animated.timing(a, { toValue: 1, duration: 1100 + i * 150, useNativeDriver: false }),
-      Animated.timing(a, { toValue: 0, duration: 0, useNativeDriver: false }),
-      Animated.delay(600),
-    ])));
-    const glow = Animated.loop(Animated.sequence([
-      Animated.timing(glowA, { toValue: 1,   duration: 1400, useNativeDriver: false }),
-      Animated.timing(glowA, { toValue: 0.2, duration: 1400, useNativeDriver: false }),
-    ]));
-    pulses.forEach(p => p.start()); packets.forEach(p => p.start()); glow.start();
-    return () => { mbMounted.current = false; pulses.forEach(p => p.stop()); packets.forEach(p => p.stop()); glow.stop(); };
-  }, [focused]);
-
-  const borderC  = glowA.interpolate({ inputRange: [0.2, 1], outputRange: [T.cyan + '28', T.cyan + '88'] });
-  const level    = kbArticles >= 200 ? 'OMEGA' : kbArticles >= 100 ? 'SAGE' : kbArticles >= 50 ? 'EXPERT' : kbArticles >= 25 ? 'SCHOLAR' : kbArticles >= 10 ? 'STUDENT' : 'LEARNER';
-  const levelCol = kbArticles >= 200 ? T.cyan : kbArticles >= 100 ? T.magenta : kbArticles >= 50 ? T.green : kbArticles >= 25 ? T.blue : kbArticles >= 10 ? T.amber : T.mid;
-
-  return (
-    <Animated.View style={[brain.outer, { borderColor: borderC }]}>
-      <View style={[brain.topBar, { backgroundColor: T.cyan }]} />
-      <HudCorners color={T.cyan + '40'} size={8} t={1} />
-      <View style={{ flexDirection: 'row', alignItems: 'stretch' }}>
-        <View style={[brain.canvas, { width: CW, height: CH }]}>
-          {edgePx.map((e, i) => (
-            <Animated.View key={`e${i}`} pointerEvents="none" style={[brain.edge, {
-              left: e.mx - e.len / 2, top: e.my - 0.75, width: Math.round(e.len),
-              transform: [{ rotate: `${e.angle}deg` }], backgroundColor: e.colA + '28',
-              opacity: nodeAnims[EDGES_MINI[i][0]].interpolate({ inputRange: [0.12, 1], outputRange: [0.15, 0.7] }),
-            }]} />
-          ))}
-          {edgePx.slice(0, 5).map((e, i) => (
-            <Animated.View key={`p${i}`} pointerEvents="none" style={[brain.packet, {
-              left:    packAnims[i].interpolate({ inputRange: [0, 1], outputRange: [e.ax - 3, e.bx - 3] }),
-              top:     packAnims[i].interpolate({ inputRange: [0, 1], outputRange: [e.ay - 3, e.by - 3] }),
-              backgroundColor: e.colA,
-              opacity: packAnims[i].interpolate({ inputRange: [0, 0.1, 0.9, 1], outputRange: [0, 1, 1, 0] }),
-            }]} />
-          ))}
-          {nodePx.map((n, i) => (
-            <Animated.View key={`n${i}`} pointerEvents="none" style={[brain.node, { left: n.x - 5, top: n.y - 5, backgroundColor: n.col, opacity: nodeAnims[i] }]} />
-          ))}
-          <Animated.View pointerEvents="none" style={[brain.hub, { left: nodePx[0].x - 10, top: nodePx[0].y - 10, borderColor: T.cyan, opacity: glowA }]}>
-            <MaterialCommunityIcons name="brain" size={10} color={T.cyan} />
-          </Animated.View>
-        </View>
-        <View style={brain.sidebar}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 8 }}>
-            <MaterialCommunityIcons name="brain" size={13} color={T.cyan} />
-            <Text style={[brain.sideTitle, { color: T.cyan }]}>NEURAL KB</Text>
-          </View>
-          <View style={[brain.lvlBox, { borderColor: levelCol + '55', backgroundColor: levelCol + '0C' }]}>
-            <Text style={[brain.lvlTxt, { color: levelCol }]}>{level}</Text>
-          </View>
-          <Text style={[brain.bigNum, { color: T.cyan }]}>{kbArticles}</Text>
-          <Text style={[brain.bigLbl, { color: T.cyan + '70' }]}>VECTORS</Text>
-          <View style={{ flexDirection: 'row', gap: 4, marginTop: 8, flexWrap: 'wrap' }}>
-            <View style={[brain.miniStat, { borderColor: T.magenta + '40' }]}>
-              <Text style={[brain.miniN, { color: T.magenta }]}>{facts}</Text>
-              <Text style={[brain.miniL, { color: T.magenta + '70' }]}>FACTS</Text>
-            </View>
-            {upcoming > 0 && (
-              <View style={[brain.miniStat, { borderColor: T.pink + '40' }]}>
-                <Text style={[brain.miniN, { color: T.pink }]}>{upcoming}</Text>
-                <Text style={[brain.miniL, { color: T.pink + '70' }]}>EVENTS</Text>
-              </View>
-            )}
-          </View>
-          <TouchableOpacity onPress={() => { haptics.light(); goToTab('knowledge'); }} activeOpacity={0.85}
-            style={[brain.openBtn, { borderColor: T.cyan + '50', backgroundColor: T.cyan + '0D' }]}>
-            <Text style={[brain.openBtnTxt, { color: T.cyan }]}>OPEN KB {'>'}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Animated.View>
-  );
-}
-
-const brain = StyleSheet.create({
-  outer:    { borderWidth: 1.5, borderRadius: 14, backgroundColor: T.surf, overflow: 'hidden', position: 'relative',
-    ...Platform.select({ ios: { shadowColor: T.cyan, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.18, shadowRadius: 12 }, android: { elevation: 6 } }) },
-  topBar:   { height: 2.5 },
-  canvas:   { position: 'relative', backgroundColor: '#020810', overflow: 'hidden' },
-  edge:     { position: 'absolute', height: 1.5, borderRadius: 1 },
-  packet:   { position: 'absolute', width: 7, height: 7, borderRadius: 3.5 },
-  node:     { position: 'absolute', width: 10, height: 10, borderRadius: 5 },
-  hub:      { position: 'absolute', width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: T.cyan + '18' },
-  sidebar:  { flex: 1, padding: 12 },
-  sideTitle:{ fontFamily: MONO, fontSize: 9.5, fontWeight: '900', letterSpacing: 1 },
-  lvlBox:   { borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, alignSelf: 'flex-start', marginBottom: 6 },
-  lvlTxt:   { fontFamily: MONO, fontSize: 8, fontWeight: '900', letterSpacing: 0.8 },
-  bigNum:   { fontFamily: MONO, fontSize: 28, fontWeight: '900', lineHeight: 32, letterSpacing: -1 },
-  bigLbl:   { fontFamily: MONO, fontSize: 7.5, fontWeight: '700', letterSpacing: 0.8 },
-  miniStat: { borderWidth: 1, borderRadius: 7, paddingHorizontal: 6, paddingVertical: 4, alignItems: 'center' },
-  miniN:    { fontFamily: MONO, fontSize: 13, fontWeight: '900' },
-  miniL:    { fontFamily: MONO, fontSize: 7, fontWeight: '700', letterSpacing: 0.5 },
-  openBtn:  { borderWidth: 1, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 5, marginTop: 8, alignItems: 'center' },
-  openBtnTxt:{ fontFamily: MONO, fontSize: 8.5, fontWeight: '900' },
-});
-
-// ══════════════════════════════════════════════════════════════════
-// BLOCK E: NEXUS OPS CENTER
-// Merges: AlertsIntelCard + QuickScriptRunner into one terminal panel
-// ══════════════════════════════════════════════════════════════════
-const OPS_SCRIPTS = [
-  { id: 'sysinfo', icon: 'desktop-mac',      lib: 'community' as const, label: 'SYS INFO',  color: T.cyan,
+const Q_SCRIPTS = [
+  { id: 's1', icon: 'desktop-mac',     lib: 'c', label: 'SYS INFO',  color: COLOR.cyan,
     script: `import platform,socket\nprint(f"OS: {platform.system()} {platform.release()}")\nprint(f"Host: {socket.gethostname()}")` },
-  { id: 'clean',   icon: 'broom',            lib: 'community' as const, label: 'CLEAN TMP', color: T.green,
+  { id: 's2', icon: 'broom',           lib: 'c', label: 'CLEAN TMP', color: COLOR.green,
     script: `import shutil,os,tempfile\nfreed=0;n=0\nfor item in os.listdir(tempfile.gettempdir()):\n fp=os.path.join(tempfile.gettempdir(),item)\n try:\n  sz=os.path.getsize(fp) if os.path.isfile(fp) else 0\n  (os.unlink if os.path.isfile(fp) else shutil.rmtree)(fp)\n  freed+=sz;n+=1\n except:pass\nprint(f"Cleared {n} items, freed {freed//1024//1024}MB")` },
-  { id: 'disk',    icon: 'harddisk',         lib: 'community' as const, label: 'DISK',      color: T.blue,
+  { id: 's3', icon: 'harddisk',        lib: 'c', label: 'DISK USE',  color: COLOR.blue,
     script: `import psutil\nfor p in psutil.disk_partitions():\n try:\n  u=psutil.disk_usage(p.mountpoint)\n  print(f"{p.mountpoint}: {u.used/1024**3:.1f}/{u.total/1024**3:.1f}GB ({u.percent}%)")\n except:pass` },
-  { id: 'net',     icon: 'wifi-strength-4',  lib: 'community' as const, label: 'NETWORK',   color: T.amber,
+  { id: 's4', icon: 'wifi-strength-4', lib: 'c', label: 'NETWORK',   color: COLOR.amber,
     script: `import psutil,socket\nnet=psutil.net_io_counters()\nprint(f"Sent: {net.bytes_sent/1024/1024:.1f}MB\\nRecv: {net.bytes_recv/1024/1024:.1f}MB")\ns=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)\ns.connect(("8.8.8.8",80));ip=s.getsockname()[0];s.close()\nprint(f"IP: {ip}")` },
-  { id: 'procs',   icon: 'memory',           lib: 'community' as const, label: 'PROCS',     color: T.magenta,
+  { id: 's5', icon: 'memory',          lib: 'c', label: 'PROCS',     color: COLOR.magenta,
     script: `import psutil\nprocs=sorted(psutil.process_iter(['name','cpu_percent']),key=lambda p:p.info['cpu_percent'] or 0,reverse=True)[:6]\nfor p in procs: print(f"{p.info['name'][:18]:18} CPU:{p.info['cpu_percent']:.1f}%")` },
-  { id: 'battery', icon: 'battery-charging', lib: 'community' as const, label: 'BATTERY',  color: '#AAFF00',
+  { id: 's6', icon: 'battery-charging',lib: 'c', label: 'BATTERY',   color: '#AAFF00',
     script: `import psutil\nb=psutil.sensors_battery()\nif b: print(f"Level: {b.percent:.0f}%\\nPlugged: {b.power_plugged}")\nelse: print("No battery (desktop?)")` },
 ];
 
-function NexusOpsCenter({ isConn, cpu, goToTab, histItems }: {
-  isConn: boolean; cpu: number; goToTab: (t: string) => void; histItems: any[];
-}) {
+function QuickScripts({ isConn }: { isConn: boolean }) {
   const [running, setRunning] = useState<string | null>(null);
   const [output,  setOutput]  = useState<{ label: string; text: string; ok: boolean } | null>(null);
 
-  const runScript = async (item: typeof OPS_SCRIPTS[0]) => {
+  const run = async (s: typeof Q_SCRIPTS[0]) => {
     if (!isConn || running) return;
-    haptics.heavy(); setRunning(item.id); setOutput(null);
+    haptics.heavy(); setRunning(s.id); setOutput(null);
     try {
-      const ip = serverConnection.getIP(); const port = serverConnection.getPort(); const tok = serverConnection.getToken?.() || '';
+      const ip  = serverConnection.getIP();
+      const port = serverConnection.getPort();
+      const tok  = serverConnection.getToken?.() || '';
       if (!ip || !port) throw new Error('Not connected');
       const h: Record<string, string> = { 'Content-Type': 'application/json' };
       if (tok) h['Authorization'] = 'Bearer ' + tok;
       const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 28000);
-      const res = await fetch(`http://${ip}:${port}/api/execute`, { method: 'POST', headers: h, body: JSON.stringify({ script: item.script }), signal: ctrl.signal });
+      const res = await fetch(`http://${ip}:${port}/api/execute`, { method: 'POST', headers: h, body: JSON.stringify({ script: s.script }), signal: ctrl.signal });
       const d = await res.json();
-      setOutput({ label: item.label, text: (d.output || d.error || 'Done').trim().slice(0, 500), ok: !d.error });
+      setOutput({ label: s.label, text: (d.output || d.error || 'Done').trim().slice(0, 500), ok: !d.error });
       haptics.success();
     } catch (e: any) {
-      setOutput({ label: item.label, text: 'Error: ' + (e?.message || 'Network'), ok: false });
+      setOutput({ label: s.label, text: 'Error: ' + (e?.message || 'Network failed'), ok: false });
     } finally { setRunning(null); }
   };
 
-  const alerts = isConn ? [
-    { col: cpu > 70 ? T.amber : T.green, label: cpu > 70 ? `CPU HIGH: ${Math.round(cpu)}%` : 'CPU nominal', tag: 'PC'  },
-    { col: T.cyan,    label: 'HMAC auth verified',  tag: 'SEC' },
-    { col: T.magenta, label: 'Script runtime ready', tag: 'SYS' },
-  ] : [
-    { col: T.red,  label: 'PC not connected', tag: 'OFF' },
-    { col: T.cyan, label: 'Scan QR to pair',  tag: 'TIP' },
-  ];
-
-  const intel = histItems.length > 0
-    ? histItems.slice(0, 4).map((h: any) => ({ label: h.scriptName || 'Script', tag: h.success ? 'OK' : 'ERR', col: h.success ? T.green : T.red }))
-    : [
-      { label: 'AI core initialized',   tag: 'SYS', col: T.cyan    },
-      { label: 'KB engine idle',         tag: 'KB',  col: T.amber   },
-      { label: 'LAN scanner armed',      tag: 'NET', col: T.green   },
-      { label: 'Encryption active',      tag: 'SEC', col: T.magenta },
-    ];
-
   return (
-    <View style={ops.outer}>
-      {/* 5-color stripe */}
-      <View style={{ height: 2.5, flexDirection: 'row' }}>
-        {[T.amber, T.magenta, T.green, T.cyan, T.red].map((c, i) => <View key={i} style={{ flex: 1, backgroundColor: c }} />)}
-      </View>
-
-      {/* ── ALERTS + INTEL (dual panel) ── */}
-      <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: T.dim }}>
-        {/* Alerts */}
-        <View style={ops.panel}>
-          <View style={ops.panelHdr}>
-            <MaterialIcons name="notifications" size={10} color={T.amber} />
-            <Text style={[ops.panelTitle, { color: T.amber }]}>ALERTS</Text>
-            <View style={[ops.panelBadge, { borderColor: T.amber + '40', backgroundColor: T.amber + '09' }]}>
-              <Text style={[ops.panelBadgeTxt, { color: T.amber }]}>{alerts.length}</Text>
-            </View>
-          </View>
-          {alerts.map((a, i) => (
-            <View key={i} style={[ops.row, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: T.dim }]}>
-              <View style={[ops.dot, { backgroundColor: a.col }]} />
-              <Text style={ops.rowTxt} numberOfLines={1}>{a.label}</Text>
-              <View style={[ops.tag, { borderColor: a.col + '40' }]}><Text style={[ops.tagTxt, { color: a.col }]}>{a.tag}</Text></View>
-            </View>
-          ))}
-          <TouchableOpacity onPress={() => { haptics.light(); goToTab('logs'); }} style={ops.footer}>
-            <Text style={[ops.footerTxt, { color: T.amber }]}>LOGS {'>'}</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={{ width: StyleSheet.hairlineWidth, backgroundColor: T.dim }} />
-
-        {/* Intel */}
-        <View style={ops.panel}>
-          <View style={ops.panelHdr}>
-            <MaterialCommunityIcons name="clipboard-list" size={10} color={T.magenta} />
-            <Text style={[ops.panelTitle, { color: T.magenta }]}>INTEL</Text>
-            <View style={[ops.panelBadge, { borderColor: T.magenta + '40', backgroundColor: T.magenta + '09' }]}>
-              <Text style={[ops.panelBadgeTxt, { color: T.magenta }]}>{intel.length}</Text>
-            </View>
-          </View>
-          {intel.map((r, i) => (
-            <View key={i} style={[ops.row, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: T.dim }]}>
-              <View style={[ops.dot, { backgroundColor: r.col }]} />
-              <Text style={ops.rowTxt} numberOfLines={1}>{r.label}</Text>
-              <View style={[ops.tag, { borderColor: r.col + '40' }]}><Text style={[ops.tagTxt, { color: r.col }]}>{r.tag}</Text></View>
-            </View>
-          ))}
-          <TouchableOpacity onPress={() => { haptics.light(); goToTab('butler'); }} style={ops.footer}>
-            <Text style={[ops.footerTxt, { color: T.magenta }]}>ASK AI {'>'}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* ── QUICK PC SCRIPTS ── */}
-      <View style={ops.scriptHdr}>
-        <MaterialCommunityIcons name="code-braces-box" size={11} color={T.green} />
-        <Text style={[ops.scriptHdrTxt, { color: T.green }]}>QUICK PC SCRIPTS</Text>
+    <CyberPanel accentColor={COLOR.green} stripe stripeColors={[COLOR.green, COLOR.cyan, COLOR.teal, COLOR.green, COLOR.cyan]}>
+      <View style={qs.header}>
+        <MaterialCommunityIcons name="code-braces-box" size={13} color={COLOR.green} />
+        <Text style={[qs.headerTxt, { color: COLOR.green }]}>QUICK PC SCRIPTS</Text>
         <View style={{ flex: 1 }} />
-        <View style={[ops.panelBadge, { borderColor: (isConn ? T.green : T.red) + '45', backgroundColor: (isConn ? T.green : T.red) + '08' }]}>
-          <PulseDot color={isConn ? T.green : T.red} size={4} />
-          <Text style={[ops.panelBadgeTxt, { color: isConn ? T.green : T.red }]}>{isConn ? 'LIVE' : 'OFFLINE'}</Text>
+        <View style={[qs.statusPill, { borderColor: (isConn ? COLOR.green : COLOR.red) + '45', backgroundColor: (isConn ? COLOR.green : COLOR.red) + '09' }]}>
+          <PulseDot color={isConn ? COLOR.green : COLOR.red} size={4} />
+          <Text style={[qs.statusTxt, { color: isConn ? COLOR.green : COLOR.red }]}>{isConn ? 'PC READY' : 'OFFLINE'}</Text>
         </View>
       </View>
 
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: PAD, paddingBottom: output ? 0 : 12 }}>
-        {OPS_SCRIPTS.map(item => {
-          const Icon = item.lib === 'community' ? MaterialCommunityIcons : MaterialIcons;
-          const isRun = running === item.id;
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: PAD, paddingBottom: output ? 0 : PAD }}>
+        {Q_SCRIPTS.map(s => {
+          const Icon = s.lib === 'c' ? MaterialCommunityIcons : MaterialIcons;
+          const isRun = running === s.id;
           return (
-            <Pressable key={item.id} onPress={() => runScript(item)} disabled={!isConn || !!running}
+            <Pressable key={s.id} onPress={() => run(s)} disabled={!isConn || !!running}
               style={({ pressed }) => ({
-                width: '33.33%', alignItems: 'center', paddingVertical: 12, borderRadius: 8, marginBottom: 2,
-                opacity: !isConn ? 0.3 : 1, backgroundColor: pressed && isConn ? item.color + '12' : 'transparent',
+                width: '33.33%', alignItems: 'center', paddingVertical: 13,
+                opacity: !isConn ? 0.3 : 1,
+                backgroundColor: pressed && isConn ? glow(s.color, 10) : 'transparent',
+                borderRadius: 8,
               })}>
-              <View style={[ops.scriptIcon, { borderTopColor: item.color, borderColor: item.color + '30', backgroundColor: item.color + '09' }]}>
-                {isRun ? <ActivityIndicator size="small" color={item.color} /> : <Icon name={item.icon as any} size={19} color={item.color} />}
+              <View style={[qs.scriptIcon, { borderTopColor: s.color, borderColor: s.color + '30', backgroundColor: glow(s.color, 8) }]}>
+                {isRun
+                  ? <ActivityIndicator size="small" color={s.color} />
+                  : <Icon name={s.icon as any} size={20} color={s.color} />
+                }
               </View>
-              <Text style={[ops.scriptLbl, { color: item.color }]}>{item.label}</Text>
+              <Text style={[qs.scriptLbl, { color: s.color }]}>{s.label}</Text>
             </Pressable>
           );
         })}
       </View>
 
       {output && (
-        <View style={{ paddingHorizontal: PAD, paddingBottom: 12 }}>
-          <View style={[ops.outBox, { borderColor: (output.ok ? T.green : T.red) + '50', backgroundColor: (output.ok ? T.green : T.red) + '07' }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-              <MaterialIcons name={output.ok ? 'check-circle' : 'error'} size={12} color={output.ok ? T.green : T.red} />
-              <Text style={[ops.outLabel, { color: output.ok ? T.green : T.red }]}>{output.label}</Text>
-              <TouchableOpacity onPress={() => setOutput(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <MaterialIcons name="close" size={13} color={T.mid} />
+        <View style={{ paddingHorizontal: PAD, paddingBottom: PAD }}>
+          <View style={[qs.outBox, { borderColor: (output.ok ? COLOR.green : COLOR.red) + '55', backgroundColor: (output.ok ? COLOR.green : COLOR.red) + '07' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 6 }}>
+              <MaterialIcons name={output.ok ? 'check-circle' : 'error'} size={13} color={output.ok ? COLOR.green : COLOR.red} />
+              <Text style={[qs.outLabel, { color: output.ok ? COLOR.green : COLOR.red }]}>{output.label}</Text>
+              <TouchableOpacity onPress={() => setOutput(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ marginLeft: 'auto' }}>
+                <MaterialIcons name="close" size={14} color={COLOR.mid} />
               </TouchableOpacity>
             </View>
-            <Text style={[ops.outTxt, { color: output.ok ? T.green : T.red }]} selectable>{output.text}</Text>
+            <Text style={[qs.outTxt, { color: output.ok ? COLOR.green : COLOR.red }]} selectable>{output.text}</Text>
           </View>
         </View>
       )}
-    </View>
+    </CyberPanel>
   );
 }
 
-const ops = StyleSheet.create({
-  outer:        { backgroundColor: T.surf, borderWidth: 1, borderColor: T.dim, overflow: 'hidden',
-    ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 }, android: { elevation: 5 } }) },
-  panel:        { flex: 1 },
-  panelHdr:     { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: PAD, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: T.dim },
-  panelTitle:   { fontFamily: MONO, fontSize: 9, fontWeight: '900', letterSpacing: 1.2, flex: 1 },
-  panelBadge:   { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-  panelBadgeTxt:{ fontFamily: MONO, fontSize: 7.5, fontWeight: '900' },
-  row:          { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: PAD, paddingVertical: 7 },
-  dot:          { width: 5, height: 5, borderRadius: 3, flexShrink: 0 },
-  rowTxt:       { fontFamily: MONO, fontSize: 8.5, color: T.text, flex: 1 },
-  tag:          { borderWidth: 1, borderRadius: 3, paddingHorizontal: 5, paddingVertical: 1 },
-  tagTxt:       { fontFamily: MONO, fontSize: 7, fontWeight: '900' },
-  footer:       { paddingHorizontal: PAD, paddingVertical: 9, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: T.dim },
-  footerTxt:    { fontFamily: MONO, fontSize: 8.5, fontWeight: '900', textAlign: 'center' },
-  scriptHdr:    { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: PAD, paddingTop: 12, paddingBottom: 10, borderTopWidth: 1, borderTopColor: T.dim },
-  scriptHdrTxt: { fontFamily: MONO, fontSize: 9.5, fontWeight: '900', letterSpacing: 1.2 },
-  scriptIcon:   { width: 42, height: 42, borderRadius: 11, borderWidth: 1.5, borderTopWidth: 3, alignItems: 'center', justifyContent: 'center', marginBottom: 5 },
-  scriptLbl:    { fontFamily: MONO, fontSize: 7.5, fontWeight: '900', textAlign: 'center' },
-  outBox:       { borderWidth: 1.5, borderRadius: 10, padding: 10 },
-  outLabel:     { fontFamily: MONO, fontSize: 9.5, fontWeight: '900', flex: 1 },
-  outTxt:       { fontFamily: MONO, fontSize: 10, lineHeight: 16 },
+const qs = StyleSheet.create({
+  header:    { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: PAD, paddingTop: 13, paddingBottom: 11 },
+  headerTxt: { fontFamily: MONO, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
+  statusPill:{ flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 4 },
+  statusTxt: { fontFamily: MONO, fontSize: 7.5, fontWeight: '900' },
+  scriptIcon:{ width: 44, height: 44, borderRadius: 12, borderWidth: 1.5, borderTopWidth: 3, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  scriptLbl: { fontFamily: MONO, fontSize: 7.5, fontWeight: '900', textAlign: 'center' },
+  outBox:    { borderWidth: 1.5, borderRadius: 11, padding: 11 },
+  outLabel:  { fontFamily: MONO, fontSize: 10, fontWeight: '900', flex: 1 },
+  outTxt:    { fontFamily: MONO, fontSize: 10.5, lineHeight: 17 },
 });
 
 // ══════════════════════════════════════════════════════════════════
-// BLOCK F: SESSION FOOTER TERMINAL
+// SESSION FOOTER
 // ══════════════════════════════════════════════════════════════════
 function SessionFooter({ isConn, addr }: { isConn: boolean; addr: string }) {
-  const ROWS: [string, string, string][] = [
-    ['version  ', '7.3.0',              T.green],
-    ['telemetry', 'DISABLED',           T.green],
-    ['cloud    ', 'DISABLED',           T.green],
-    ['crypto   ', 'AES-256 / HMAC-256', T.mid  ],
-    ['storage  ', 'DEVICE ONLY',        T.green],
-    ['server   ', isConn ? (addr || 'LINKED') : 'NOT CONNECTED', isConn ? T.green : T.red],
+  const rows: [string, string, string][] = [
+    ['version',   '7.3.0',                        COLOR.green],
+    ['telemetry', 'DISABLED',                      COLOR.green],
+    ['cloud',     'DISABLED',                      COLOR.green],
+    ['crypto',    'AES-256 + HMAC-SHA256',         COLOR.mid  ],
+    ['storage',   'DEVICE ONLY',                   COLOR.green],
+    ['server',    isConn ? (addr || 'LINKED') : 'NOT CONNECTED', isConn ? COLOR.green : COLOR.red],
   ];
   return (
     <View style={foot.outer}>
       <View style={foot.chrome}>
-        {['#FF5F57', '#FEBC2E', '#28C840'].map((c, i) => <View key={i} style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c }} />)}
+        {['#FF5F57','#FEBC2E','#28C840'].map((c,i) => (
+          <View key={i} style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c }} />
+        ))}
         <Text style={foot.chromeTitle}>butler@nexus — session</Text>
-        <View style={[foot.secureBadge, { borderColor: T.green + '35', backgroundColor: T.green + '09' }]}>
-          <Text style={[foot.secureTxt, { color: T.green }]}>SECURE</Text>
+        <View style={[foot.secureBadge, { borderColor: COLOR.green + '35', backgroundColor: glow(COLOR.green, 8) }]}>
+          <Text style={[foot.secureTxt, { color: COLOR.green }]}>SECURE</Text>
         </View>
       </View>
       <View style={foot.body}>
-        {ROWS.map(([k, v, col], i) => (
+        {rows.map(([k, v, col], i) => (
           <View key={i} style={foot.row}>
             <Text style={foot.key}>  {k}:</Text>
             <Text style={[foot.val, { color: col }]}>{v}</Text>
           </View>
         ))}
         <View style={foot.statusRow}>
-          <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: isConn ? T.green : T.red }} />
-          <Text style={[foot.statusTxt, { color: isConn ? T.green : T.red }]}>
-            {isConn ? 'CONNECTED — HMAC token active' : 'OFFLINE — scan QR to pair PC'}
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: isConn ? COLOR.green : COLOR.red }} />
+          <Text style={[foot.statusTxt, { color: isConn ? COLOR.green : COLOR.red }]}>
+            {isConn ? 'CONNECTED · HMAC token active' : 'OFFLINE · scan QR to pair PC'}
           </Text>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 5 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
           <Text style={foot.prompt}>$</Text>
-          <View style={{ width: 6, height: 11, backgroundColor: T.cyan + '50', borderRadius: 1 }} />
+          <View style={{ width: 6, height: 11, backgroundColor: COLOR.cyan + '50', borderRadius: 1 }} />
         </View>
       </View>
-      {/* Bottom 5-color stripe */}
       <View style={{ height: 3, flexDirection: 'row' }}>
-        {[T.cyan, T.green, T.magenta, T.amber, T.pink].map((c, i) => <View key={i} style={{ flex: 1, backgroundColor: c }} />)}
+        {COLOR.stripe5.map((c,i) => <View key={i} style={{ flex: 1, backgroundColor: c }} />)}
       </View>
     </View>
   );
 }
 
 const foot = StyleSheet.create({
-  outer:       { backgroundColor: '#010207', borderRadius: 14, borderWidth: 1, borderColor: T.cyan + '20', overflow: 'hidden', marginBottom: 28 },
-  chrome:      { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#020509', borderBottomWidth: 1, borderBottomColor: T.cyan + '14' },
-  chromeTitle: { flex: 1, fontFamily: MONO, fontSize: 8, color: T.cyan + '50', letterSpacing: 0.3, textAlign: 'center' },
-  secureBadge: { borderWidth: 1, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 },
+  outer:       { backgroundColor: '#010207', borderRadius: 14, borderWidth: 1, borderColor: COLOR.cyan + '20', overflow: 'hidden', marginBottom: 28 },
+  chrome:      { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 13, paddingVertical: 9, backgroundColor: '#020509', borderBottomWidth: 1, borderBottomColor: COLOR.cyan + '12' },
+  chromeTitle: { flex: 1, fontFamily: MONO, fontSize: 8, color: COLOR.cyan + '50', letterSpacing: 0.3, textAlign: 'center' },
+  secureBadge: { borderWidth: 1, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
   secureTxt:   { fontFamily: MONO, fontSize: 7, fontWeight: '900' },
-  body:        { padding: 12, gap: 3 },
-  row:         { flexDirection: 'row', gap: 7 },
-  key:         { fontFamily: MONO, fontSize: 8.5, color: T.dim, width: 70 },
+  body:        { padding: 13, gap: 4 },
+  row:         { flexDirection: 'row', gap: 8 },
+  key:         { fontFamily: MONO, fontSize: 8.5, color: COLOR.dim, width: 72 },
   val:         { fontFamily: MONO, fontSize: 8.5, flex: 1 },
-  statusRow:   { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 7 },
+  statusRow:   { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 },
   statusTxt:   { fontFamily: MONO, fontSize: 8.5 },
-  prompt:      { fontFamily: MONO, fontSize: 8.5, color: T.cyan + '55' },
+  prompt:      { fontFamily: MONO, fontSize: 8.5, color: COLOR.cyan + '55' },
 });
 
 // ══════════════════════════════════════════════════════════════════
 // CONNECT MODAL
 // ══════════════════════════════════════════════════════════════════
-function ConnectModal({ visible, onClose, onConnected }: { visible: boolean; onClose: () => void; onConnected: () => void }) {
-  const [ip, setIp] = useState('');
-  const [port, setPort] = useState('8766');
-  const [status, setStatus] = useState('');
-  const [busy, setBusy] = useState(false);
+function ConnectModal({ visible, onClose, onConnected }: {
+  visible: boolean; onClose: () => void; onConnected: () => void;
+}) {
+  const [ip,      setIp]      = useState('');
+  const [port,    setPort]    = useState('8766');
+  const [status,  setStatus]  = useState('');
+  const [busy,    setBusy]    = useState(false);
   const [showCam, setShowCam] = useState(false);
-  const scannedRef = useRef(false);
+  const scanned = useRef(false);
 
   const handleQR = useCallback(async (data: string) => {
-    if (scannedRef.current) return;
-    scannedRef.current = true; setShowCam(false); haptics.success();
+    if (scanned.current) return;
+    scanned.current = true; setShowCam(false); haptics.success();
     try {
-      const parsed = parseQRConnection(data);
-      if (parsed?.ip) {
-        setIp(parsed.ip); if (parsed.port) setPort(String(parsed.port));
-        setStatus(`Connecting to ${parsed.ip}...`); setBusy(true);
-        const r = await (serverConnection.connectManual ? serverConnection.connectManual(parsed.ip, String(parsed.port || port)) : Promise.resolve({ success: false, error: 'N/A' }));
+      const p = parseQRConnection(data);
+      if (p?.ip) {
+        setIp(p.ip); if (p.port) setPort(String(p.port));
+        setStatus(`Connecting to ${p.ip}...`); setBusy(true);
+        const r = await (serverConnection.connectManual
+          ? serverConnection.connectManual(p.ip, String(p.port || port))
+          : Promise.resolve({ success: false, error: 'N/A' }));
         setBusy(false);
-        if ((r as any).success) { haptics.success(); setTimeout(() => { onConnected(); onClose(); }, 700); return; }
+        if ((r as any).success) { haptics.success(); setTimeout(() => { onConnected(); onClose(); }, 600); return; }
         throw new Error((r as any).error || 'Failed');
       }
     } catch (e: any) { setBusy(false); setStatus('Error: ' + (e?.message || 'Failed')); }
     const m = data.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?::(\d+))?/);
     if (m) { setIp(m[1]); if (m[2]) setPort(m[2]); setStatus(`Found IP: ${m[1]}`); }
-    else { setStatus(`Scanned: ${data.slice(0, 40)}`); scannedRef.current = false; }
+    else   { setStatus(`Scanned: ${data.slice(0, 40)}`); scanned.current = false; }
   }, [port, onConnected, onClose]);
 
   const connect = async () => {
     if (!ip.trim()) { setStatus('Enter IP address'); return; }
     setBusy(true); setStatus(`Connecting to ${ip.trim()}...`);
     try {
-      const r = await (serverConnection.connectManual ? serverConnection.connectManual(ip.trim(), port.trim()) : Promise.resolve({ success: false, error: 'N/A' }));
-      if ((r as any).success) { setStatus('Connected!'); haptics.success(); setTimeout(() => { onConnected(); onClose(); }, 600); }
+      const r = await (serverConnection.connectManual
+        ? serverConnection.connectManual(ip.trim(), port.trim())
+        : Promise.resolve({ success: false, error: 'N/A' }));
+      if ((r as any).success) { setStatus('Connected!'); haptics.success(); setTimeout(() => { onConnected(); onClose(); }, 500); }
       else throw new Error((r as any).error || 'Failed');
     } catch (e: any) { setStatus('Error: ' + (e?.message || 'Failed')); }
     setBusy(false);
   };
 
   if (!visible) return null;
-  const statusColor = status.includes('Error') ? T.red : status.includes('Connected') ? T.green : T.amber;
+  const statusColor = status.includes('Error') ? COLOR.red : status.includes('Connected') ? COLOR.green : COLOR.amber;
+
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.94)', justifyContent: 'flex-end' }}>
-        <View style={modal.sheet}>
-          <View style={{ height: 3, backgroundColor: T.cyan }} />
+        <View style={conn.sheet}>
+          <View style={{ height: 3, backgroundColor: COLOR.cyan }} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 18, paddingBottom: 12 }}>
-            <MaterialIcons name="qr-code-scanner" size={20} color={T.cyan} />
-            <Text style={modal.title}>PAIR YOUR PC</Text>
-            <Pressable onPress={onClose} style={modal.closeBtn}><MaterialIcons name="close" size={15} color={T.mid} /></Pressable>
+            <MaterialIcons name="qr-code-scanner" size={20} color={COLOR.cyan} />
+            <Text style={conn.title}>PAIR YOUR PC</Text>
+            <Pressable onPress={onClose} style={conn.closeBtn}>
+              <MaterialIcons name="close" size={15} color={COLOR.mid} />
+            </Pressable>
           </View>
           {showCam ? (
-            <View style={modal.camWrap}>
+            <View style={conn.camWrap}>
               <Suspense fallback={null}>
-                <QRCameraScanner onScanned={handleQR} hudColor={T.cyan}>
+                <QRCameraScanner onScanned={handleQR} hudColor={COLOR.cyan}>
                   <View pointerEvents="none" style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
-                    <View style={{ width: 110, height: 110, borderWidth: 2, borderColor: T.cyan + '60', borderRadius: 4 }} />
-                    <Text style={{ fontFamily: MONO, fontSize: 9, color: T.cyan, marginTop: 9, fontWeight: '900', letterSpacing: 1 }}>SCAN QR FROM TERMINAL</Text>
+                    <View style={{ width: 110, height: 110, borderWidth: 2, borderColor: COLOR.cyan + '60', borderRadius: 4 }} />
+                    <Text style={{ fontFamily: MONO, fontSize: 9, color: COLOR.cyan, marginTop: 9, fontWeight: '900', letterSpacing: 1 }}>SCAN QR FROM TERMINAL</Text>
                   </View>
                 </QRCameraScanner>
               </Suspense>
-              <TouchableOpacity onPress={() => setShowCam(false)} style={modal.camClose}>
+              <TouchableOpacity onPress={() => setShowCam(false)} style={conn.camClose}>
                 <MaterialIcons name="close" size={13} color="#fff" />
               </TouchableOpacity>
             </View>
           ) : (
-            <TouchableOpacity onPress={() => { scannedRef.current = false; setShowCam(true); }} activeOpacity={0.82}
-              style={modal.scanBtn}>
-              <MaterialIcons name="qr-code-scanner" size={18} color={T.cyan} />
+            <TouchableOpacity onPress={() => { scanned.current = false; setShowCam(true); }} activeOpacity={0.82}
+              style={conn.scanBtn}>
+              <MaterialIcons name="qr-code-scanner" size={18} color={COLOR.cyan} />
               <View>
-                <Text style={modal.scanBtnTxt}>SCAN QR CODE</Text>
-                <Text style={modal.scanBtnSub}>Run butler_server.py then scan QR in terminal</Text>
+                <Text style={conn.scanBtnTxt}>SCAN QR CODE</Text>
+                <Text style={conn.scanBtnSub}>Run butler_server.py → scan QR in terminal</Text>
               </View>
             </TouchableOpacity>
           )}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginBottom: 10 }}>
-            <View style={{ flex: 1, height: 1, backgroundColor: T.dim }} />
-            <Text style={{ fontFamily: MONO, fontSize: 8.5, color: T.mid }}>OR ENTER IP</Text>
-            <View style={{ flex: 1, height: 1, backgroundColor: T.dim }} />
+            <View style={{ flex: 1, height: 1, backgroundColor: COLOR.dim }} />
+            <Text style={{ fontFamily: MONO, fontSize: 8.5, color: COLOR.mid }}>OR ENTER IP</Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: COLOR.dim }} />
           </View>
-          <View style={{ paddingHorizontal: 16, gap: 8 }}>
-            <TextInput value={ip} onChangeText={setIp} placeholder="192.168.x.x" placeholderTextColor={T.dim}
-              style={modal.input} keyboardType="numeric" autoCorrect={false} />
-            <TextInput value={port} onChangeText={setPort} placeholder="8766" placeholderTextColor={T.dim}
-              style={[modal.input, { borderColor: T.cyan + '30' }]} keyboardType="numeric" />
+          <View style={{ paddingHorizontal: 16, gap: 9 }}>
+            <TextInput value={ip} onChangeText={setIp} placeholder="192.168.x.x" placeholderTextColor={COLOR.dim}
+              style={conn.input} keyboardType="numeric" autoCorrect={false} />
+            <TextInput value={port} onChangeText={setPort} placeholder="8766" placeholderTextColor={COLOR.dim}
+              style={[conn.input, { borderColor: COLOR.cyan + '30' }]} keyboardType="numeric" />
           </View>
-          {status ? (
-            <View style={[modal.statusBox, { borderColor: statusColor + '45', backgroundColor: statusColor + '0A' }]}>
+          {!!status && (
+            <View style={[conn.statusBox, { borderColor: statusColor + '45', backgroundColor: glow(statusColor, 8) }]}>
               <Text style={{ fontFamily: MONO, fontSize: 10.5, color: statusColor }}>{status}</Text>
             </View>
-          ) : null}
-          <Pressable onPress={connect} disabled={busy} style={({ pressed }) => [modal.connectBtn, { opacity: pressed || busy ? 0.8 : 1 }]}>
+          )}
+          <Pressable onPress={connect} disabled={busy}
+            style={({ pressed }) => [conn.connectBtn, { opacity: pressed || busy ? 0.8 : 1 }]}>
             {busy ? <ActivityIndicator size="small" color="#000" /> : <MaterialIcons name="link" size={18} color="#000" />}
-            <Text style={modal.connectTxt}>{busy ? 'CONNECTING...' : 'CONNECT TO PC'}</Text>
+            <Text style={conn.connectTxt}>{busy ? 'CONNECTING...' : 'CONNECT TO PC'}</Text>
           </Pressable>
         </View>
       </View>
@@ -1659,65 +973,72 @@ function ConnectModal({ visible, onClose, onConnected }: { visible: boolean; onC
   );
 }
 
-const modal = StyleSheet.create({
-  sheet:     { backgroundColor: T.surf, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 44, overflow: 'hidden' },
-  title:     { fontFamily: MONO, fontSize: 15, fontWeight: '900', color: T.text, flex: 1 },
-  closeBtn:  { width: 32, height: 32, borderRadius: 8, backgroundColor: T.surf2, alignItems: 'center', justifyContent: 'center' },
-  camWrap:   { marginHorizontal: 16, marginBottom: 12, borderRadius: 14, overflow: 'hidden', borderWidth: 2, borderColor: T.cyan + '70' },
-  camClose:  { position: 'absolute', top: 7, right: 7, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.75)', alignItems: 'center', justifyContent: 'center' },
-  scanBtn:   { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 12, borderWidth: 1.5, borderRadius: 12, borderColor: T.cyan + '55', backgroundColor: T.cyan + '0A', paddingVertical: 13, paddingHorizontal: 14 },
-  scanBtnTxt:{ fontFamily: MONO, fontSize: 12, fontWeight: '900', color: T.cyan },
-  scanBtnSub:{ fontFamily: MONO, fontSize: 8.5, color: T.mid, marginTop: 1 },
-  input:     { backgroundColor: T.bg, borderWidth: 1.5, borderColor: T.cyan + '55', borderRadius: 11, color: T.text, padding: 13, fontFamily: MONO, fontSize: 13 },
-  statusBox: { marginHorizontal: 16, marginTop: 8, padding: 9, borderRadius: 8, borderWidth: 1 },
-  connectBtn:{ margin: 16, marginBottom: 0, backgroundColor: T.green, borderRadius: 12, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
-  connectTxt:{ fontFamily: MONO, fontSize: 13, fontWeight: '900', color: '#000' },
+const conn = StyleSheet.create({
+  sheet:      { backgroundColor: COLOR.surf, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 44, overflow: 'hidden' },
+  title:      { fontFamily: MONO, fontSize: 15, fontWeight: '900', color: COLOR.text, flex: 1 },
+  closeBtn:   { width: 32, height: 32, borderRadius: 8, backgroundColor: COLOR.surf2, alignItems: 'center', justifyContent: 'center' },
+  camWrap:    { marginHorizontal: 16, marginBottom: 12, borderRadius: 14, overflow: 'hidden', borderWidth: 2, borderColor: COLOR.cyan + '70' },
+  camClose:   { position: 'absolute', top: 7, right: 7, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.75)', alignItems: 'center', justifyContent: 'center' },
+  scanBtn:    { flexDirection: 'row', alignItems: 'center', gap: 9, marginHorizontal: 16, marginBottom: 12, borderWidth: 1.5, borderRadius: 12, borderColor: COLOR.cyan + '55', backgroundColor: glow(COLOR.cyan, 8), paddingVertical: 13, paddingHorizontal: 14 },
+  scanBtnTxt: { fontFamily: MONO, fontSize: 12, fontWeight: '900', color: COLOR.cyan },
+  scanBtnSub: { fontFamily: MONO, fontSize: 8.5, color: COLOR.mid, marginTop: 2 },
+  input:      { backgroundColor: COLOR.bg, borderWidth: 1.5, borderColor: COLOR.cyan + '55', borderRadius: 11, color: COLOR.text, padding: 13, fontFamily: MONO, fontSize: 13 },
+  statusBox:  { marginHorizontal: 16, marginTop: 8, padding: 10, borderRadius: 8, borderWidth: 1 },
+  connectBtn: { margin: 16, marginBottom: 0, backgroundColor: COLOR.green, borderRadius: 12, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
+  connectTxt: { fontFamily: MONO, fontSize: 13, fontWeight: '900', color: '#000' },
 });
 
 // ══════════════════════════════════════════════════════════════════
 // MAIN SCREEN
 // ══════════════════════════════════════════════════════════════════
 function NexusHomeInner() {
-  const insets = useSafeAreaInsets();
-  const [isConn,    setIsConn]    = useState(false);
-  const [addr,      setAddr]      = useState('');
-  const [latency,   setLatency]   = useState(0);
-  const [metrics,   setMetrics]   = useState({ cpu: 0, ram: 0, disk: 0, net: 0 });
-  const [scripts,   setScripts]   = useState(0);
-  const [kbCount,   setKbCount]   = useState(0);
-  const [kbFacts,   setKbFacts]   = useState(0);
-  const [upcoming,  setUpcoming]  = useState(0);
-  const [histItems, setHistItems] = useState<any[]>([]);
-  const [showQR,    setShowQR]    = useState(false);
-  const [refresh,   setRefresh]   = useState(false);
+  const insets  = useSafeAreaInsets();
+  const [isConn,   setIsConn]   = useState(false);
+  const [addr,     setAddr]     = useState('');
+  const [latency,  setLatency]  = useState(0);
+  const [metrics,  setMetrics]  = useState({ cpu: 0, ram: 0, disk: 0 });
+  const [scripts,  setScripts]  = useState(0);
+  const [kbCount,  setKbCount]  = useState(0);
+  const [showQR,   setShowQR]   = useState(false);
+  const [refresh,  setRefresh]  = useState(false);
 
   const loadData = useCallback(async () => {
     try {
       const conn = serverConnection.isConnected?.() ?? false;
       const ip   = serverConnection.getIP?.()   || '';
       const port = serverConnection.getPort?.() || '';
-      setIsConn(conn); setAddr(ip && port ? `${ip}:${port}` : '');
+      setIsConn(conn);
+      setAddr(ip && port ? `${ip}:${port}` : '');
       if (conn && ip && port) {
-        const tok = serverConnection.getToken?.() || '';
-        const h: Record<string, string> = {};
+        const tok  = serverConnection.getToken?.() || '';
+        const h: Record<string,string> = {};
         if (tok) h['Authorization'] = 'Bearer ' + tok;
-        const ctrl = new AbortController(); const t0 = Date.now();
+        const ctrl = new AbortController();
+        const t0   = Date.now();
         setTimeout(() => ctrl.abort(), 7000);
         try {
           const res = await fetch(`http://${ip}:${port}/api/metrics`, { headers: h, signal: ctrl.signal });
           if (res.ok) {
             const d = await res.json();
             setLatency(Date.now() - t0);
-            setMetrics({ cpu: d.cpu_percent ?? d.cpu?.percent ?? 0, ram: d.ram_percent ?? d.memory?.percent ?? 0, disk: d.disk_percent ?? d.disk?.percent ?? 0, net: 0 });
+            setMetrics({
+              cpu:  d.cpu_percent  ?? d.cpu?.percent    ?? 0,
+              ram:  d.ram_percent  ?? d.memory?.percent ?? 0,
+              disk: d.disk_percent ?? d.disk?.percent   ?? 0,
+            });
             performanceHistory.recordFromMetrics(d);
           }
         } catch {}
       }
     } catch {}
-    try { const h = await executionHistory.getAll().catch(() => [] as any[]); const a = Array.isArray(h) ? h : []; setScripts(a.length); setHistItems(a); } catch {}
-    try { const fn = (kbGrowthTracker as any).getTotal ?? (kbGrowthTracker as any).getTotalCount; if (fn) { const n = await fn.call(kbGrowthTracker).catch(() => 0); setKbCount(n || 0); } } catch {}
-    try { const stats = await knowledgeAccumulator.getStats?.().catch(() => null); if (stats) setKbCount(stats.totalFindings ?? 0); } catch {}
-    try { await personalMemory.load(); setKbFacts(personalMemory.getFacts().length); setUpcoming(personalMemory.getUpcomingEvents(30).length); } catch {}
+    try {
+      const h = await executionHistory.getAll().catch(() => [] as any[]);
+      setScripts(Array.isArray(h) ? h.length : 0);
+    } catch {}
+    try {
+      const stats = await knowledgeAccumulator.getStats?.().catch(() => null);
+      if (stats) setKbCount(stats.totalFindings ?? 0);
+    } catch {}
   }, []);
 
   useFocusEffect(useCallback(() => {
@@ -1730,9 +1051,11 @@ function NexusHomeInner() {
     let unsub: (() => void) | null = null;
     try {
       const s = connectionHub.getState();
-      setIsConn(s.isConnected ?? false); setAddr(s.addr || '');
+      setIsConn(s.isConnected ?? false);
+      setAddr(s.addr || '');
       unsub = connectionHub.subscribe((st: any) => {
-        setIsConn(st.isConnected ?? false); setAddr(st.addr || '');
+        setIsConn(st.isConnected ?? false);
+        setAddr(st.addr || '');
         if (st.isConnected) loadData();
       });
     } catch {}
@@ -1744,72 +1067,79 @@ function NexusHomeInner() {
     return () => { delete (global as any).__nexusHomeOpenQR; };
   }, []);
 
-  const goToTab   = useCallback((tab: string) => { haptics.light(); try { (global as any).__butlerSwitchTab?.(tab); } catch {} }, []);
-  const onRefresh = useCallback(async () => { setRefresh(true); haptics.medium(); await loadData(); haptics.success(); setRefresh(false); }, [loadData]);
+  const goToTab = useCallback((tab: string) => {
+    haptics.light();
+    try { (global as any).__butlerSwitchTab?.(tab); } catch {}
+  }, []);
+
+  const onRefresh = useCallback(async () => {
+    setRefresh(true); haptics.medium();
+    await loadData();
+    haptics.success(); setRefresh(false);
+  }, [loadData]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: T.bg }}>
-      <NexusParticleFX pageId="nexushome" active={true} />
+    <View style={{ flex: 1, backgroundColor: COLOR.bg }}>
       <ConnectModal visible={showQR} onClose={() => setShowQR(false)} onConnected={loadData} />
 
-      {/* ══ BLOCK A: HEADER + NAV ══ */}
-      <NexusHeaderNav
+      {/* ── HEADER ── */}
+      <NexusHeader
         safeTop={insets.top}
         isConn={isConn} addr={addr} latency={latency}
-        onQR={() => setShowQR(true)} onRefresh={onRefresh} goToTab={goToTab}
+        onQR={() => setShowQR(true)}
+        onRefresh={onRefresh}
+        goToTab={goToTab}
       />
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: 240 }}
+        contentContainerStyle={{ paddingBottom: 260 }}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews={Platform.OS === 'android'}
         refreshControl={
-          <RefreshControl refreshing={refresh} onRefresh={onRefresh}
-            tintColor={T.cyan} colors={[T.cyan, T.green, T.magenta]} progressBackgroundColor={T.surf} />
+          <RefreshControl
+            refreshing={refresh} onRefresh={onRefresh}
+            tintColor={COLOR.cyan}
+            colors={[COLOR.cyan, COLOR.green, COLOR.magenta]}
+            progressBackgroundColor={COLOR.surf}
+          />
         }
       >
-        {/* ══ REMOTE ACCESS ══ */}
-        <View style={{ paddingHorizontal: PAD, paddingTop: 10, paddingBottom: 2 }}>
+        {/* ── HERO ── */}
+        <HeroPanel isConn={isConn} goToTab={goToTab} onQR={() => setShowQR(true)} />
+
+        {/* ── REMOTE ACCESS ── */}
+        <SectionLabel icon="remote-desktop" label="REMOTE ACCESS" color={COLOR.cyan} />
+        <View style={{ paddingHorizontal: PAD }}>
           <RemoteAccessMonetizationCard onConnected={loadData} />
         </View>
 
-        {/* ══ BLOCK B: NEXUS CONTROL HUB (AI chat + terminal feed merged) ══ */}
-        <NexusControlHub isConn={isConn} goToTab={goToTab} onQR={() => setShowQR(true)} />
-
-        {/* ══ AI FEATURES SHOWCASE ══ */}
-        <SectionBar color={T.cyan} icon="star-four-points" label="AI CAPABILITIES" />
-        <AIFeaturesShowcase goToTab={goToTab} />
-
-        {/* ══ AUTOMATION PIPELINE ══ */}
-        <SectionBar color={T.magenta} icon="pipe" label="AUTOMATION PIPELINE" />
-        <AutomationPipeline isConn={isConn} goToTab={goToTab} />
-
-        {/* ══ BLOCK C: METRICS DASHBOARD (telemetry + stats + quick launch merged) ══ */}
-        <SectionBar color={T.cyan} icon="monitor-dashboard" label="NEXUS METRICS DASHBOARD" />
-        <NexusMetricsDashboard
-          isConn={isConn} metrics={metrics} scripts={scripts} kbCount={kbCount} goToTab={goToTab}
+        {/* ── TELEMETRY DASHBOARD ── */}
+        <SectionLabel icon="monitor-dashboard" label="SYSTEM METRICS" color={COLOR.amber} />
+        <TelemetryDashboard
+          isConn={isConn}
+          cpu={metrics.cpu} ram={metrics.ram} disk={metrics.disk}
+          scripts={scripts} kbCount={kbCount}
+          goToTab={goToTab}
         />
 
-        {/* ══ BLOCK D: NEURAL MEMORY BRAIN ══ */}
-        <SectionBar color={T.magenta} icon="brain" label="NEURAL MEMORY BRAIN" />
-        <View style={{ paddingHorizontal: PAD, paddingTop: 10, paddingBottom: 2 }}>
-          <MemoryBrainWidget kbArticles={kbCount} facts={kbFacts} upcoming={upcoming} goToTab={goToTab} />
-        </View>
+        {/* ── AI CAPABILITIES ── */}
+        <SectionLabel icon="star-four-points" label="AI CAPABILITIES" color={COLOR.magenta} />
+        <AICapabilities goToTab={goToTab} />
 
-        {/* ══ BLOCK E: OPS CENTER (alerts + intel + quick scripts merged) ══ */}
-        <SectionBar color={T.amber} icon="rocket-launch" label="NEXUS OPS CENTER" />
-        <NexusOpsCenter isConn={isConn} cpu={metrics.cpu} goToTab={goToTab} histItems={histItems} />
+        {/* ── QUICK SCRIPTS ── */}
+        <SectionLabel icon="code-braces-box" label="QUICK PC SCRIPTS" color={COLOR.green} />
+        <QuickScripts isConn={isConn} />
 
-        {/* ══ NEXUS VAULT SECURITY ══ */}
-        <SectionBar color={T.green} icon="shield-lock" label="NEXUS VAULT SECURITY" />
-        <View style={{ paddingHorizontal: PAD, paddingTop: 10, paddingBottom: 2 }}>
+        {/* ── NEXUS VAULT ── */}
+        <SectionLabel icon="shield-lock" label="NEXUS VAULT SECURITY" color={COLOR.green} />
+        <View style={{ paddingHorizontal: PAD }}>
           <NexusVaultCard isConnected={isConn} serverLatencyMs={latency} />
         </View>
 
-        {/* ══ BLOCK F: SESSION FOOTER ══ */}
-        <SectionBar color={T.mid} icon="terminal" label="SESSION LOG" />
-        <View style={{ paddingHorizontal: PAD, paddingTop: 10 }}>
+        {/* ── SESSION FOOTER ── */}
+        <SectionLabel icon="terminal" label="SESSION LOG" color={COLOR.mid} />
+        <View style={{ paddingHorizontal: PAD, paddingTop: 4 }}>
           <SessionFooter isConn={isConn} addr={addr} />
         </View>
       </ScrollView>

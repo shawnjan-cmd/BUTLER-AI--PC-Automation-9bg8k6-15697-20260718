@@ -49,6 +49,8 @@ import {
   FavoriteScript,
 } from '@/services/scriptFavorites';
 import { useCosmetic } from '@/contexts/CosmeticContext';
+import { COLOR, FONT, glow, hex as hexToken } from '@/constants/tokens';
+import { CyberPanel } from '@/components/ui/CyberPanel';
 
 const SCRIPTS_PAGE_TIPS: string[] = [
   'Long-press a card to preview code.',
@@ -68,7 +70,7 @@ const SCRIPTS_PAGE_TIPS: string[] = [
 ];
 
 const { width: SW } = Dimensions.get('window');
-const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+const MONO: any = FONT.mono;
 
 // FIX 4B — detect Python code vs prose returned by AI
 function isValidPythonCode(c: string): boolean {
@@ -84,28 +86,28 @@ function ensureErrorHandling(c: string): string {
 }
 
 const N = {
-  bg:       '#020407',
-  surface:  '#070D16',
-  surfaceHi:'#0C1420',
-  surfaceMd:'#0A1018',
-  border:   'rgba(0,255,255,0.12)',
-  borderHi:  'rgba(0,255,255,0.28)',
-  text:      '#D8E8F4',
-  textDim:   '#3A5068',
+  bg:        COLOR.bg,
+  surface:   COLOR.surf,
+  surfaceHi: COLOR.surf2,
+  surfaceMd: COLOR.surf3,
+  border:    COLOR.border,
+  borderHi:  COLOR.cyan + '45',
+  text:      COLOR.text,
+  textDim:   COLOR.mid,
   textMid:   '#7A9AB8',
-  blue:      '#00FFFF',
-  blueDim:   '#00FFFF18',
-  green:     '#00FF88',
-  greenDim:  '#00FF8820',
-  purple:    '#BF00FF',
-  purpleDim: '#BF00FF20',
-  amber:     '#F5A623',
-  amberDim:  '#F5A62320',
-  red:       '#FF3131',
-  redDim:    '#FF313120',
-  teal:      '#00FFFF',
-  tealDim:   '#00FFFF18',
-  yellow:    '#FFD700',
+  blue:      COLOR.cyan,
+  blueDim:   COLOR.cyan + '18',
+  green:     COLOR.green,
+  greenDim:  COLOR.green + '20',
+  purple:    COLOR.magenta,
+  purpleDim: COLOR.magenta + '20',
+  amber:     COLOR.amber,
+  amberDim:  COLOR.amber + '20',
+  red:       COLOR.red,
+  redDim:    COLOR.red + '20',
+  teal:      COLOR.teal,
+  tealDim:   COLOR.teal + '18',
+  yellow:    COLOR.yellow,
 };
 
 const CAT_COLOR: Record<string, string> = {
@@ -1060,37 +1062,51 @@ function NexusLibraryCat({ cat, onPress }: { cat: CategoryDef; onPress: () => vo
   const handlePress = () => {
     haptics.medium();
     Animated.sequence([
-      Animated.timing(scale, { toValue: 0.96, duration: 60, useNativeDriver: true }),
-      Animated.spring(scale, { toValue: 1, tension: 280, friction: 7, useNativeDriver: true }),
+      Animated.timing(scale, { toValue: 0.95, duration: 55, useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1, tension: 300, friction: 7, useNativeDriver: true }),
     ]).start();
     onPress();
   };
 
   return (
-    <Animated.View style={{ transform: [{ scale }] }}>
-      <TouchableOpacity style={[nlc.card, { borderLeftColor: cat.color }]} onPress={handlePress} activeOpacity={0.85}>
-        <View style={[nlc.icon, { backgroundColor: cat.color + '18', borderColor: cat.color + '40' }]}>
-          <IconComp name={cat.icon} size={22} color={cat.color} />
+    <Animated.View style={[nlc.cellWrap, { transform: [{ scale }] }]}>
+      <TouchableOpacity style={[nlc.card, { borderTopColor: cat.color, borderColor: cat.color + '28' }]} onPress={handlePress} activeOpacity={0.88}>
+        {/* Top accent bar */}
+        <View style={[nlc.topBar, { backgroundColor: cat.color }]} />
+        {/* Count badge top-right */}
+        <View style={[nlc.countBadge, { borderColor: cat.color + '60', backgroundColor: glow(cat.color, 15) }]}>
+          <Text style={[nlc.countBadgeTxt, { color: cat.color }]}>{cat.scripts.length}</Text>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={[nlc.title, { color: cat.color }]} numberOfLines={1}>{cat.title}</Text>
-          <Text style={nlc.sub} numberOfLines={1}>{cat.subtitle}</Text>
-          <Text style={[nlc.count, { color: cat.color + '99' }]}>{cat.scripts.length} scripts</Text>
+        {/* Icon container */}
+        <View style={[nlc.iconWrap, { backgroundColor: glow(cat.color, 12), borderColor: cat.color + '45' }]}>
+          <IconComp name={cat.icon} size={26} color={cat.color} />
         </View>
-        <View style={[nlc.arrowBox, { borderColor: cat.color + '40', backgroundColor: cat.color + '10' }]}>
-          <MaterialIcons name="chevron-right" size={18} color={cat.color} />
-        </View>
+        {/* Text */}
+        <Text style={[nlc.title, { color: COLOR.text }]} numberOfLines={1}>{cat.title}</Text>
+        <Text style={nlc.sub} numberOfLines={1}>{cat.subtitle}</Text>
+        {/* Bottom bar */}
+        <View style={[nlc.bottomBar, { backgroundColor: cat.color }]} />
       </TouchableOpacity>
     </Animated.View>
   );
 }
 const nlc = StyleSheet.create({
-  card:    { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: N.surface, borderRadius: 12, borderWidth: 1, borderLeftWidth: 3, borderColor: N.border, padding: 14, marginBottom: 8 },
-  icon:    { width: 46, height: 46, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  title:   { fontSize: 14, fontWeight: '700', fontFamily: MONO, marginBottom: 2 },
-  sub:     { fontSize: 11, color: N.textDim, marginBottom: 3 },
-  count:   { fontSize: 10, fontFamily: MONO },
-  arrowBox:{ width: 32, height: 32, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  cellWrap:   { width: '50%', paddingHorizontal: 4, paddingBottom: 8 },
+  card:       { backgroundColor: COLOR.surf2, borderRadius: 14, borderWidth: 1.5, borderTopWidth: 3,
+    overflow: 'hidden', paddingHorizontal: 14, paddingTop: 14, paddingBottom: 10, position: 'relative', alignItems: 'flex-start',
+    ...Platform.select({ ios: { shadowColor: '#000', shadowOffset:{width:0,height:4}, shadowOpacity:0.3, shadowRadius:10 }, android:{ elevation:5 } }) },
+  topBar:     { position: 'absolute', top: 0, left: 0, right: 0, height: 3 },
+  bottomBar:  { position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, opacity: 0.3 },
+  countBadge: { position: 'absolute', top: 10, right: 10, minWidth: 26, height: 26, borderRadius: 13,
+    borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  countBadgeTxt: { fontFamily: FONT.mono as any, fontSize: 11, fontWeight: '900' },
+  iconWrap:   { width: 50, height: 50, borderRadius: 14, borderWidth: 1.5, alignItems: 'center',
+    justifyContent: 'center', marginBottom: 12, marginTop: 4 },
+  title:      { fontFamily: FONT.mono as any, fontSize: 13, fontWeight: '900', letterSpacing: 0.2, marginBottom: 4, lineHeight: 16 },
+  sub:        { fontFamily: FONT.mono as any, fontSize: 9.5, color: COLOR.mid, lineHeight: 13 },
+  icon:       { width: 46, height: 46, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  count:      { fontSize: 10, fontFamily: FONT.mono as any },
+  arrowBox:   { width: 32, height: 32, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
 });
 
 // ─── UNDO WIDGET — Clean slash-badge design ──────────────────
@@ -3440,31 +3456,47 @@ function ScriptsScreenInner() {
       {/* ── Tab swipe gesture overlay ── */}
       <TabSwipeOverlay leftRoute="/(tabs)/nexushome" rightRoute="/(tabs)/butler" />
       {/* ── COMPACT SCRIPTS HEADER ── */}
-      <CompactPageHeader
-        accent="#00DCFF"
-        icon="code-braces-box"
-        iconLib="community"
-        title="SCRIPTS"
-        badge={String(totalCount + pcLibScripts.length || SEARCH_INDEX.length)}
-        badgeColor="#00FF88"
-        isConnected={isConnected}
-        safeTop={insets.top}
-        rightAction={{ icon: 'history', onPress: () => { haptics.light(); setShowHistory(true); }, color: '#00DCFF' }}
-        extraRow={
-          <>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingTop: 5, paddingBottom: 2 }}>
-              <PageMascot page="scripts" size="sm" showBubble />
-              <View style={{ flex: 1, gap: 2 }}>
-                <View style={{ flexDirection: 'row', gap: 5, flexWrap: 'wrap' }}>
-                  {[{ lbl: 'PYTHON', col: '#CC44FF' }, { lbl: '250+ SCRIPTS', col: '#00FFFF' }, { lbl: 'AI WRITER', col: '#00FF88' }, { lbl: 'SAFETY SCAN', col: '#FFB020' }].map((b) => (
-                    <View key={b.lbl} style={{ borderWidth: 1, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2, borderColor: b.col + '50', backgroundColor: b.col + '0A' }}>
-                      <Text style={{ fontFamily: MONO, fontSize: 7.5, fontWeight: '900', color: b.col, letterSpacing: 0.5 }}>{b.lbl}</Text>
-                    </View>
-                  ))}
-                </View>
-                <Text style={{ fontFamily: MONO, fontSize: 8, color: '#3A5068', letterSpacing: 0.5 }}>RUN · CHAIN · GENERATE · ANALYSE</Text>
+      {/* ── SCRIPT PAGE HEADER ── */}
+      <View style={pgHdr.root}>
+        <View style={{ height: 3, flexDirection: 'row' }}>
+          {COLOR.stripe5.map((c, i) => <View key={i} style={{ flex: 1, backgroundColor: c }} />)}
+        </View>
+        <View style={[pgHdr.brandRow, { paddingTop: insets.top + 6 }]}>
+          <View style={[pgHdr.iconBox, { borderColor: COLOR.cyan + '55', backgroundColor: glow(COLOR.cyan, 8) }]}>
+            <MaterialCommunityIcons name="code-braces-box" size={18} color={COLOR.cyan} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+              <Text style={pgHdr.brand}><Text style={{ color: COLOR.cyan }}>{'{'}</Text><Text style={{ color: COLOR.text }}>SCRIPT</Text><Text style={{ color: COLOR.green }}>_LIB</Text><Text style={{ color: COLOR.cyan }}>{'}'}</Text></Text>
+              <View style={[pgHdr.badge, { borderColor: COLOR.green + '50', backgroundColor: glow(COLOR.green, 7) }]}>
+                <Text style={[pgHdr.badgeTxt, { color: COLOR.green }]}>{String(totalCount + pcLibScripts.length || SEARCH_INDEX.length)} SCRIPTS</Text>
               </View>
             </View>
+            <Text style={pgHdr.sub}><Text style={{ color: COLOR.green + '55' }}>{'# '}</Text><Text style={{ color: COLOR.mid }}>python · bash · ai writer · chain runner</Text></Text>
+          </View>
+          <TouchableOpacity onPress={() => { haptics.light(); setShowHistory(true); }}
+            style={[pgHdr.histBtn, { borderColor: COLOR.cyan + '50', backgroundColor: glow(COLOR.cyan, 8) }]}>
+            <MaterialIcons name="history" size={15} color={COLOR.cyan} />
+          </TouchableOpacity>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingTop: 4, paddingBottom: 7, flexWrap: 'wrap' }}>
+          {[{ lbl: 'PYTHON', col: COLOR.magenta }, { lbl: '250+ SCRIPTS', col: COLOR.cyan }, { lbl: 'AI WRITER', col: COLOR.green }, { lbl: 'SAFETY SCAN', col: COLOR.amber }].map((b) => (
+            <View key={b.lbl} style={{ borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, borderColor: b.col + '50', backgroundColor: glow(b.col, 7) }}>
+              <Text style={{ fontFamily: MONO, fontSize: 7.5, fontWeight: '900', color: b.col, letterSpacing: 0.5 }}>{b.lbl}</Text>
+            </View>
+          ))}
+        </View>
+        <CompactPageHeader
+          accent={COLOR.cyan}
+          icon="code-braces-box"
+          iconLib="community"
+          title=""
+          badge=""
+          badgeColor={COLOR.green}
+          isConnected={isConnected}
+          safeTop={0}
+          rightAction={{ icon: 'history', onPress: () => {}, color: COLOR.cyan }}
+          extraRow={<>
             <ScriptsDashStrip
               historyEntries={historyEntries}
               isConnected={isConnected}
@@ -3475,6 +3507,7 @@ function ScriptsScreenInner() {
           </>
         }
       />
+      </View>
 
       {/* NexusUndoWidget moved into FlatList ListHeaderComponent to prevent layout push */}
 
@@ -3761,7 +3794,9 @@ function ScriptsScreenInner() {
                 )
               ) : (
                 <FlatList data={ALL_CATEGORIES} keyExtractor={item => item.id}
-                  contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 210, paddingTop: 8 }}
+                  numColumns={2}
+                  key="library-grid-2col"
+                  contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 210, paddingTop: 8 }}
                   showsVerticalScrollIndicator={false}
                   renderItem={({ item }) => <NexusLibraryCat cat={item} onPress={() => navigateToCat(item)} />}
                 />
@@ -3806,6 +3841,17 @@ function ScriptsScreenInner() {
     </View>
   );
 }
+
+const pgHdr = StyleSheet.create({
+  root:     { backgroundColor: COLOR.bg, borderBottomWidth: 1, borderBottomColor: COLOR.border },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 6 },
+  iconBox:  { width: 36, height: 36, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  brand:    { fontFamily: FONT.mono as any, fontSize: 14, fontWeight: '900' as const, letterSpacing: 0.3 },
+  sub:      { fontFamily: FONT.mono as any, fontSize: 8.5, lineHeight: 13 },
+  badge:    { borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
+  badgeTxt: { fontFamily: FONT.mono as any, fontSize: 8, fontWeight: '900' as const, letterSpacing: 0.5 },
+  histBtn:  { width: 32, height: 32, borderRadius: 9, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+});
 
 export default function ScriptsScreen() {
   return (
