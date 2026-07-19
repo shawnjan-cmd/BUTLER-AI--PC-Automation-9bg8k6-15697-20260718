@@ -44,25 +44,50 @@ export class TabErrorBoundary extends Component<Props, State> {
     } catch {}
   }
 
-  // Auto-reset after 4s for known transient/recoverable errors
+  // Auto-reset for known transient/recoverable errors.
+  // Animation driver conflicts reset in 1s (very fast — they are always
+  // safe to retry since the animated values are recreated on mount).
+  // Other transient crashes reset in 2.5s.
   componentDidUpdate(_: Props, prev: State) {
     if (!prev.error && this.state.error) {
-      this._autoResetTimer = setTimeout(() => {
-        const msg = this.state.error?.message ?? '';
-        const isTransient =
-          msg.includes('undefined is not a function') ||
-          msg.includes('null is not an object') ||
-          msg.includes('Cannot read prop') ||
-          msg.includes('is not a function') ||
-          // Animation driver conflicts — always transient, safe to auto-reset
-          msg.includes('Attempting to run JS driven animation') ||
-          msg.includes('animated node') ||
-          msg.includes('useNativeDriver');
-        if (isTransient) {
+      const msg = this.state.error?.message ?? '';
+      const isAnimationCrash =
+        msg.includes('Attempting to run JS driven animation') ||
+        msg.includes('animated node') ||
+        msg.includes('useNativeDriver');
+      const isTransient =
+        isAnimationCrash ||
+        msg.includes('undefined is not a function') ||
+        msg.includes('null is not an object') ||
+        msg.includes('Cannot read prop') ||
+        msg.includes('is not a function') ||
+        msg.includes('Maximum update depth') ||
+        msg.includes('Element type is invalid');
+
+      if (isTransient) {
+        const delay = isAnimationCrash ? 1000 : 2500;
+        this._autoResetTimer = setTimeout(() => {
+          this.setState({ error: null });
+        }, delay);
+      }
+    }
+  }
+
+  // Register this boundary's reset callback globally so runtimeErrorMonitor
+  // can trigger auto-reset from the fix engine.
+  componentDidMount() {
+    try {
+      const name = this.props.name;
+      const prev = (global as any).__butlerResetTabBoundary;
+      (global as any).__butlerResetTabBoundary = (tabName?: string) => {
+        // Reset this boundary if no tab name given, or if name matches
+        if (!tabName || tabName === name || tabName === 'Core' || name === 'Core') {
           this.setState({ error: null });
         }
-      }, 4000);
-    }
+        // Also forward to any previously registered boundary
+        try { if (prev && prev !== (global as any).__butlerResetTabBoundary) prev(tabName); } catch {}
+      };
+    } catch {}
   }
 
   componentWillUnmount() {

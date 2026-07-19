@@ -104,12 +104,13 @@ function HudCorners({ color, size = 10, t = 1.5 }: { color: string; size?: numbe
 // ──────────────────────────────────────────────────────────────────
 // COMPONENT 1: COMPACT NEXUS HEADER
 // ──────────────────────────────────────────────────────────────────
-function NexusHeader({ safeTop, isConn, addr, latency, onQR, onRefresh }: {
+function NexusHeader({ safeTop, isConn, addr, latency, onQR, onRefresh }: {  // eslint-disable-line
   safeTop: number; isConn: boolean; addr: string; latency: number; onQR: () => void; onRefresh: () => void;
 }) {
   const pulseA = useRef(new Animated.Value(0.4)).current;
   const focused = useIsFocused();
   const nhMounted = useRef(true);
+  const loop_ref = useRef<ReturnType<typeof Animated.loop> | null>(null);
   const [time, setTime] = useState('');
   const isPlainHttp = isConn && !addr.startsWith('https');
   useEffect(() => {
@@ -118,13 +119,14 @@ function NexusHeader({ safeTop, isConn, addr, latency, onQR, onRefresh }: {
   }, []);
   useEffect(() => {
     nhMounted.current = true;
-    if (!focused) return;
+    if (!focused) { loop_ref.current?.stop(); return; }
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(pulseA, { toValue:1, duration:1000, useNativeDriver:true }),
       Animated.timing(pulseA, { toValue:0.2, duration:1000, useNativeDriver:true }),
     ]));
+    loop_ref.current = loop;
     loop.start();
-    return () => { nhMounted.current = false; loop.stop(); };
+    return () => { nhMounted.current = false; loop.stop(); loop_ref.current = null; };
   }, [focused]);
   const cc = isConn ? T.green : T.red;
   return (
