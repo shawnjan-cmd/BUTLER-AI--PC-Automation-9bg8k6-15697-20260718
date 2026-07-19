@@ -10,17 +10,7 @@ import { CosmeticProvider } from '@/contexts/CosmeticContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { TabBarProvider } from '@/contexts/TabBarContext';
 import { PurchaseProvider } from '@/contexts/PurchaseContext';
-import { runtimeErrorMonitor } from '@/services/runtimeErrorMonitor';
-import { RuntimeDiagnosticsHUD } from '@/components/ui/RuntimeDiagnosticsHUD';
-import { securityAuditEngine } from '@/services/securityAuditEngine';
-import { appHealthEngine } from '@/services/appHealthEngine';
-
-// Boot runtime monitor — installs 5 global interceptors silently
-try { runtimeErrorMonitor.init().catch(() => {}); } catch {}
-// Boot security audit engine — 13-check vulnerability scanner
-try { securityAuditEngine.init().catch(() => {}); } catch {}
-// Boot app health engine — dead code + stale storage + auto-fix
-try { appHealthEngine.init().catch(() => {}); } catch {}
+// RuntimeDiagnosticsHUD, runtimeErrorMonitor, securityAuditEngine, appHealthEngine disabled by user
 
 // NOTE: Crash log helpers live in services/bootErrorLog.ts.
 // Import them directly from there — re-exporting from _layout.tsx risks
@@ -180,8 +170,7 @@ export default function RootLayout() {
                       }}
                     />
                   </Stack>
-                  {/* Runtime Diagnostics HUD — floating error badge + dashboard */}
-                  <RuntimeDiagnosticsHUD />
+
                 </PurchaseProvider>
               </TabBarProvider>
             </CosmeticProvider>
