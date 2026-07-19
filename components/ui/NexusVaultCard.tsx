@@ -228,9 +228,8 @@ async function triggerDeadMansSwitch(reason: string): Promise<void> {
   try {
     // 1. Wipe session token from encrypted storage
     await encryptedStorage.setItem('commandcube_session_token', '').catch(() => {});
-    // 2. Clear clipboard silently
-    try { require('@react-native-clipboard/clipboard').default.setString(''); } catch {}
-    try { require('react-native').Clipboard.setString(''); } catch {}
+    // 2. Clear clipboard silently (expo-clipboard — always available in Expo, no native linking)
+    try { import('expo-clipboard').then(m => m.setStringAsync('').catch(() => {})).catch(() => {}); } catch {}
     // 3. Record trigger event with timestamp (no sensitive data)
     await AsyncStorage.setItem(DMS_TRIGGERED_KEY, JSON.stringify({
       ts: Date.now(), reason: reason.slice(0, 80),
