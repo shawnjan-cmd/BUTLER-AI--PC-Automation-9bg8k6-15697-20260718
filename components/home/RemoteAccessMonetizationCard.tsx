@@ -1,7 +1,7 @@
 /**
- * RemoteAccessMonetizationCard — NEXUS REMOTE v3
+ * RemoteAccessMonetizationCard — NEXUS REMOTE v4
  * ────────────────────────────────────────────────────────────────
- * Stunning cyberpunk terminal aesthetic · Crash-proof animations
+ * Unified design token system · CyberPanel wrapper · Crash-proof animations
  * All Animated.Values: single driver type, mounted guards on every loop
  * useNativeDriver: true (opacity only) — ZERO JS/native mixing
  */
@@ -17,26 +17,30 @@ import { TIERS, TierID } from '@/services/remoteAccessTiers';
 import { RemoteAccessPaywall } from '@/components/ui/RemoteAccessPaywall';
 import { RemoteSetupWizard } from '@/components/ui/RemoteSetupWizard';
 import { MultiPCManager } from '@/components/ui/MultiPCManager';
+import { CyberPanel } from '@/components/ui/CyberPanel';
+import { COLOR, FONT, glow, hex } from '@/constants/tokens';
 import { haptics } from '@/services/haptics';
 import { logger } from '@/utils/logger';
 
-const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+const MONO: any = FONT.mono;
+const SW = Math.max(320, Dimensions.get('window').width);
 
+// Alias tokens to local C for minimal diff
 const C = {
-  bg:     '#010407',
-  surf:   '#050C18',
-  surf2:  '#09131F',
-  cyan:   '#00E5FF',
-  green:  '#00FF88',
-  amber:  '#FFB020',
-  red:    '#FF3344',
-  purple: '#CC44FF',
-  blue:   '#4488FF',
-  pink:   '#FF6EB4',
-  mid:    '#3A5A76',
-  dim:    '#0D1E30',
-  text:   '#C8E4F0',
-  border: 'rgba(0,229,255,0.10)',
+  bg:     COLOR.bg,
+  surf:   COLOR.surf,
+  surf2:  COLOR.surf2,
+  cyan:   COLOR.cyan,
+  green:  COLOR.green,
+  amber:  COLOR.amber,
+  red:    COLOR.red,
+  purple: COLOR.magenta,
+  blue:   COLOR.blue,
+  pink:   COLOR.pink,
+  mid:    COLOR.mid,
+  dim:    COLOR.dim,
+  text:   COLOR.text,
+  border: COLOR.border,
 };
 
 // ── SAFE PULSE DOT — opacity only, native driver, mounted guard ──
@@ -89,8 +93,8 @@ function FeatRow({ icon, label, detail, locked, color }: {
 }) {
   const c = locked ? C.mid : color;
   return (
-    <View style={[fr.row, { borderColor: locked ? C.dim : color + '30', backgroundColor: locked ? 'transparent' : color + '06' }]}>
-      <View style={[fr.iconBox, { borderColor: c + '50', backgroundColor: c + '10' }]}>
+    <View style={[fr.row, { borderColor: locked ? C.dim : color + '30', backgroundColor: locked ? 'transparent' : glow(color, 6) }]}>
+      <View style={[fr.iconBox, { borderColor: c + '50', backgroundColor: glow(c, 10) }]}>
         {locked
           ? <MaterialIcons name="lock" size={11} color={C.mid} />
           : <MaterialCommunityIcons name={icon as any} size={11} color={color} />}
@@ -149,34 +153,32 @@ export function RemoteAccessMonetizationCard({ onConnected }: { onConnected?: ()
 
   if (!isLoaded) {
     return (
-      <View style={[card.wrap, { minHeight: 80, alignItems: 'center', justifyContent: 'center', gap: 8 }]}>
+      <CyberPanel accentColor={C.cyan} stripe staticBorder screenWidth={SW}
+        style={{ minHeight: 80, alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 20 }}>
         <ActivityIndicator size="small" color={C.cyan} />
         <Text style={{ fontFamily: MONO, fontSize: 8, color: C.mid }}>LOADING PLANS...</Text>
-      </View>
+      </CyberPanel>
     );
   }
 
   const statusColor = isPro ? C.green : C.amber;
   const tierColor   = tierData.color;
 
-  // 5-color gradient stripe using tier colors
-  const STRIPE = [C.cyan, C.green, tierColor, C.purple, C.pink];
-
   return (
     <>
-      <View style={card.wrap}>
-
-        {/* ── GRADIENT TOP STRIPE ───────────────────────────────── */}
-        <View style={{ height: 3, flexDirection: 'row' }}>
-          {STRIPE.map((col, i) => <View key={i} style={{ flex: 1, backgroundColor: col }} />)}
-        </View>
-
-        <HudCorners color={tierColor + '50'} size={10} t={1.5} />
+      {/* CyberPanel provides: animated border glow, HUD corners, top+bottom stripe, scanline sweep */}
+      <CyberPanel
+        accentColor={tierColor}
+        stripe
+        stripeColors={[C.cyan, C.green, tierColor, C.purple, C.pink]}
+        scanline
+        screenWidth={SW}
+      >
 
         {/* ── HEADER SECTION ────────────────────────────────────── */}
         <View style={card.header}>
           {/* Icon cluster */}
-          <View style={[card.iconCluster, { borderColor: tierColor + '40', backgroundColor: tierColor + '08' }]}>
+          <View style={[card.iconCluster, { borderColor: tierColor + '40', backgroundColor: glow(tierColor, 8) }]}>
             <MaterialCommunityIcons name="remote-desktop" size={22} color={tierColor} />
             <View style={[card.iconDot, { backgroundColor: isPro ? C.green : C.mid }]} />
           </View>
@@ -205,7 +207,7 @@ export function RemoteAccessMonetizationCard({ onConnected }: { onConnected?: ()
             { k: 'ENC',    v: isPro ? 'TLS 1.3' : 'NONE',             c: isPro ? C.cyan  : C.mid },
             { k: 'DEVICES',v: `${savedPCs.length}/${maxPCs}`,          c: C.amber },
           ].map((item, i) => (
-            <View key={i} style={[card.infoPill, { borderColor: item.c + '35' }]}>
+            <View key={i} style={[card.infoPill, { borderColor: item.c + '35', backgroundColor: glow(item.c, 5) }]}>
               <Text style={[card.infoPillLbl, { color: item.c + '70' }]}>{item.k}</Text>
               <Text style={[card.infoPillVal, { color: item.c }]}>{item.v}</Text>
             </View>
@@ -240,7 +242,7 @@ export function RemoteAccessMonetizationCard({ onConnected }: { onConnected?: ()
             <Pressable onPress={handleMultiPC}
               style={({ pressed }) => [card.btnSecondary, {
                 borderColor: isElite ? C.purple + '60' : C.dim,
-                backgroundColor: isElite ? C.purple + '10' : 'transparent',
+                backgroundColor: isElite ? glow(C.purple, 10) : 'transparent',
                 opacity: pressed ? 0.8 : 1,
               }]}>
               <MaterialCommunityIcons name="server-network" size={14} color={isElite ? C.purple : C.mid} />
@@ -277,11 +279,7 @@ export function RemoteAccessMonetizationCard({ onConnected }: { onConnected?: ()
           </Pressable>
         </View>
 
-        {/* ── BOTTOM STRIPE ────────────────────────────────────────── */}
-        <View style={{ height: 2, flexDirection: 'row', opacity: 0.4 }}>
-          {STRIPE.map((col, i) => <View key={i} style={{ flex: 1, backgroundColor: col }} />)}
-        </View>
-      </View>
+      </CyberPanel>
 
       <RemoteAccessPaywall
         visible={showPaywall}
@@ -303,19 +301,6 @@ export function RemoteAccessMonetizationCard({ onConnected }: { onConnected?: ()
 }
 
 const card = StyleSheet.create({
-  wrap: {
-    backgroundColor: C.surf,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: C.border,
-    overflow: 'hidden',
-    position: 'relative',
-    ...Platform.select({
-      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 18 },
-      android: { elevation: 10 },
-    }),
-  },
-
   // Header
   header: {
     flexDirection: 'row', alignItems: 'flex-start',
@@ -329,12 +314,12 @@ const card = StyleSheet.create({
   iconDot: {
     position: 'absolute', bottom: 5, right: 5,
     width: 8, height: 8, borderRadius: 4,
-    borderWidth: 1.5, borderColor: C.surf,
+    borderWidth: 1.5, borderColor: COLOR.surf,
   },
   headerInfo: { flex: 1 },
   title:    { fontFamily: MONO, fontSize: 14, fontWeight: '900', color: '#FFF', letterSpacing: 0.4 },
   statusTxt:{ fontFamily: MONO, fontSize: 8.5, fontWeight: '700', flex: 1 },
-  tagline:  { fontFamily: MONO, fontSize: 8.5, color: C.mid, lineHeight: 13, marginTop: 4 },
+  tagline:  { fontFamily: MONO, fontSize: 8.5, color: COLOR.mid, lineHeight: 13, marginTop: 4 },
 
   // Info bar
   infoBar: {
@@ -344,12 +329,12 @@ const card = StyleSheet.create({
   infoPill: {
     flex: 1, alignItems: 'center',
     borderWidth: 1, borderRadius: 8, paddingVertical: 6, gap: 2,
-    backgroundColor: C.surf2,
+    backgroundColor: COLOR.surf2,
   },
   infoPillLbl: { fontFamily: MONO, fontSize: 6.5, fontWeight: '700', letterSpacing: 0.5 },
   infoPillVal: { fontFamily: MONO, fontSize: 9, fontWeight: '900' },
 
-  divider:     { height: StyleSheet.hairlineWidth, backgroundColor: C.border, marginHorizontal: 14 },
+  divider:     { height: StyleSheet.hairlineWidth, backgroundColor: COLOR.border, marginHorizontal: 14 },
   sectionTitle:{ fontFamily: MONO, fontSize: 8.5, fontWeight: '900', letterSpacing: 1.5 },
 
   // Buttons
@@ -371,7 +356,7 @@ const card = StyleSheet.create({
   unlockBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     margin: 14, borderRadius: 14,
-    backgroundColor: C.amber,
+    backgroundColor: COLOR.amber,
     paddingVertical: 15, paddingHorizontal: 16,
     overflow: 'hidden', position: 'relative',
   },
@@ -391,9 +376,9 @@ const card = StyleSheet.create({
   footer: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 14, paddingVertical: 9,
-    backgroundColor: C.bg,
+    backgroundColor: COLOR.bg,
   },
-  footerTxt:  { fontFamily: MONO, fontSize: 8, color: C.mid, flex: 1 },
+  footerTxt:  { fontFamily: MONO, fontSize: 8, color: COLOR.mid, flex: 1 },
   footerLink: { fontFamily: MONO, fontSize: 8, fontWeight: '900' },
 });
 

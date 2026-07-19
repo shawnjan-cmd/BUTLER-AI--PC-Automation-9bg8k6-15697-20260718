@@ -21,7 +21,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated, Platform,
-  ScrollView, AppState, AppStateStatus,
+  ScrollView, AppState, AppStateStatus, Dimensions,
 } from 'react-native';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -30,26 +30,30 @@ import { serverConnection } from '@/services/serverConnection';
 import { neuralTripwire, TripwireState } from '@/services/neuralTripwire';
 import { encryptedStorage } from '@/services/encryptedStorage';
 import { NX_COPYRIGHT, verifyBundleIntegrity } from '@/services/nexusCopyright';
+import { CyberPanel } from '@/components/ui/CyberPanel';
+import { COLOR, FONT, glow, hex } from '@/constants/tokens';
 
-const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+const MONO: any = FONT.mono;
+const SW = Math.max(320, Dimensions.get('window').width);
 
+// Alias tokens — keeps all existing logic untouched
 const C = {
-  bg:       '#010305',
-  surf:     '#060D16',
-  surf2:    '#080F1C',
-  surfHi:   '#0B1628',
-  cyan:     '#00E5FF',
-  green:    '#00FF88',
-  amber:    '#FFB020',
-  red:      '#FF3131',
-  purple:   '#CC44FF',
-  teal:     '#00FFCC',
-  blue:     '#4A9EFF',
-  pink:     '#FF44AA',
-  text:     '#C8E4F0',
-  mid:      '#5A7A96',
-  dim:      '#243040',
-  border:   'rgba(0,229,255,0.14)',
+  bg:       COLOR.bg,
+  surf:     COLOR.surf,
+  surf2:    COLOR.surf2,
+  surfHi:   COLOR.surf3,
+  cyan:     COLOR.cyan,
+  green:    COLOR.green,
+  amber:    COLOR.amber,
+  red:      COLOR.red,
+  purple:   COLOR.magenta,
+  teal:     COLOR.teal,
+  blue:     COLOR.blue,
+  pink:     COLOR.pink,
+  text:     COLOR.text,
+  mid:      COLOR.mid,
+  dim:      COLOR.dim,
+  border:   COLOR.border,
 };
 
 // ── AsyncStorage keys ──────────────────────────────────────────────
@@ -610,16 +614,19 @@ export function NexusVaultCard({ isConnected, serverLatencyMs }: {
     { key: 'canary',  label: 'CANARY',    icon: 'verified'       },
   ];
 
-  const borderC = glowA.interpolate({ inputRange: [0.2, 1], outputRange: [radarColor + '30', radarColor + '80'] });
+  // borderC and glowA now handled by CyberPanel — kept as local convenience vars for section logic only
+  const _unused_borderC = glowA.interpolate({ inputRange: [0.2, 1], outputRange: [radarColor + '30', radarColor + '80'] });
 
   return (
-    <Animated.View style={[vlt.card, { borderColor: borderC }]}>
-      {/* Colour stripe — threat-reactive */}
-      <View style={{ height: 3, flexDirection: 'row' }}>
-        {[radarColor, C.purple, C.teal, C.amber, radarColor].map((c, i) => (
-          <View key={i} style={{ flex: 1, backgroundColor: c }} />
-        ))}
-      </View>
+    <CyberPanel
+      accentColor={radarColor}
+      stripe
+      stripeColors={[radarColor, C.purple, C.teal, C.amber, radarColor]}
+      scanline
+      screenWidth={SW}
+      glowRange={[0.22, 0.85]}
+      style={vlt.outerPanel}
+    >
 
       {/* ── COMPACT HEADER ROW ── */}
       <TouchableOpacity onPress={handleToggle} style={vlt.header} activeOpacity={0.85}>
@@ -777,15 +784,14 @@ export function NexusVaultCard({ isConnected, serverLatencyMs }: {
           Nexus Vault v1.0 · {NX_COPYRIGHT.owner} · {NX_COPYRIGHT.dmca}
         </Text>
       </Animated.View>
-    </Animated.View>
+    </CyberPanel>
   );
 }
 
 const vlt = StyleSheet.create({
-  card: {
-    backgroundColor: C.surf, borderRadius: 14, borderWidth: 1.5, overflow: 'hidden', marginBottom: 14,
-    ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.35, shadowRadius: 14 }, android: { elevation: 8 } }),
-  },
+  outerPanel: {
+    marginBottom: 14,
+  } as any,
   header:    { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
   title:     { fontSize: 12, fontWeight: '900', fontFamily: MONO, letterSpacing: 1.5 },
   sub:       { fontSize: 8.5, color: C.mid, fontFamily: MONO },
