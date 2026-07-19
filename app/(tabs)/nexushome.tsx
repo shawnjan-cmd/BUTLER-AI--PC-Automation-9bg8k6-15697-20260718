@@ -353,8 +353,10 @@ const hdr = StyleSheet.create({
 // HERO PANEL — mascot + AI chat CTA + quick actions
 // ══════════════════════════════════════════════════════════════════
 let _MASCOT: any = null;
-try { _MASCOT = require('@/assets/images/mascot_shield_v2.png'); } catch {
-  try { _MASCOT = require('@/assets/images/nexus-robot-mascot.png'); } catch {}
+try { _MASCOT = require('@/assets/images/butler-robot-3d.png'); } catch {
+  try { _MASCOT = require('@/assets/images/mascot_shield_v2.png'); } catch {
+    try { _MASCOT = require('@/assets/images/nexus-robot-mascot.png'); } catch {}
+  }
 }
 
 const AI_PROMPTS = [
@@ -473,9 +475,9 @@ function HeroPanel({ isConn, goToTab, onQR }: { isConn: boolean; goToTab: (t: st
 
 const hero = StyleSheet.create({
   inner:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: PAD, paddingTop: 14, paddingBottom: 10, gap: 10 },
-  mascotWrap:  { width: 68, alignItems: 'center', flexShrink: 0 },
-  mascot:      { width: 60, height: 76 },
-  mascotFallback: { width: 60, height: 60, alignItems: 'center', justifyContent: 'center' },
+  mascotWrap:  { width: 84, alignItems: 'center', flexShrink: 0 },
+  mascot:      { width: 80, height: 100 },
+  mascotFallback: { width: 80, height: 80, alignItems: 'center', justifyContent: 'center' },
   connBadge:   { flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 1, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2.5, marginTop: 6 },
   connBadgeTxt:{ fontFamily: MONO, fontSize: 7.5, fontWeight: '900' },
   titleCol:    { flex: 1 },
