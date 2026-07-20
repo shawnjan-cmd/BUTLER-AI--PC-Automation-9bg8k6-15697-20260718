@@ -73,6 +73,7 @@ const ICON_MAP: Record<string, IconFn> = {
   logs:           (c, s) => <MaterialIcons name="bar-chart" size={s} color={c} />,
   builder:        (c, s) => <MaterialIcons name="handyman" size={s} color={c} />,
   fileshare:      (c, s) => <MaterialIcons name="folder-open" size={s} color={c} />,
+  connect:        (c, s) => <MaterialCommunityIcons name="server-network" size={s} color={c} />,
   settings:       (c, s) => <MaterialIcons name="tune" size={s} color={c} />,
   cosmetic:       (c, s) => <MaterialCommunityIcons name="palette-swatch" size={s} color={c} />,
   butler_v1:      (c, s) => <MaterialCommunityIcons name="robot-outline" size={s} color={c} />,
@@ -277,7 +278,7 @@ export default function TabsLayout() {
 
       {/* ── HIDDEN UTILITY TABS ── */}
       <Tabs.Screen name="index"          options={{ href: null }} />
-      <Tabs.Screen name="connect"        options={{ href: null }} />
+      <Tabs.Screen name="connect"        options={{ title: 'PAIR', tabBarLabel: 'PAIR' }} />
       <Tabs.Screen name="terminal"       options={{ href: null }} />
       <Tabs.Screen name="support"        options={{ href: null }} />
 
