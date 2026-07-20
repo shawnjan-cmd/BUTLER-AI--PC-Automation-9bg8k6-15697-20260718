@@ -582,7 +582,9 @@ function CatCard({ cat, index, onPress }: { cat: CategoryDef; index: number; onP
   return (
     <Pressable onPress={() => { haptics.medium(); onPress(); }} onPressIn={pressIn} onPressOut={pressOut}
       style={{ width: CARD_W }}>
-      <Animated.View style={[catc.card, { borderColor, transform: [{ scale: scaleA }] }]}>
+      {/* Outer: native-driver scale only — never mix with JS-driver props on Android */}
+      <Animated.View style={{ transform: [{ scale: scaleA }] }}>
+      <Animated.View style={[catc.card, { borderColor }]}>
         {/* Top accent */}
         <View style={[catc.topAccent, { backgroundColor: col }]} />
         <HUDCorners color={col + '40'} size={7} />
@@ -614,6 +616,7 @@ function CatCard({ cat, index, onPress }: { cat: CategoryDef; index: number; onP
 
         {/* Bottom glow line */}
         <View style={[catc.bottomGlow, { backgroundColor: col }]} />
+      </Animated.View>
       </Animated.View>
     </Pressable>
   );
