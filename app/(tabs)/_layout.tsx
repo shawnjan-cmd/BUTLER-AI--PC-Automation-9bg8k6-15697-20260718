@@ -76,13 +76,7 @@ const ICON_MAP: Record<string, IconFn> = {
   connect:        (c, s) => <MaterialCommunityIcons name="server-network" size={s} color={c} />,
   settings:       (c, s) => <MaterialIcons name="tune" size={s} color={c} />,
   cosmetic:       (c, s) => <MaterialCommunityIcons name="palette-swatch" size={s} color={c} />,
-  butler_v1:      (c, s) => <MaterialCommunityIcons name="robot-outline" size={s} color={c} />,
-  knowledge_v1:   (c, s) => <MaterialCommunityIcons name="brain" size={s} color={c} />,
-  scripts_legacy: (c, s) => <MaterialIcons name="history" size={s} color={c} />,
-  logs_v1:        (c, s) => <MaterialIcons name="monitor-heart" size={s} color={c} />,
-  builder_v1:     (c, s) => <MaterialCommunityIcons name="hammer-screwdriver" size={s} color={c} />,
-  fileshare_v1:   (c, s) => <MaterialCommunityIcons name="radar" size={s} color={c} />,
-  cosmetic_v1:    (c, s) => <MaterialCommunityIcons name="palette-swatch" size={s} color={c} />,
+
 };
 
 const TAB_LABELS: Record<string, string> = {
@@ -95,13 +89,7 @@ const TAB_LABELS: Record<string, string> = {
   fileshare:      'VAULT',
   settings:       'CFG',
   cosmetic:       'SKINS',
-  butler_v1:      'AI-V1',
-  knowledge_v1:   'KB-V1',
-  scripts_legacy: 'SCR-V1',
-  logs_v1:        'PC-V1',
-  builder_v1:     'BLD-V1',
-  fileshare_v1:   'NET-V1',
-  cosmetic_v1:    'SKN-V1',
+
 };
 
 // ── Loading splash — shown ONLY during the AsyncStorage read ─────
@@ -282,14 +270,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="terminal"       options={{ href: null }} />
       <Tabs.Screen name="support"        options={{ href: null }} />
 
-      {/* ── LEGACY ARCHIVE TABS (visible after Settings for easy reference) ── */}
-      <Tabs.Screen name="butler_v1"      options={{ title: TAB_LABELS.butler_v1,      tabBarLabel: TAB_LABELS.butler_v1      }} />
-      <Tabs.Screen name="knowledge_v1"   options={{ title: TAB_LABELS.knowledge_v1,   tabBarLabel: TAB_LABELS.knowledge_v1   }} />
-      <Tabs.Screen name="scripts_legacy" options={{ title: TAB_LABELS.scripts_legacy, tabBarLabel: TAB_LABELS.scripts_legacy }} />
-      <Tabs.Screen name="logs_v1"        options={{ title: TAB_LABELS.logs_v1,        tabBarLabel: TAB_LABELS.logs_v1        }} />
-      <Tabs.Screen name="builder_v1"     options={{ title: TAB_LABELS.builder_v1,     tabBarLabel: TAB_LABELS.builder_v1     }} />
-      <Tabs.Screen name="fileshare_v1"   options={{ title: TAB_LABELS.fileshare_v1,   tabBarLabel: TAB_LABELS.fileshare_v1   }} />
-      <Tabs.Screen name="cosmetic_v1"    options={{ title: TAB_LABELS.cosmetic_v1,    tabBarLabel: TAB_LABELS.cosmetic_v1    }} />
+
     </Tabs>
   );
 }
