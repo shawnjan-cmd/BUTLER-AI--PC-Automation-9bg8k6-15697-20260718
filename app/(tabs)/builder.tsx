@@ -1,622 +1,316 @@
 /**
- * ⚡ NEXUS SCRIPT BUILDER — Visual Node Pipeline Editor v2.0
- * LAYOUT LAW: Full-width tab toggle (PALETTE | CANVAS)
- * Palette uses 3-col COL3_W grid grouped by TRIGGER / ACTION / OUTPUT
- * with colored SectionDiv headers and a compact type-stats strip.
+ * BUTLER AI — SCRIPT FORGE v2.0
+ * Fresh cyberpunk redesign · token system
+ * Node pipeline builder with palette + canvas + execute
  */
 
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Platform, Animated, Alert, ActivityIndicator, TextInput, Modal, Dimensions, Easing,
+  Platform, Animated, Alert, ActivityIndicator, TextInput, Dimensions, FlatList,
 } from 'react-native';
-
-const { width: SW } = Dimensions.get('window');
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 import { haptics } from '@/services/haptics';
 import { TabSwipeOverlay } from '@/components/ui/TabSwipeOverlay';
-import { Image as ExpoImage } from 'expo-image';
-import { CompactPageHeader } from '@/components/ui/CompactPageHeader';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { serverConnection } from '@/services/serverConnection';
-import { autoConnectEngine, EngineEvent } from '@/services/autoConnectEngine';
-import { useFocusEffect } from 'expo-router';
-import { saveButlerScript } from '@/services/butlerScripts';
-import { LiveWidgetStudio } from '@/components/ui/LiveWidgetStudio';
-import { WidgetLayer } from '@/components/ui/WidgetLayer';
 import { TabErrorBoundary } from '@/components/ui/TabErrorBoundary';
+import { COLOR, FONT, glow, SHADOW } from '@/constants/tokens';
+import { serverConnection } from '@/services/serverConnection';
+import { autoConnectEngine } from '@/services/autoConnectEngine';
+import { saveButlerScript } from '@/services/butlerScripts';
+import { useCosmetic } from '@/contexts/CosmeticContext';
 
-const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+const MONO: any = FONT.mono;
+const SW = Math.max(320, Dimensions.get('window').width);
+const PAD = 14;
+const GAP = 7;
+const COL3 = Math.floor((SW - PAD * 2 - GAP * 2) / 3);
 
-// ─── PALETTE ─────────────────────────────────────────────────
-const C = {
-  bg:         '#020407',
-  surface:    '#070D16',
-  surfaceHi:  '#0C1420',
-  border:     'rgba(0,255,255,0.12)',
-  text:       '#D8E8F4',
-  textDim:    '#3A5068',
-  textMid:    '#7A9AB8',
-  teal:       '#00FFFF',
-  tealDim:    'rgba(0,255,255,0.08)',
-  green:      '#00FF88',
-  greenDim:   '#00FF8815',
-  purple:     '#BF00FF',
-  purpleDim:  '#BF00FF15',
-  amber:      '#F5A623',
-  amberDim:   '#F5A62315',
-  red:        '#FF3131',
-  redDim:     '#FF313115',
-  blue:       '#4A9EFF',
-  blueDim:    '#4A9EFF15',
-  cyan:       '#00FFFF',
+// ─── NODE TYPES ───────────────────────────────────────────────────
+type NodeType = 'TRIGGER' | 'ACTION' | 'OUTPUT';
+interface NodeDef { id: string; name: string; desc: string; type: NodeType; icon: string; lib: 'material' | 'community'; color: string; code: string; }
+
+const TYPE_CFG: Record<NodeType, { color: string; label: string }> = {
+  TRIGGER: { color: COLOR.teal,    label: 'TRIGGER' },
+  ACTION:  { color: COLOR.green,   label: 'ACTION'  },
+  OUTPUT:  { color: COLOR.magenta, label: 'OUTPUT'  },
 };
 
-// ─── LAYOUT CONSTANTS — LAYOUT LAW ──────────────────────────
-const PAD_H  = 12;
-const GAP3   = 7;
-const COL3_W = Math.floor((SW - PAD_H * 2 - GAP3 * 2) / 3);
-
-// ─── NODE TYPES ──────────────────────────────────────────────
-type NodeType = 'TRIGGER' | 'ACTION' | 'OUTPUT';
-
-interface NodeDef {
-  id: string;
-  name: string;
-  description: string;
-  type: NodeType;
-  icon: string;
-  iconLib: 'material' | 'community';
-  color: string;
-  code: string;
-}
-
-const NODE_PALETTE: NodeDef[] = [
-  // ── TRIGGERS ──────────────────────────────────────────────
-  { id:'trigger_notify', name:'System Notification', description:'Fires a Windows toast notification', type:'TRIGGER', icon:'notifications', iconLib:'material', color:C.teal,
-    code:`import subprocess\nsubprocess.run(['powershell','-command','Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show("NEXUS triggered!", "NEXUS", 0, 64)'], capture_output=True)\nprint("Notification sent")` },
-  { id:'trigger_schedule', name:'Scheduled Trigger', description:'Timestamps current execution time', type:'TRIGGER', icon:'schedule', iconLib:'material', color:C.teal,
-    code:`import time\nprint(f"Triggered at: {time.strftime('%H:%M:%S on %Y-%m-%d')}")` },
-  { id:'trigger_startup', name:'On PC Startup', description:'Register script to run on Windows boot', type:'TRIGGER', icon:'power-settings-new', iconLib:'material', color:C.teal,
-    code:`import subprocess\nprint("Boot trigger: PC started")\nsubprocess.run(["reg","add","HKCU\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run","/v","NexusScript","/t","REG_SZ","/d","python nexus_boot.py","/f"])` },
-  { id:'trigger_file_watch', name:'File Change Watch', description:'Detects new files in a folder', type:'TRIGGER', icon:'folder-open', iconLib:'material', color:C.teal,
-    code:`import os,time\nwatch_folder=os.path.expanduser('~/Desktop')\nbefore=set(os.listdir(watch_folder))\ntime.sleep(3)\nafter=set(os.listdir(watch_folder))\nnew_files=after-before\nprint(f"New files: {new_files or 'none detected'}")` },
-  { id:'trigger_time_check', name:'Time-Based Condition', description:'Check if current time is within range', type:'TRIGGER', icon:'access-time', iconLib:'material', color:C.teal,
-    code:`from datetime import datetime\nnow=datetime.now()\nhour=now.hour\nif 9<=hour<18:\n    print(f"Business hours ({hour}:00) - automation enabled")\nelse:\n    print(f"Off hours ({hour}:00) - automation skipped")` },
-  { id:'trigger_cpu_threshold', name:'CPU Threshold Alert', description:'Trigger when CPU exceeds 80%', type:'TRIGGER', icon:'memory', iconLib:'material', color:C.teal,
-    code:`import psutil\ncpu=psutil.cpu_percent(interval=2)\nprint(f"CPU: {cpu}%")\nif cpu>80:\n    print(f"ALERT: CPU is high at {cpu}%")\nelse:\n    print("CPU normal")` },
-  { id:'trigger_disk_full', name:'Disk Space Alert', description:'Trigger when disk is over 85% full', type:'TRIGGER', icon:'storage', iconLib:'material', color:C.teal,
-    code:`import psutil\nfor disk in psutil.disk_partitions():\n    try:\n        u=psutil.disk_usage(disk.mountpoint)\n        if u.percent>85:\n            print(f"ALERT: {disk.mountpoint} is {u.percent}% full ({u.free/1024**3:.1f}GB free)")\n        else:\n            print(f"{disk.mountpoint}: {u.percent}% used - OK")\n    except: pass` },
-  { id:'trigger_battery_low', name:'Battery Low Alert', description:'Trigger when battery drops below 20%', type:'TRIGGER', icon:'battery-alert', iconLib:'material', color:C.teal,
-    code:`import psutil\nbatt=psutil.sensors_battery()\nif batt:\n    if batt.percent<20 and not batt.power_plugged:\n        print(f"ALERT: Battery low at {batt.percent:.1f}% - please plug in")\n    else:\n        print(f"Battery: {batt.percent:.1f}% {'(charging)' if batt.power_plugged else ''}")\nelse:\n    print("No battery - desktop PC")` },
-  // ── ACTIONS — Cleaning ────────────────────────────────────
-  { id:'action_clean_temp', name:'Clean Temp Files', description:'Delete Windows temp files and free space', type:'ACTION', icon:'cleaning-services', iconLib:'material', color:C.green,
-    code:`import os,shutil\nremoved=0;freed=0\nfor path in [os.environ.get('TEMP',''),r'C:\\Windows\\Temp']:\n    if not path or not os.path.exists(path): continue\n    for f in os.listdir(path):\n        try:\n            fp=os.path.join(path,f)\n            size=os.path.getsize(fp) if os.path.isfile(fp) else 0\n            if os.path.isfile(fp): os.remove(fp);removed+=1;freed+=size\n            elif os.path.isdir(fp): shutil.rmtree(fp,ignore_errors=True);removed+=1\n        except: pass\nprint(f"Removed {removed} items - {freed/1024/1024:.1f}MB freed")` },
-  { id:'action_clear_browser_cache', name:'Clear Browser Cache', description:'Delete Chrome and Edge cache files', type:'ACTION', icon:'language', iconLib:'material', color:C.green,
-    code:`import os,glob\nfreed=0\ncache_dirs=[os.path.expandvars(r'%LOCALAPPDATA%\\Google\\Chrome\\User Data\\Default\\Cache'),os.path.expandvars(r'%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\Default\\Cache')]\nfor d in cache_dirs:\n    if os.path.exists(d):\n        for f in glob.glob(os.path.join(d,'**','*'),recursive=True):\n            try:\n                if os.path.isfile(f): freed+=os.path.getsize(f);os.remove(f)\n            except: pass\nprint(f"Browser cache cleared: {freed/1024/1024:.1f}MB freed")` },
-  { id:'action_empty_recycle', name:'Empty Recycle Bin', description:'Permanently clear the Recycle Bin', type:'ACTION', icon:'delete-sweep', iconLib:'material', color:C.green,
-    code:`import subprocess\nresult=subprocess.run(['powershell','-command','Clear-RecycleBin -Confirm:$false -ErrorAction SilentlyContinue'],capture_output=True,text=True)\nprint("Recycle Bin emptied" if result.returncode==0 else "Done")` },
-  { id:'action_memory_clean', name:'Memory Optimizer', description:'Free RAM by killing idle processes', type:'ACTION', icon:'memory', iconLib:'material', color:C.green,
-    code:`import psutil\nbefore=psutil.virtual_memory().percent\nkilled=0\nfor proc in psutil.process_iter(['pid','name','memory_percent']):\n    try:\n        if proc.info.get('memory_percent',0) and proc.info['memory_percent']<0.1 and proc.info['name'] not in ['System','svchost.exe','explorer.exe']:\n            proc.kill();killed+=1\n    except: pass\nafter=psutil.virtual_memory().percent\nprint(f"RAM: {before:.1f}% -> {after:.1f}% - {killed} idle processes terminated")` },
-  { id:'action_privacy_clean', name:'Privacy Cleaner', description:'Clear recent docs, clipboard, search history', type:'ACTION', icon:'security', iconLib:'material', color:C.green,
-    code:`import subprocess,os\nsubprocess.run(['powershell','-command','Set-Clipboard -Value ""'],capture_output=True)\nrecent=os.path.expandvars(r'%APPDATA%\\Microsoft\\Windows\\Recent')\nif os.path.exists(recent):\n    for f in os.listdir(recent):\n        try: os.remove(os.path.join(recent,f))\n        except: pass\nprint("Clipboard cleared - Recent docs cleared - Privacy cleaned")` },
-  { id:'action_clear_dns_cache', name:'Clear DNS Cache', description:'Flush Windows DNS resolver cache', type:'ACTION', icon:'dns', iconLib:'material', color:C.green,
-    code:`import subprocess\nresult=subprocess.run(['ipconfig','/flushdns'],capture_output=True,text=True)\nprint("DNS cache flushed" if result.returncode==0 else result.stdout)\nresult2=subprocess.run(['ipconfig','/displaydns'],capture_output=True,text=True)\nlines=[l for l in result2.stdout.split('\\n') if 'Record Name' in l]\nprint(f"Remaining cached records: {len(lines)}")` },
-  // ── ACTIONS — Organization ────────────────────────────────
-  { id:'action_organize_desktop', name:'Organize Desktop', description:'Sort Desktop files into type folders', type:'ACTION', icon:'dashboard', iconLib:'material', color:C.amber,
-    code:`import os,shutil\ndesk=os.path.expanduser('~/Desktop')\ncats={'Documents':['.pdf','.doc','.docx','.txt','.xlsx','.pptx','.csv'],'Images':['.jpg','.jpeg','.png','.gif','.bmp','.webp','.svg'],'Videos':['.mp4','.avi','.mkv','.mov','.wmv'],'Archives':['.zip','.rar','.7z','.tar','.gz'],'Scripts':['.py','.ps1','.bat','.sh'],'Installers':['.exe','.msi','.dmg']}\nmoved=0\nfor fname in os.listdir(desk):\n    fp=os.path.join(desk,fname)\n    if not os.path.isfile(fp): continue\n    ext=os.path.splitext(fname)[1].lower()\n    for folder,exts in cats.items():\n        if ext in exts:\n            dest=os.path.join(desk,folder)\n            os.makedirs(dest,exist_ok=True)\n            shutil.move(fp,os.path.join(dest,fname));moved+=1;break\nprint(f"Desktop organized: {moved} files sorted")` },
-  { id:'action_sort_downloads', name:'Sort Downloads Folder', description:'Organize Downloads by file type', type:'ACTION', icon:'sort', iconLib:'material', color:C.amber,
-    code:`import os,shutil\ndownloads=os.path.expanduser('~/Downloads')\ncats={'Images':['.jpg','.png','.gif','.webp','.svg','.jpeg','.bmp'],'Videos':['.mp4','.mkv','.avi','.mov','.wmv'],'Documents':['.pdf','.doc','.docx','.txt','.xlsx','.csv','.pptx'],'Archives':['.zip','.rar','.7z','.tar','.gz'],'Installers':['.exe','.msi'],'Code':['.py','.js','.ts','.html','.css','.json']}\nmoved=0\nfor fname in os.listdir(downloads):\n    fp=os.path.join(downloads,fname)\n    if not os.path.isfile(fp): continue\n    ext=os.path.splitext(fname)[1].lower()\n    for cat,exts in cats.items():\n        if ext in exts:\n            os.makedirs(os.path.join(downloads,cat),exist_ok=True)\n            shutil.move(fp,os.path.join(downloads,cat,fname));moved+=1;break\nprint(f"Downloads sorted: {moved} files organized")` },
-  { id:'action_find_duplicates', name:'Find Duplicate Files', description:'Detect duplicate files by MD5 hash', type:'ACTION', icon:'find-in-page', iconLib:'material', color:C.amber,
-    code:`import os,hashlib\nfrom pathlib import Path\nfolder=Path.home()/'Downloads'\nhashes={};dupes=[]\nfor f in folder.rglob('*'):\n    if not f.is_file() or f.stat().st_size<1024: continue\n    try:\n        h=hashlib.md5(f.read_bytes()[:65536]).hexdigest()\n        if h in hashes: dupes.append((str(f),str(hashes[h])))\n        else: hashes[h]=f\n    except: pass\nprint(f"Duplicates found: {len(dupes)}")\nfor d,orig in dupes[:5]: print(f"  DUPE: {Path(d).name}")` },
-  { id:'action_find_old_files', name:'Find Old Files', description:'List files older than 90 days in Downloads', type:'ACTION', icon:'history', iconLib:'material', color:C.amber,
-    code:`import os,time\nfrom pathlib import Path\nfolder=Path.home()/'Downloads'\ncutoff=time.time()-(90*86400)\nold=[(f,f.stat().st_size) for f in folder.iterdir() if f.is_file() and f.stat().st_mtime<cutoff]\nold.sort(key=lambda x:-x[1])\nprint(f"Files older than 90 days: {len(old)}")\nfor f,size in old[:10]: print(f"  {f.name} ({size/1024/1024:.1f}MB)")` },
-  { id:'action_batch_rename', name:'Batch Rename Files', description:'Add timestamp prefix to Desktop files', type:'ACTION', icon:'edit', iconLib:'material', color:C.amber,
-    code:`import os,datetime\nfolder=os.path.expanduser('~/Desktop')\nts=datetime.datetime.now().strftime('%Y%m%d_')\nrenamed=0\nfor fname in os.listdir(folder):\n    fp=os.path.join(folder,fname)\n    if os.path.isfile(fp) and not fname.startswith(ts):\n        try:\n            os.rename(fp,os.path.join(folder,ts+fname));renamed+=1\n        except: pass\nprint(f"Renamed {renamed} files with timestamp prefix")` },
-  // ── ACTIONS — System Info ─────────────────────────────────
-  { id:'action_check_storage', name:'Check Storage', description:'Show disk usage for all drives', type:'ACTION', icon:'storage', iconLib:'material', color:C.blue,
-    code:`import psutil\nfor disk in psutil.disk_partitions():\n    try:\n        usage=psutil.disk_usage(disk.mountpoint)\n        bar='#'*int(usage.percent/5)+'.'*(20-int(usage.percent/5))\n        print(f"{disk.mountpoint} [{bar}] {usage.percent:.1f}%  {usage.free/1024**3:.1f}GB free")\n    except: pass` },
-  { id:'action_network', name:'Network Check', description:'IP, ping, and bandwidth stats', type:'ACTION', icon:'wifi', iconLib:'material', color:C.blue,
-    code:`import socket,subprocess,psutil\nhostname=socket.gethostname()\nip=socket.gethostbyname(hostname)\nping=subprocess.run(['ping','-n','2','8.8.8.8'],capture_output=True,text=True)\nnet=psutil.net_io_counters()\nprint(f"Host: {hostname} | IP: {ip}")\nprint(f"Sent: {net.bytes_sent/1024/1024:.1f}MB | Recv: {net.bytes_recv/1024/1024:.1f}MB")\nlines=[l for l in ping.stdout.split('\\n') if 'Average' in l]\nif lines: print(f"Ping: {lines[0].strip()}")` },
-  { id:'action_cpu', name:'CPU Monitor', description:'Sample CPU usage across all cores', type:'ACTION', icon:'memory', iconLib:'material', color:C.blue,
-    code:`import psutil,time\nreadings=[psutil.cpu_percent(interval=1) for _ in range(3)]\navg=sum(readings)/len(readings)\nprint(f"CPU Average: {avg:.1f}%")\nprint(f"Cores: {psutil.cpu_count(logical=False)} physical / {psutil.cpu_count()} logical")\ncpu_freq=psutil.cpu_freq()\nif cpu_freq: print(f"Freq: {cpu_freq.current:.0f}MHz (max {cpu_freq.max:.0f}MHz)")` },
-  { id:'action_process', name:'Top Processes', description:'Show top CPU-using processes', type:'ACTION', icon:'apps', iconLib:'material', color:C.purple,
-    code:`import psutil\nprocs=sorted([p.info for p in psutil.process_iter(['pid','name','cpu_percent','memory_percent']) if p.info],key=lambda x:x.get('cpu_percent',0) or 0,reverse=True)\nprint("TOP 10 PROCESSES BY CPU:")\nfor p in procs[:10]:\n    print(f"  [{p['pid']}] {p['name']:<25} CPU:{p.get('cpu_percent',0):.1f}%  MEM:{p.get('memory_percent',0):.1f}%")` },
-  { id:'action_system_info', name:'Full System Info', description:'OS, hardware, and uptime report', type:'ACTION', icon:'info', iconLib:'material', color:C.blue,
-    code:`import platform,psutil,datetime\nos_info=platform.uname()\nboot=datetime.datetime.fromtimestamp(psutil.boot_time())\nuptime=datetime.datetime.now()-boot\nram=psutil.virtual_memory()\nprint(f"OS: {os_info.system} {os_info.release}")\nprint(f"Host: {os_info.node} | CPU: {os_info.processor[:40]}")\nprint(f"RAM: {ram.total/1024**3:.1f}GB total | {ram.available/1024**3:.1f}GB free")\nprint(f"Uptime: {str(uptime).split('.')[0]}")` },
-  { id:'action_disk_report', name:'Disk Space Report', description:'Detailed disk usage breakdown per drive', type:'ACTION', icon:'pie-chart', iconLib:'material', color:C.blue,
-    code:`import psutil\nfor disk in psutil.disk_partitions():\n    try:\n        u=psutil.disk_usage(disk.mountpoint)\n        print(f"Drive {disk.mountpoint}: {disk.fstype}")\n        print(f"  Total: {u.total/1024**3:.1f}GB | Used: {u.used/1024**3:.1f}GB ({u.percent}%) | Free: {u.free/1024**3:.1f}GB")\n    except: pass` },
-  { id:'action_list_large_files', name:'Find Large Files', description:'List files over 100MB in home folder', type:'ACTION', icon:'folder-special', iconLib:'material', color:C.blue,
-    code:`from pathlib import Path\nhome=Path.home()\nlarge=[]\nfor f in home.rglob('*'):\n    try:\n        if f.is_file() and f.stat().st_size>100*1024*1024:\n            large.append((f,f.stat().st_size))\n    except: pass\nlarge.sort(key=lambda x:-x[1])\nprint(f"Files over 100MB: {len(large)}")\nfor f,s in large[:10]:\n    print(f"  {f.name}: {s/1024/1024:.1f}MB")` },
-  { id:'action_startup_manager', name:'Startup Manager', description:'List all Windows startup programs', type:'ACTION', icon:'launch', iconLib:'material', color:C.blue,
-    code:`import subprocess\nresult=subprocess.run(['reg','query',r'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run'],capture_output=True,text=True)\nlines=[l.strip() for l in result.stdout.split('\\n') if l.strip() and 'REG_SZ' in l]\nprint(f"Startup programs ({len(lines)} total):")\nfor l in lines:\n    parts=l.split('REG_SZ')\n    if len(parts)>=2: print(f"  - {parts[0].strip()} -> {parts[1].strip()[:60]}")` },
-  // ── ACTIONS — Performance ─────────────────────────────────
-  { id:'action_latency', name:'Latency Check', description:'Ping multiple servers for speed', type:'ACTION', icon:'speed', iconLib:'material', color:C.cyan,
-    code:`import subprocess,time\nfor target in ['8.8.8.8','1.1.1.1','google.com','github.com']:\n    t0=time.time()\n    res=subprocess.run(['ping','-n','2',target],capture_output=True,text=True)\n    ms=(time.time()-t0)*1000/2\n    ok='OK' if res.returncode==0 else 'FAIL'\n    print(f"  {ok} {target:<20} {ms:.0f}ms")` },
-  { id:'action_boost_performance', name:'Performance Boost', description:'Set High Performance power plan', type:'ACTION', icon:'bolt', iconLib:'material', color:C.cyan,
-    code:`import subprocess\nresult=subprocess.run(['powercfg','-setactive','8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'],capture_output=True,text=True)\nprint("High Performance power plan activated" if result.returncode==0 else f"Already set or error: {result.stderr.strip()}")` },
-  { id:'action_windows_update', name:'Check Updates', description:'List available Windows updates', type:'ACTION', icon:'system-update', iconLib:'material', color:C.cyan,
-    code:`import subprocess\nresult=subprocess.run(['powershell','-command','(New-Object -ComObject Microsoft.Update.Session).CreateUpdateSearcher().Search("IsInstalled=0 and Type=\'Software\'").Updates | Select-Object -ExpandProperty Title'],capture_output=True,text=True)\nprint(result.stdout[:2000] or "No pending updates found")` },
-  { id:'action_open_ports', name:'Scan Open Ports', description:'List all open TCP/UDP ports on the PC', type:'ACTION', icon:'router', iconLib:'material', color:C.cyan,
-    code:`import subprocess\nresult=subprocess.run(['powershell','-command','Get-NetTCPConnection -State Listen | Select-Object LocalPort, OwningProcess | Sort-Object LocalPort | Format-Table -AutoSize'],capture_output=True,text=True)\nprint(result.stdout[:2000] or "No open ports found")` },
-  { id:'action_speed_test', name:'Speed Test', description:'Test download speed to major servers', type:'ACTION', icon:'network-check', iconLib:'material', color:C.cyan,
-    code:`import urllib.request,time\nurls=[('Cloudflare','https://speed.cloudflare.com/__down?bytes=1000000'),('Google','https://www.google.com')]\nfor name,url in urls:\n    try:\n        start=time.time()\n        with urllib.request.urlopen(url,timeout=10) as r: data=r.read()\n        elapsed=time.time()-start\n        mbps=(len(data)/1024/1024)/elapsed\n        print(f"{name}: {mbps:.2f} MB/s ({elapsed*1000:.0f}ms)")\n    except Exception as e:\n        print(f"{name}: failed - {e}")` },
-  // ── ACTIONS — Security ────────────────────────────────────
-  { id:'action_security_scan', name:'Security Scan', description:'Windows Defender status and suspicious processes', type:'ACTION', icon:'security', iconLib:'material', color:C.red,
-    code:`import subprocess,psutil\nresult=subprocess.run(['powershell','-command','Get-MpComputerStatus | Select-Object AntivirusEnabled,RealTimeProtectionEnabled,LastQuickScanAge | Format-List'],capture_output=True,text=True)\nprint(result.stdout or "Windows Defender status unavailable")\nfor proc in psutil.process_iter(['name','exe']):\n    try:\n        exe=proc.info.get('exe') or ''\n        if exe and 'AppData\\\\Roaming' in exe: print(f"[WARN] Suspicious: {proc.info['name']} - {exe}")\n    except: pass` },
-  { id:'action_fix_permissions', name:'Fix Permissions', description:'Reset permissions on Desktop files', type:'ACTION', icon:'lock-open', iconLib:'material', color:C.red,
-    code:`import os,subprocess,getpass\ndesktop=os.path.expanduser('~/Desktop')\nusername=getpass.getuser()\nresult=subprocess.run(['icacls',desktop,'/grant',f'{username}:(OI)(CI)F','/T','/Q'],capture_output=True,text=True)\nprint(f"Permissions fixed on Desktop: {result.returncode==0}")` },
-  { id:'action_check_passwords', name:'Check Credentials', description:'List credential manager entries (no values)', type:'ACTION', icon:'vpn-key', iconLib:'material', color:C.red,
-    code:`import subprocess\nresult=subprocess.run(['cmdkey','/list'],capture_output=True,text=True)\nentries=[l.strip() for l in result.stdout.split('\\n') if 'Target:' in l]\nprint(f"Saved credentials: {len(entries)}")\nfor e in entries:\n    print(f"  {e}")` },
-  // ── ACTIONS — Automation ──────────────────────────────────
-  { id:'action_screenshot', name:'Screenshot Capture', description:'Take a screenshot and save to Desktop', type:'ACTION', icon:'screenshot', iconLib:'material', color:C.purple,
-    code:`import subprocess,os,datetime\nts=datetime.datetime.now().strftime('%Y%m%d_%H%M%S')\ndesktop=os.path.expanduser(f'~/Desktop/screenshot_{ts}.png')\nresult=subprocess.run(['powershell','-command',f'Add-Type -AssemblyName System.Windows.Forms; $bmp = New-Object System.Drawing.Bitmap([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width, [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height); $g = [System.Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen(0,0,0,0,$bmp.Size); $bmp.Save("{desktop}")'],capture_output=True,text=True)\nprint(f"Screenshot saved: {desktop}" if os.path.exists(desktop) else "Screenshot failed")` },
-  { id:'action_backup_files', name:'Backup Documents', description:'Copy Documents folder to a backup on Desktop', type:'ACTION', icon:'backup', iconLib:'material', color:C.blue,
-    code:`import shutil,os,datetime\nsource=os.path.expanduser('~/Documents')\nts=datetime.datetime.now().strftime('%Y%m%d_%H%M')\ndest=os.path.expanduser(f'~/Desktop/Backup_Documents_{ts}')\nprint(f"Backing up to: {dest}")\nshutil.copytree(source,dest,ignore=shutil.ignore_patterns('*.tmp','~*','Thumbs.db'))\nsize=sum(f.stat().st_size for f in os.scandir(dest) if f.is_file())\nprint(f"Backup complete: {size/1024/1024:.1f}MB copied")` },
-  { id:'action_kill_process', name:'Kill Process', description:'Terminate all instances of a process', type:'ACTION', icon:'cancel', iconLib:'material', color:C.red,
-    code:`import psutil\nprocess_name='notepad.exe'  # Change to target\nkilled=0\nfor proc in psutil.process_iter(['name','pid']):\n    try:\n        if proc.info['name'].lower()==process_name.lower():\n            proc.terminate();killed+=1\n    except: pass\nprint(f"Killed {killed} instance(s) of {process_name}")` },
-  { id:'action_env_check', name:'Python Env Check', description:'List Python version and installed packages', type:'ACTION', icon:'settings-applications', iconLib:'material', color:C.cyan,
-    code:`import sys,subprocess\nresult=subprocess.run([sys.executable,'-m','pip','list','--format=columns'],capture_output=True,text=True)\npackages=result.stdout.strip().split('\\n')\nprint(f"Python: {sys.version.split()[0]} | Packages: {len(packages)-2}")\nfor pkg in packages[:15]: print(f"  {pkg}")\nif len(packages)>17: print(f"  ... +{len(packages)-17} more")` },
-  { id:'action_schedule_task', name:'Schedule Task', description:'Register a Windows Task Scheduler entry', type:'ACTION', icon:'alarm', iconLib:'material', color:C.cyan,
-    code:`import subprocess\ntask_name="NexusAutoTask"\nscript_path=r"C:\\Users\\Public\\nexus_auto.py"\nresult=subprocess.run(['schtasks','/create','/tn',task_name,'/tr',f'python "{script_path}"','/sc','DAILY','/st','09:00','/f'],capture_output=True,text=True)\nprint(f"Scheduled task '{task_name}': {'Created' if result.returncode==0 else 'Failed'}")\nprint(result.stdout or result.stderr)` },
-  { id:'action_cpu_history', name:'CPU Load History', description:'Sample CPU every second for 10 seconds', type:'ACTION', icon:'show-chart', iconLib:'material', color:C.cyan,
-    code:`import psutil,time\nprint("Sampling CPU for 10 seconds...")\nsamples=[]\nfor i in range(10):\n    pct=psutil.cpu_percent(interval=1)\n    bar='#'*int(pct/5)+'.'*(20-int(pct/5))\n    print(f"  [{i+1:2}s] [{bar}] {pct:.1f}%")\n    samples.append(pct)\nprint(f"\\nAvg: {sum(samples)/len(samples):.1f}% | Peak: {max(samples):.1f}% | Min: {min(samples):.1f}%")` },
-  // ── OUTPUTS ───────────────────────────────────────────────
-  { id:'output_log_console', name:'Log to Console', description:'Print pipeline completion to output', type:'OUTPUT', icon:'terminal', iconLib:'material', color:C.purple,
-    code:`import datetime\nprint("=" * 44)\nprint("NEXUS PIPELINE COMPLETE")\nprint(f"Time: {datetime.datetime.now().strftime('%H:%M:%S')}")\nprint("=" * 44)` },
-  { id:'output_perf_snapshot', name:'Performance Report', description:'Print full system performance summary', type:'OUTPUT', icon:'bar-chart', iconLib:'material', color:C.purple,
-    code:`import psutil,datetime\nprint(f"NEXUS PERF SNAPSHOT @ {datetime.datetime.now().strftime('%H:%M:%S')}")\nprint(f"CPU: {psutil.cpu_percent(interval=1)}%")\nmem=psutil.virtual_memory()\nprint(f"RAM: {mem.used/1024**3:.1f}/{mem.total/1024**3:.1f}GB ({mem.percent}%)")\nfor disk in psutil.disk_partitions():\n    try:\n        d=psutil.disk_usage(disk.mountpoint)\n        print(f"Disk {disk.mountpoint}: {d.percent}% ({d.free/1024**3:.1f}GB free)")\n    except: pass` },
-  { id:'output_save_file', name:'Save Output to File', description:'Write results to a text file on Desktop', type:'OUTPUT', icon:'save', iconLib:'material', color:C.purple,
-    code:`import os,datetime\ndesktop=os.path.expanduser('~/Desktop')\nts=datetime.datetime.now().strftime('%Y%m%d_%H%M%S')\nfp=os.path.join(desktop,f'nexus_output_{ts}.txt')\nwith open(fp,'w') as f:\n    f.write(f"NEXUS Pipeline Output\\n")\n    f.write(f"Generated: {datetime.datetime.now().isoformat()}\\n")\n    f.write("Pipeline executed successfully.\\n")\nprint(f"Report saved: {fp}")` },
-  { id:'output_notify_toast', name:'Desktop Notification', description:'Show Windows toast popup on completion', type:'OUTPUT', icon:'notifications-active', iconLib:'material', color:C.teal,
-    code:`import subprocess\nsubprocess.run(['powershell','-command','Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show("NEXUS Pipeline Complete!", "NEXUS Automation", 0, 64)'],capture_output=True)\nprint("Desktop notification sent")` },
-  { id:'output_csv_export', name:'Export CSV Report', description:'Save system data as CSV on Desktop', type:'OUTPUT', icon:'table-chart', iconLib:'material', color:C.purple,
-    code:`import csv,os,datetime,psutil\ndesktop=os.path.expanduser('~/Desktop')\nts=datetime.datetime.now().strftime('%Y%m%d_%H%M%S')\nfp=os.path.join(desktop,f'nexus_data_{ts}.csv')\nwith open(fp,'w',newline='') as f:\n    w=csv.writer(f)\n    w.writerow(['Metric','Value','Timestamp'])\n    w.writerow(['CPU%',psutil.cpu_percent(interval=1),ts])\n    mem=psutil.virtual_memory()\n    w.writerow(['RAM%',mem.percent,ts])\n    w.writerow(['RAM_Free_GB',round(mem.available/1024**3,2),ts])\nprint(f"CSV exported: {fp}")` },
-  { id:'output_open_folder', name:'Open Results Folder', description:'Open Desktop in Windows Explorer', type:'OUTPUT', icon:'folder-open', iconLib:'material', color:C.teal,
-    code:`import subprocess,os\ndesktop=os.path.expanduser('~/Desktop')\nsubprocess.Popen(['explorer',desktop])\nprint(f"Opened folder: {desktop}")` },
-  { id:'output_play_sound', name:'Play Completion Sound', description:'Play a beep sound on pipeline completion', type:'OUTPUT', icon:'volume-up', iconLib:'material', color:C.teal,
-    code:`import subprocess\nsubprocess.run(['powershell','-command','[console]::beep(800,200); [console]::beep(1000,300)'],capture_output=True)\nprint("Completion sound played")` },
-  { id:'output_email_report', name:'Email Report', description:'Send completion email via SMTP', type:'OUTPUT', icon:'email', iconLib:'material', color:C.teal,
-    code:`import os\nto_addr=os.environ.get('NEXUS_EMAIL_TO','')\nif not to_addr:\n    print("Set NEXUS_EMAIL_TO env var to enable email reports")\nelse:\n    print(f"Email report configured for: {to_addr}")\n    print("Pipeline complete - email would be sent here")` },
+const PALETTE: NodeDef[] = [
+  { id:'t_time',     name:'Schedule Trigger', desc:'Timestamp current run',        type:'TRIGGER', icon:'schedule',         lib:'material',  color:COLOR.teal,    code:`import time\nprint(f"Triggered at: {time.strftime('%H:%M:%S on %Y-%m-%d')}")` },
+  { id:'t_cpu',      name:'CPU Alert',        desc:'Alert when CPU > 80%',         type:'TRIGGER', icon:'memory',           lib:'material',  color:COLOR.teal,    code:`import psutil\ncpu=psutil.cpu_percent(interval=2)\nprint(f"CPU: {cpu}%")\nif cpu>80: print(f"ALERT: CPU high at {cpu}%")\nelse: print("CPU normal")` },
+  { id:'t_disk',     name:'Disk Full Alert',  desc:'Alert when disk > 85%',        type:'TRIGGER', icon:'storage',          lib:'material',  color:COLOR.teal,    code:`import psutil\nfor d in psutil.disk_partitions():\n    try:\n        u=psutil.disk_usage(d.mountpoint)\n        if u.percent>85: print(f"ALERT: {d.mountpoint} is {u.percent}% full")\n        else: print(f"{d.mountpoint}: {u.percent}% - OK")\n    except: pass` },
+  { id:'t_file',     name:'File Watch',       desc:'Detect new files in folder',   type:'TRIGGER', icon:'folder-open',      lib:'material',  color:COLOR.teal,    code:`import os,time\nw=os.path.expanduser('~/Desktop')\nb=set(os.listdir(w))\ntime.sleep(3)\na=set(os.listdir(w))\nnew=a-b\nprint(f"New files: {new or 'none'}")` },
+  { id:'t_notify',   name:'Notify Trigger',   desc:'Windows toast notification',   type:'TRIGGER', icon:'notifications',    lib:'material',  color:COLOR.teal,    code:`import subprocess\nsubprocess.run(['powershell','-command','Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show("NEXUS triggered!", "Butler AI", 0, 64)'],capture_output=True)\nprint("Notification sent")` },
+  { id:'a_clean',    name:'Clean Temp',       desc:'Delete temp files',            type:'ACTION',  icon:'cleaning-services',lib:'material',  color:COLOR.green,   code:`import os,shutil,tempfile\nr=0;f=0\nfor p in [tempfile.gettempdir()]:\n    for i in os.listdir(p):\n        fp=os.path.join(p,i)\n        try:\n            s=os.path.getsize(fp) if os.path.isfile(fp) else 0\n            (os.unlink if os.path.isfile(fp) else shutil.rmtree)(fp)\n            r+=1;f+=s\n        except:pass\nprint(f"Cleared {r} items, freed {f//1024//1024}MB")` },
+  { id:'a_recycle',  name:'Empty Recycle',    desc:'Clear the recycle bin',        type:'ACTION',  icon:'delete-sweep',     lib:'material',  color:COLOR.green,   code:`import subprocess\nsubprocess.run(['powershell','-Command','Clear-RecycleBin -Force -ErrorAction SilentlyContinue'],capture_output=True)\nprint("Recycle bin emptied")` },
+  { id:'a_sort_dl',  name:'Sort Downloads',   desc:'Organize by file type',        type:'ACTION',  icon:'sort',             lib:'material',  color:COLOR.amber,   code:`import os,shutil\nd=os.path.expanduser('~/Downloads')\ncats={'Images':['.jpg','.png','.gif','.webp','.jpeg'],'Videos':['.mp4','.mkv','.avi','.mov'],'Documents':['.pdf','.doc','.docx','.txt','.xlsx','.csv'],'Archives':['.zip','.rar','.7z','.tar'],'Installers':['.exe','.msi'],'Code':['.py','.js','.ts','.html','.css','.json']}\nm=0\nfor f in os.listdir(d):\n    fp=os.path.join(d,f)\n    if not os.path.isfile(fp): continue\n    ext=os.path.splitext(f)[1].lower()\n    for cat,exts in cats.items():\n        if ext in exts:\n            os.makedirs(os.path.join(d,cat),exist_ok=True)\n            shutil.move(fp,os.path.join(d,cat,f));m+=1;break\nprint(f"Downloads sorted: {m} files")` },
+  { id:'a_disk',     name:'Disk Report',      desc:'Full disk usage report',       type:'ACTION',  icon:'pie-chart',        lib:'material',  color:COLOR.blue,    code:`import psutil\nfor d in psutil.disk_partitions():\n    try:\n        u=psutil.disk_usage(d.mountpoint)\n        print(f"Drive {d.mountpoint}: {u.used/1024**3:.1f}/{u.total/1024**3:.1f}GB ({u.percent}%)")\n    except: pass` },
+  { id:'a_sysinfo',  name:'System Info',      desc:'Full OS/hardware report',      type:'ACTION',  icon:'info',             lib:'material',  color:COLOR.blue,    code:`import platform,psutil,datetime\no=platform.uname();b=datetime.datetime.fromtimestamp(psutil.boot_time())\nu=datetime.datetime.now()-b;r=psutil.virtual_memory()\nprint(f"OS: {o.system} {o.release}\\nHost: {o.node}\\nCPU: {o.processor[:40]}\\nRAM: {r.total/1024**3:.1f}GB ({r.percent}% used)\\nUptime: {str(u).split('.')[0]}")` },
+  { id:'a_topproc',  name:'Top Processes',    desc:'Top CPU processes',            type:'ACTION',  icon:'apps',             lib:'material',  color:COLOR.magenta, code:`import psutil\nps=sorted([p.info for p in psutil.process_iter(['pid','name','cpu_percent','memory_percent']) if p.info],key=lambda x:x.get('cpu_percent',0) or 0,reverse=True)\nprint("TOP 10 BY CPU:")\nfor p in ps[:10]:\n    print(f"  [{p['pid']}] {p['name']:<24} CPU:{p.get('cpu_percent',0):.1f}%  MEM:{p.get('memory_percent',0):.1f}%")` },
+  { id:'a_net',      name:'Network Check',    desc:'IP, ping, bandwidth stats',    type:'ACTION',  icon:'wifi',             lib:'material',  color:COLOR.blue,    code:`import socket,subprocess,psutil\nhn=socket.gethostname();ip=socket.gethostbyname(hn)\npg=subprocess.run(['ping','-n','2','8.8.8.8'],capture_output=True,text=True)\nn=psutil.net_io_counters()\nprint(f"Host: {hn} | IP: {ip}")\nprint(f"Sent: {n.bytes_sent/1024/1024:.1f}MB | Recv: {n.bytes_recv/1024/1024:.1f}MB")\nlines=[l for l in pg.stdout.split('\\n') if 'Average' in l]\nif lines: print(f"Ping: {lines[0].strip()}")` },
+  { id:'a_backup',   name:'Backup Docs',      desc:'ZIP Documents to Desktop',     type:'ACTION',  icon:'backup',           lib:'material',  color:COLOR.blue,    code:`import shutil,os,datetime\nsrc=os.path.expanduser('~/Documents')\nts=datetime.datetime.now().strftime('%Y%m%d_%H%M')\ndst=os.path.expanduser(f'~/Desktop/Backup_Documents_{ts}')\nprint(f"Backing up to {dst}...")\nshutil.copytree(src,dst,ignore=shutil.ignore_patterns('*.tmp','~*'))\nsize=sum(f.stat().st_size for f in os.scandir(dst) if f.is_file())\nprint(f"Done: {size/1024/1024:.1f}MB")` },
+  { id:'a_privacy',  name:'Privacy Clean',    desc:'Clear clipboard + recent docs',type:'ACTION',  icon:'security',         lib:'material',  color:COLOR.red,     code:`import subprocess,os\nsubprocess.run(['powershell','-command','Set-Clipboard -Value ""'],capture_output=True)\nr=os.path.expandvars(r'%APPDATA%\\Microsoft\\Windows\\Recent')\nif os.path.exists(r):\n    for f in os.listdir(r):\n        try: os.remove(os.path.join(r,f))\n        except: pass\nprint("Clipboard cleared - Recent docs cleared")` },
+  { id:'o_log',      name:'Log to Console',   desc:'Print pipeline completion',    type:'OUTPUT',  icon:'terminal',         lib:'material',  color:COLOR.magenta, code:`import datetime\nprint("="*44)\nprint("PIPELINE COMPLETE")\nprint(f"Time: {datetime.datetime.now().strftime('%H:%M:%S')}")\nprint("="*44)` },
+  { id:'o_perf',     name:'Perf Report',      desc:'Full performance snapshot',    type:'OUTPUT',  icon:'bar-chart',        lib:'material',  color:COLOR.magenta, code:`import psutil,datetime\nprint(f"PERF @ {datetime.datetime.now().strftime('%H:%M:%S')}")\nprint(f"CPU: {psutil.cpu_percent(interval=1)}%")\nm=psutil.virtual_memory()\nprint(f"RAM: {m.used/1024**3:.1f}/{m.total/1024**3:.1f}GB ({m.percent}%)")` },
+  { id:'o_notify',   name:'Desktop Notify',   desc:'Windows toast on completion',  type:'OUTPUT',  icon:'notifications-active', lib:'material', color:COLOR.teal, code:`import subprocess\nsubprocess.run(['powershell','-command','Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show("Pipeline Complete!", "Butler AI", 0, 64)'],capture_output=True)\nprint("Desktop notification sent")` },
+  { id:'o_save',     name:'Save to File',     desc:'Write results to Desktop txt', type:'OUTPUT',  icon:'save',             lib:'material',  color:COLOR.magenta, code:`import os,datetime\nd=os.path.expanduser('~/Desktop')\nts=datetime.datetime.now().strftime('%Y%m%d_%H%M%S')\nfp=os.path.join(d,f'pipeline_output_{ts}.txt')\nwith open(fp,'w') as f:\n    f.write(f"Butler AI Pipeline\\nGenerated: {datetime.datetime.now().isoformat()}\\nComplete.\\n")\nprint(f"Saved: {fp}")` },
 ];
 
-// ─── VALIDATE PYTHON ─────────────────────────────────────────
-function isValidPythonCode(code: string): boolean {
-  if (!code || code.trim().length < 10) return false;
-  return [/^import\s+\w/m,/^from\s+\w/m,/^def\s+\w/m,/^class\s+\w/m,/^print\s*\(/m,/#.*python/im].some(r => r.test(code));
+// ─── PULSE DOT ────────────────────────────────────────────────────
+function PulseDot({ color, size = 6 }: { color: string; size?: number }) {
+  const a = useRef(new Animated.Value(0.4)).current;
+  const m = useRef(true);
+  useEffect(() => {
+    m.current = true;
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(a, { toValue: 1,   duration: 800, useNativeDriver: true }),
+      Animated.timing(a, { toValue: 0.2, duration: 800, useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => { m.current = false; loop.stop(); };
+  }, []);
+  return <Animated.View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color, opacity: a }} />;
 }
 
-const TYPE_CONFIG: Record<NodeType, { color: string; label: string; bg: string }> = {
-  TRIGGER: { color: C.teal,   label: 'TRIGGER', bg: C.tealDim   },
-  ACTION:  { color: C.green,  label: 'ACTION',  bg: C.greenDim  },
-  OUTPUT:  { color: C.purple, label: 'OUTPUT',  bg: C.purpleDim },
-};
-
-interface CanvasNode { uid: string; def: NodeDef; }
-
-// ─── SECTION DIVIDER ─────────────────────────────────────────
-function SectionDiv({ icon, label, color, right }: {
-  icon: string; label: string; color: string; right?: React.ReactNode;
-}) {
+// ─── HEADER ───────────────────────────────────────────────────────
+function ForgeHeader({ safeTop, isConn, nodeCount, accent }: { safeTop: number; isConn: boolean; nodeCount: number; accent: string }) {
   return (
-    <View style={{ flexDirection:'row', alignItems:'center', gap:7, marginBottom:8, marginTop:4 }}>
-      <View style={{ width:3, height:13, backgroundColor:color, borderRadius:2 }} />
-      <MaterialIcons name={icon as any} size={10} color={color} />
-      <Text style={{ fontFamily:MONO, fontSize:8.5, fontWeight:'900', color, letterSpacing:1.8 }}>{label}</Text>
-      <View style={{ flex:1, height:1, backgroundColor:color+'25', marginLeft:4 }} />
-      {right}
-    </View>
-  );
-}
-
-// ─── TYPE STATS STRIP — 4 cells (3+1) ────────────────────────
-function TypeStatsStrip({ triggerCount, actionCount, outputCount, canvasCount }: {
-  triggerCount:number; actionCount:number; outputCount:number; canvasCount:number;
-}) {
-  const items = [
-    { label:'TRIGGERS', count:triggerCount, color:C.teal   },
-    { label:'ACTIONS',  count:actionCount,  color:C.green  },
-    { label:'OUTPUTS',  count:outputCount,  color:C.purple },
-    { label:'PIPELINE', count:canvasCount,  color:C.amber  },
-  ];
-  return (
-    <View style={{ flexDirection:'row', gap:GAP3, paddingHorizontal:PAD_H, paddingVertical:9,
-      borderBottomWidth:1, borderBottomColor:C.teal+'18', backgroundColor:C.surfaceHi }}>
-      {items.map((item, i) => (
-        <View key={i} style={[tss.cell, { borderColor:item.color+'35', borderTopColor:item.color }]}>
-          <Text style={[tss.num,   { color:item.color }]}>{item.count}</Text>
-          <Text style={[tss.label, { color:item.color+'80' }]}>{item.label}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-const tss = StyleSheet.create({
-  cell:  { width:COL3_W, backgroundColor:'#070E1A', borderRadius:9, borderWidth:1.5, borderTopWidth:3,
-           paddingVertical:8, alignItems:'center', gap:2,
-           ...Platform.select({ ios:{shadowColor:'#000',shadowOffset:{width:0,height:2},shadowOpacity:0.2,shadowRadius:4}, android:{elevation:2} }) },
-  num:   { fontSize:17, fontWeight:'900', fontFamily:MONO, lineHeight:20 },
-  label: { fontSize:7, fontWeight:'700', fontFamily:MONO, letterSpacing:0.8 },
-});
-
-// ─── NODE DETAIL MODAL ────────────────────────────────────────
-function NodeDetailModal({ node, onClose, onAdd }: {
-  node: NodeDef | null; onClose: () => void; onAdd: (n: NodeDef) => void;
-}) {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => { if (!node) setCopied(false); }, [node]);
-  if (!node) return null;
-  const cfg  = TYPE_CONFIG[node.type];
-  const Icon = node.iconLib === 'community' ? MaterialCommunityIcons : MaterialIcons;
-  const codeLines = node.code.split('\\n');
-  const handleCopy = async () => {
-    haptics.light();
-    try {
-      if (Platform.OS === 'web') { await (navigator as any).clipboard.writeText(node.code); }
-      else { try { require('react-native').Clipboard.setString(node.code); } catch {} }
-      setCopied(true); setTimeout(() => setCopied(false), 2000);
-    } catch {}
-  };
-  const lineColor = (line: string): string => {
-    const t = line.trim();
-    if (t.startsWith('#')) return '#667744';
-    if (/^(import|from|as)\b/.test(t)) return '#4488FF';
-    if (/^(def|class|return|if|else|elif|for|while|try|except|with|in)\b/.test(t)) return '#CC44FF';
-    if (/^print\s*\(/.test(t)) return '#88CC66';
-    return '#D0DDE8';
-  };
-  return (
-    <Modal visible={!!node} animationType="slide" transparent statusBarTranslucent onRequestClose={onClose}>
-      <View style={ndm.overlay}>
-        <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} activeOpacity={1} />
-        <View style={ndm.sheet}>
-          <View style={[ndm.topBar, { backgroundColor: cfg.color }]} />
-          {([{top:0,left:0,borderTopWidth:2.5,borderLeftWidth:2.5},{top:0,right:0,borderTopWidth:2.5,borderRightWidth:2.5},{bottom:0,left:0,borderBottomWidth:2.5,borderLeftWidth:2.5},{bottom:0,right:0,borderBottomWidth:2.5,borderRightWidth:2.5}] as any[]).map((c,i) => (
-            <View key={i} style={[{position:'absolute',width:14,height:14,borderColor:cfg.color+'CC'},c]} />
-          ))}
-          <View style={ndm.handle} />
-          <View style={ndm.header}>
-            <View style={[ndm.iconBox, { backgroundColor:cfg.color+'18', borderColor:cfg.color+'50' }]}>
-              <Icon name={node.icon as any} size={22} color={cfg.color} />
-            </View>
-            <View style={{ flex:1, gap:4 }}>
-              <Text style={[ndm.name, { color:cfg.color }]}>{node.name}</Text>
-              <View style={{ flexDirection:'row', alignItems:'center', gap:6, flexWrap:'wrap' }}>
-                <View style={[ndm.typeBadge, { borderColor:cfg.color+'60', backgroundColor:cfg.color+'15' }]}>
-                  <Text style={[ndm.typeTxt, { color:cfg.color }]}>{cfg.label}</Text>
-                </View>
-                <Text style={ndm.descTxt} numberOfLines={2}>{node.description}</Text>
-              </View>
-            </View>
-            <TouchableOpacity onPress={onClose} style={ndm.closeBtn} hitSlop={{top:10,bottom:10,left:10,right:10}}>
-              <MaterialIcons name="close" size={16} color={C.textDim} />
-            </TouchableOpacity>
-          </View>
-          <View style={[ndm.infoRow, { borderColor:cfg.color+'25', backgroundColor:cfg.color+'06' }]}>
-            {[{icon:'code',label:'LINES',val:String(codeLines.length)},{icon:'account-tree',label:'TYPE',val:node.type},{icon:'language',label:'LANG',val:'PYTHON'}].map((item,i) => (
-              <React.Fragment key={item.label}>
-                {i>0 ? <View style={[ndm.infoDiv, { backgroundColor:cfg.color+'30' }]} /> : null}
-                <View style={ndm.infoCell}>
-                  <MaterialIcons name={item.icon as any} size={11} color={cfg.color} />
-                  <Text style={[ndm.infoLabel, { color:C.textDim }]}>{item.label}</Text>
-                  <Text style={[ndm.infoVal, { color:cfg.color }]}>{item.val}</Text>
-                </View>
-              </React.Fragment>
-            ))}
-          </View>
-          <View style={[ndm.codeWrap, { borderColor:cfg.color+'30' }]}>
-            <View style={[ndm.codeHeader, { borderBottomColor:cfg.color+'25', backgroundColor:cfg.color+'06' }]}>
-              <View style={{ flexDirection:'row', gap:5 }}>
-                {['#FF5F57','#FEBC2E','#28C840'].map((col,i) => (
-                  <View key={i} style={{ width:9, height:9, borderRadius:5, backgroundColor:col }} />
-                ))}
-              </View>
-              <Text style={[ndm.codeFilename, { color:cfg.color+'AA' }]}>{node.id}.py</Text>
-              <TouchableOpacity style={[ndm.copyBtn, { borderColor:copied?C.green+'80':cfg.color+'50', backgroundColor:copied?C.green+'18':cfg.color+'10' }]}
-                onPress={handleCopy} hitSlop={{top:6,bottom:6,left:6,right:6}}>
-                <MaterialIcons name={copied?'check':'content-copy'} size={11} color={copied?C.green:cfg.color} />
-                <Text style={[ndm.copyTxt, { color:copied?C.green:cfg.color }]}>{copied?'COPIED!':'COPY'}</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={{ maxHeight:210 }} contentContainerStyle={{ padding:10 }} showsVerticalScrollIndicator={false}>
-              {codeLines.map((line,i) => (
-                <View key={i} style={ndm.codeLine}>
-                  <Text style={[ndm.lineNum, { color:cfg.color+'45' }]}>{(i+1).toString().padStart(2,' ')}</Text>
-                  <Text style={[ndm.lineText, { color:lineColor(line) }]}>{line||' '}</Text>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-          <TouchableOpacity style={[ndm.addBtn, { backgroundColor:cfg.color,
-            ...Platform.select({ ios:{shadowColor:cfg.color,shadowOffset:{width:0,height:4},shadowOpacity:0.5,shadowRadius:10}, android:{elevation:6} }) }]}
-            onPress={() => { haptics.heavy(); onAdd(node); onClose(); }} activeOpacity={0.85}>
-            <MaterialIcons name="add" size={20} color="#000" />
-            <Text style={ndm.addBtnTxt}>ADD TO CANVAS</Text>
-          </TouchableOpacity>
-        </View>
+    <View style={[fh.root, { paddingTop: safeTop }]}>
+      <View style={{ height: 3, flexDirection: 'row' }}>
+        {COLOR.stripe5.map((c, i) => <View key={i} style={{ flex: 1, backgroundColor: c }} />)}
       </View>
-    </Modal>
+      <View style={fh.row}>
+        <View style={[fh.iconBox, { borderColor: COLOR.magenta + '50', backgroundColor: glow(COLOR.magenta, 8) }]}>
+          <MaterialCommunityIcons name="hammer-screwdriver" size={20} color={COLOR.magenta} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={fh.brand}>
+            <Text style={{ color: COLOR.magenta }}>{'{'}</Text>
+            <Text style={{ color: '#FFF' }}>SCRIPT</Text>
+            <Text style={{ color: COLOR.cyan }}>_FORGE</Text>
+            <Text style={{ color: COLOR.magenta }}>{'}'}</Text>
+          </Text>
+          <Text style={fh.sub}>
+            <Text style={{ color: COLOR.magenta + '55' }}>{'# '}</Text>
+            <Text style={{ color: COLOR.mid }}>node pipeline · {PALETTE.filter(n => n.type === 'TRIGGER').length}T / {PALETTE.filter(n => n.type === 'ACTION').length}A / {PALETTE.filter(n => n.type === 'OUTPUT').length}O</Text>
+          </Text>
+        </View>
+        <View style={[fh.pill, { borderColor: (isConn ? COLOR.green : COLOR.red) + '55', backgroundColor: (isConn ? COLOR.green : COLOR.red) + '0A' }]}>
+          <PulseDot color={isConn ? COLOR.green : COLOR.red} size={5} />
+          <Text style={[fh.pillTxt, { color: isConn ? COLOR.green : COLOR.red }]}>{isConn ? 'PC LIVE' : 'OFFLINE'}</Text>
+        </View>
+        {nodeCount > 0 && (
+          <View style={[fh.pill, { borderColor: COLOR.magenta + '40', backgroundColor: glow(COLOR.magenta, 8) }]}>
+            <Text style={[fh.pillTxt, { color: COLOR.magenta }]}>{nodeCount} NODES</Text>
+          </View>
+        )}
+      </View>
+      <View style={{ height: 1, flexDirection: 'row' }}>
+        <View style={{ flex: 1, backgroundColor: COLOR.magenta + '25' }} />
+        <View style={{ width: 10, backgroundColor: COLOR.magenta }} />
+        <View style={{ flex: 4, backgroundColor: COLOR.magenta + '10' }} />
+      </View>
+    </View>
   );
 }
-const ndm = StyleSheet.create({
-  overlay:    { flex:1, backgroundColor:'rgba(0,0,0,0.88)', justifyContent:'flex-end' },
-  sheet:      { backgroundColor:'#060A10', borderTopLeftRadius:18, borderTopRightRadius:18, overflow:'hidden', position:'relative',
-    ...Platform.select({ ios:{shadowColor:'#000',shadowOffset:{width:0,height:-8},shadowOpacity:0.6,shadowRadius:20}, android:{elevation:24} }) },
-  topBar:     { height:3 },
-  handle:     { width:36, height:4, backgroundColor:'rgba(255,255,255,0.12)', borderRadius:2, alignSelf:'center', marginTop:10, marginBottom:4 },
-  header:     { flexDirection:'row', alignItems:'center', gap:12, paddingHorizontal:16, paddingTop:4, paddingBottom:14, borderBottomWidth:1, borderBottomColor:'rgba(255,255,255,0.06)' },
-  iconBox:    { width:48, height:48, borderRadius:13, borderWidth:1.5, alignItems:'center', justifyContent:'center', flexShrink:0 },
-  name:       { fontSize:16, fontWeight:'900', fontFamily:MONO, letterSpacing:0.3 },
-  typeBadge:  { borderWidth:1, borderRadius:6, paddingHorizontal:7, paddingVertical:3 },
-  typeTxt:    { fontSize:8, fontWeight:'900', fontFamily:MONO, letterSpacing:0.8 },
-  descTxt:    { fontSize:10, color:C.textMid, fontFamily:MONO, flex:1 },
-  closeBtn:   { width:32, height:32, borderRadius:16, backgroundColor:C.surfaceHi, alignItems:'center', justifyContent:'center' },
-  infoRow:    { flexDirection:'row', alignItems:'center', marginHorizontal:16, marginBottom:10, borderWidth:1, borderRadius:10, overflow:'hidden' },
-  infoCell:   { flex:1, flexDirection:'row', alignItems:'center', gap:5, paddingHorizontal:10, paddingVertical:10 },
-  infoDiv:    { width:1, height:28 },
-  infoLabel:  { fontSize:7.5, fontWeight:'700', fontFamily:MONO, letterSpacing:1, flexShrink:0 },
-  infoVal:    { fontSize:10, fontWeight:'900', fontFamily:MONO },
-  codeWrap:   { marginHorizontal:16, marginBottom:12, borderRadius:10, overflow:'hidden', borderWidth:1, backgroundColor:'#040810' },
-  codeHeader: { flexDirection:'row', alignItems:'center', gap:8, paddingHorizontal:12, paddingVertical:9, borderBottomWidth:1 },
-  codeFilename:{ flex:1, fontSize:9, fontFamily:MONO, textAlign:'center', letterSpacing:0.5 },
-  copyBtn:    { flexDirection:'row', alignItems:'center', gap:4, borderWidth:1, borderRadius:6, paddingHorizontal:8, paddingVertical:4 },
-  copyTxt:    { fontSize:8, fontWeight:'700', fontFamily:MONO, letterSpacing:0.5 },
-  codeLine:   { flexDirection:'row', marginBottom:1.5 },
-  lineNum:    { fontSize:10, fontFamily:MONO, minWidth:22, textAlign:'right', marginRight:10, lineHeight:17 },
-  lineText:   { flex:1, fontSize:10.5, fontFamily:MONO, lineHeight:17 },
-  addBtn:     { flexDirection:'row', alignItems:'center', justifyContent:'center', gap:10, marginHorizontal:16, marginBottom:20, borderRadius:12, paddingVertical:15 },
-  addBtnTxt:  { fontSize:14, fontWeight:'900', color:'#000', fontFamily:MONO, letterSpacing:0.8 },
+const fh = StyleSheet.create({
+  root:    { backgroundColor: '#020609', ...SHADOW.dark },
+  row:     { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: PAD, paddingTop: 10, paddingBottom: 7 },
+  iconBox: { width: 44, height: 44, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  brand:   { fontFamily: MONO, fontSize: 15, fontWeight: '900', letterSpacing: 0.3 },
+  sub:     { fontFamily: MONO, fontSize: 8.5, lineHeight: 13, marginTop: 2 },
+  pill:    { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 4 },
+  pillTxt: { fontFamily: MONO, fontSize: 8.5, fontWeight: '900' },
 });
 
-// ─── PALETTE CARD — 3-col width ──────────────────────────────
-function PaletteCard({ node, onAdd, isInCanvas, onLongPress }: {
-  node: NodeDef; onAdd: (n: NodeDef) => void; isInCanvas: boolean; onLongPress: (n: NodeDef) => void;
-}) {
-  const cfg    = TYPE_CONFIG[node.type];
-  const scale  = useRef(new Animated.Value(1)).current;
-  const glowOp = useRef(new Animated.Value(0)).current;
-  const Icon   = node.iconLib === 'community' ? MaterialCommunityIcons : MaterialIcons;
+// ─── PALETTE CARD ─────────────────────────────────────────────────
+function PaletteCard({ node, onAdd, inCanvas }: { node: NodeDef; onAdd: (n: NodeDef) => void; inCanvas: boolean }) {
+  const cfg = TYPE_CFG[node.type];
+  const Icon = node.lib === 'community' ? MaterialCommunityIcons : MaterialIcons;
+  const scale = useRef(new Animated.Value(1)).current;
   const handlePress = () => {
     haptics.medium();
     Animated.sequence([
-      Animated.timing(scale, { toValue:0.93, duration:55, useNativeDriver:true }),
-      Animated.spring(scale, { toValue:1, tension:300, friction:8, useNativeDriver:true }),
-    ]).start();
-    Animated.sequence([
-      Animated.timing(glowOp, { toValue:0.45, duration:70, useNativeDriver:true }),
-      Animated.timing(glowOp, { toValue:0, duration:360, useNativeDriver:true }),
+      Animated.timing(scale, { toValue: 0.92, duration: 55, useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1, tension: 300, friction: 8, useNativeDriver: true }),
     ]).start();
     onAdd(node);
   };
   return (
-    <Animated.View style={{ transform:[{scale}], width:COL3_W }}>
-      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius:12, backgroundColor:cfg.color, opacity:glowOp, zIndex:10 }]} />
-      <TouchableOpacity
-        style={[pc.card, { borderTopColor:cfg.color, borderColor:isInCanvas?cfg.color+'55':C.border, backgroundColor:isInCanvas?cfg.color+'0A':C.surface }]}
-        onPress={handlePress} onLongPress={() => { haptics.heavy(); onLongPress(node); }}
-        delayLongPress={400} activeOpacity={0.88}
-      >
-        <View style={[pc.cTL, { borderColor:cfg.color+'70' }]} />
-        <View style={[pc.cBR, { borderColor:cfg.color+'40' }]} />
-        <View style={[pc.iconBox, { backgroundColor:cfg.color+'18', borderColor:cfg.color+'40' }]}>
+    <Animated.View style={{ transform: [{ scale }], width: COL3 }}>
+      <TouchableOpacity onPress={handlePress} activeOpacity={0.88}
+        style={[pc2.card, { borderTopColor: cfg.color, borderColor: inCanvas ? cfg.color + '55' : COLOR.border, backgroundColor: inCanvas ? glow(cfg.color, 10) : COLOR.surf }]}>
+        <View style={{ position: 'absolute', top: 0, left: 0, width: 7, height: 7, borderTopWidth: 1.5, borderLeftWidth: 1.5, borderColor: cfg.color + '70' }} />
+        <View style={[pc2.iconBox, { borderColor: cfg.color + '40', backgroundColor: glow(cfg.color, 12) }]}>
           <Icon name={node.icon as any} size={16} color={cfg.color} />
         </View>
-        <Text style={[pc.name, { color:isInCanvas?cfg.color:C.text }]} numberOfLines={2}>{node.name}</Text>
-        <Text style={pc.desc} numberOfLines={1}>{node.description}</Text>
-        <View style={{ flexDirection:'row', alignItems:'center', justifyContent:'space-between', marginTop:4 }}>
-          <View style={[pc.typeBadge, { borderColor:cfg.color+'50', backgroundColor:cfg.bg }]}>
-            <Text style={[pc.typeTxt, { color:cfg.color }]}>{cfg.label}</Text>
-          </View>
-          <Text style={[pc.holdHint, { color:cfg.color+'55' }]}>hold</Text>
+        <Text style={[pc2.name, { color: inCanvas ? cfg.color : COLOR.text }]} numberOfLines={2}>{node.name}</Text>
+        <Text style={pc2.desc} numberOfLines={1}>{node.desc}</Text>
+        <View style={[pc2.typeBadge, { borderColor: cfg.color + '50', backgroundColor: glow(cfg.color, 8) }]}>
+          <Text style={[pc2.typeTxt, { color: cfg.color }]}>{cfg.label}</Text>
         </View>
       </TouchableOpacity>
     </Animated.View>
   );
 }
-const pc = StyleSheet.create({
-  card:      { borderWidth:1, borderTopWidth:3, borderRadius:12, paddingVertical:10, paddingHorizontal:8, minHeight:95, position:'relative', overflow:'hidden',
-    ...Platform.select({ ios:{shadowColor:'#000',shadowOffset:{width:0,height:2},shadowOpacity:0.2,shadowRadius:5}, android:{elevation:3} }) },
-  cTL:       { position:'absolute', top:0, left:0, width:7, height:7, borderTopWidth:1.5, borderLeftWidth:1.5 },
-  cBR:       { position:'absolute', bottom:0, right:0, width:7, height:7, borderBottomWidth:1.5, borderRightWidth:1.5 },
-  iconBox:   { width:32, height:32, borderRadius:9, borderWidth:1.5, alignItems:'center', justifyContent:'center', marginBottom:6 },
-  name:      { fontSize:10, fontWeight:'700', fontFamily:MONO, letterSpacing:0.1, lineHeight:13 },
-  desc:      { fontSize:8.5, color:C.textDim, fontFamily:MONO, lineHeight:12 },
-  typeBadge: { borderWidth:1, borderRadius:5, paddingHorizontal:4, paddingVertical:1.5, flexShrink:0 },
-  typeTxt:   { fontSize:7, fontWeight:'900', fontFamily:MONO, letterSpacing:0.5 },
-  holdHint:  { fontSize:7, fontFamily:MONO, letterSpacing:0.3 },
+const pc2 = StyleSheet.create({
+  card:     { borderWidth: 1, borderTopWidth: 3, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 8, minHeight: 95, position: 'relative', overflow: 'hidden',
+    ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 5 }, android: { elevation: 3 } }) },
+  iconBox:  { width: 32, height: 32, borderRadius: 9, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  name:     { fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 0.1, lineHeight: 13 },
+  desc:     { fontFamily: MONO, fontSize: 8, color: COLOR.dim, lineHeight: 11 },
+  typeBadge:{ alignSelf: 'flex-start', borderWidth: 1, borderRadius: 5, paddingHorizontal: 4, paddingVertical: 1.5, marginTop: 4 },
+  typeTxt:  { fontFamily: MONO, fontSize: 7, fontWeight: '900', letterSpacing: 0.5 },
 });
 
-// ─── CANVAS NODE CARD ─────────────────────────────────────────
-function CanvasNodeCard({ cnode, index, onRemove, total }: {
-  cnode: CanvasNode; index: number; onRemove: () => void; total: number;
-}) {
-  const cfg  = TYPE_CONFIG[cnode.def.type];
-  const Icon = cnode.def.iconLib === 'community' ? MaterialCommunityIcons : MaterialIcons;
-  const slideIn = useRef(new Animated.Value(-20)).current;
-  const fadeIn  = useRef(new Animated.Value(0)).current;
+// ─── CANVAS NODE ──────────────────────────────────────────────────
+interface CanvasNode { uid: string; def: NodeDef; }
+
+function CanvasNodeCard({ cnode, index, total, onRemove }: { cnode: CanvasNode; index: number; total: number; onRemove: () => void }) {
+  const cfg = TYPE_CFG[cnode.def.type];
+  const Icon = cnode.def.lib === 'community' ? MaterialCommunityIcons : MaterialIcons;
+  const slideA = useRef(new Animated.Value(-20)).current;
+  const fadeA  = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.parallel([
-      Animated.spring(slideIn, { toValue:0, tension:200, friction:12, useNativeDriver:true }),
-      Animated.timing(fadeIn, { toValue:1, duration:200, useNativeDriver:true }),
+      Animated.spring(slideA, { toValue: 0, tension: 200, friction: 12, useNativeDriver: true }),
+      Animated.timing(fadeA, { toValue: 1, duration: 200, useNativeDriver: true }),
     ]).start();
   }, []);
   return (
-    <Animated.View style={{ opacity:fadeIn, transform:[{translateX:slideIn}] }}>
-      <View style={[cn.card, { borderColor:cfg.color+'50', backgroundColor:cfg.color+'08' }]}>
-        <View style={[cn.topBar, { backgroundColor:cfg.color }]} />
-        <View style={cn.row}>
-          <View style={[cn.stepBadge, { borderColor:cfg.color+'60', backgroundColor:cfg.color+'15' }]}>
-            <Text style={[cn.stepNum, { color:cfg.color }]}>{index+1}</Text>
+    <Animated.View style={{ opacity: fadeA, transform: [{ translateX: slideA }] }}>
+      <View style={[cnc.card, { borderColor: cfg.color + '50', backgroundColor: glow(cfg.color, 8) }]}>
+        <View style={[cnc.bar, { backgroundColor: cfg.color }]} />
+        <View style={cnc.row}>
+          <View style={[cnc.step, { borderColor: cfg.color + '60', backgroundColor: glow(cfg.color, 15) }]}>
+            <Text style={[cnc.stepTxt, { color: cfg.color }]}>{index + 1}</Text>
           </View>
-          <View style={[cn.iconBox, { backgroundColor:cfg.color+'15', borderColor:cfg.color+'40' }]}>
+          <View style={[cnc.iconBox, { borderColor: cfg.color + '40', backgroundColor: glow(cfg.color, 12) }]}>
             <Icon name={cnode.def.icon as any} size={16} color={cfg.color} />
           </View>
-          <View style={{ flex:1 }}>
-            <Text style={[cn.name, { color:cfg.color }]} numberOfLines={1}>{cnode.def.name}</Text>
-            <Text style={cn.desc} numberOfLines={1}>{cnode.def.description}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[cnc.name, { color: cfg.color }]} numberOfLines={1}>{cnode.def.name}</Text>
+            <Text style={cnc.desc} numberOfLines={1}>{cnode.def.desc}</Text>
           </View>
-          <View style={[cn.typePill, { borderColor:cfg.color+'50', backgroundColor:cfg.color+'12' }]}>
-            <Text style={[cn.typeTxt, { color:cfg.color }]}>{cfg.label}</Text>
+          <View style={[cnc.typePill, { borderColor: cfg.color + '50', backgroundColor: glow(cfg.color, 10) }]}>
+            <Text style={[cnc.typeTxt, { color: cfg.color }]}>{cfg.label}</Text>
           </View>
-          <TouchableOpacity onPress={() => { haptics.medium(); onRemove(); }} style={cn.removeBtn} hitSlop={{top:8,bottom:8,left:8,right:8}}>
-            <MaterialIcons name="close" size={14} color={C.textDim} />
+          <TouchableOpacity onPress={() => { haptics.medium(); onRemove(); }} style={cnc.removeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <MaterialIcons name="close" size={14} color={COLOR.dim} />
           </TouchableOpacity>
         </View>
       </View>
-      {index < total-1 ? (
-        <View style={cn.connector}>
-          <View style={[cn.connLine, { backgroundColor:cfg.color+'40' }]} />
-          <View style={{ width:0, height:0, borderLeftWidth:5, borderRightWidth:5, borderTopWidth:6,
-            borderLeftColor:'transparent', borderRightColor:'transparent', borderTopColor:cfg.color+'50' }} />
+      {index < total - 1 && (
+        <View style={{ alignItems: 'center', paddingVertical: 4 }}>
+          <View style={{ width: 2, height: 12, backgroundColor: cfg.color + '40', borderRadius: 1 }} />
+          <View style={{ width: 0, height: 0, borderLeftWidth: 5, borderRightWidth: 5, borderTopWidth: 6, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: cfg.color + '50' }} />
         </View>
-      ) : null}
+      )}
     </Animated.View>
   );
 }
-const cn = StyleSheet.create({
-  card:      { borderWidth:1.5, borderRadius:12, overflow:'hidden',
-    ...Platform.select({ ios:{shadowColor:'#000',shadowOffset:{width:0,height:3},shadowOpacity:0.25,shadowRadius:8}, android:{elevation:4} }) },
-  topBar:    { height:2.5 },
-  row:       { flexDirection:'row', alignItems:'center', gap:9, paddingHorizontal:12, paddingVertical:11 },
-  stepBadge: { width:26, height:26, borderRadius:13, borderWidth:1.5, alignItems:'center', justifyContent:'center', flexShrink:0 },
-  stepNum:   { fontSize:11, fontWeight:'900', fontFamily:MONO },
-  iconBox:   { width:34, height:34, borderRadius:8, borderWidth:1, alignItems:'center', justifyContent:'center', flexShrink:0 },
-  name:      { fontSize:12, fontWeight:'700', fontFamily:MONO },
-  desc:      { fontSize:9, color:C.textDim, fontFamily:MONO, marginTop:2 },
-  typePill:  { borderWidth:1, borderRadius:6, paddingHorizontal:6, paddingVertical:2, flexShrink:0 },
-  typeTxt:   { fontSize:7.5, fontWeight:'900', fontFamily:MONO, letterSpacing:0.5 },
-  removeBtn: { width:24, height:24, borderRadius:12, backgroundColor:C.surfaceHi, alignItems:'center', justifyContent:'center', flexShrink:0 },
-  connector: { alignItems:'center', paddingVertical:5 },
-  connLine:  { width:2, height:12 },
+const cnc = StyleSheet.create({
+  card:    { borderWidth: 1.5, borderRadius: 12, overflow: 'hidden' },
+  bar:     { height: 2.5 },
+  row:     { flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 12, paddingVertical: 11 },
+  step:    { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  stepTxt: { fontFamily: MONO, fontSize: 11, fontWeight: '900' },
+  iconBox: { width: 34, height: 34, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  name:    { fontFamily: MONO, fontSize: 12, fontWeight: '700' },
+  desc:    { fontFamily: MONO, fontSize: 9, color: COLOR.dim, marginTop: 2 },
+  typePill:{ borderWidth: 1, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, flexShrink: 0 },
+  typeTxt: { fontFamily: MONO, fontSize: 7.5, fontWeight: '900' },
+  removeBtn: { width: 24, height: 24, borderRadius: 12, backgroundColor: COLOR.surf2, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
 });
 
-// ─── EXECUTE RESULT PANEL ─────────────────────────────────────
-function ExecuteResultPanel({ output, error, running, onClose }: {
-  output: string; error: string; running: boolean; onClose: () => void;
-}) {
-  const slideY = useRef(new Animated.Value(50)).current;
-  const fadeIn = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(slideY, { toValue:0, tension:200, friction:14, useNativeDriver:true }),
-      Animated.timing(fadeIn, { toValue:1, duration:200, useNativeDriver:true }),
-    ]).start();
-  }, []);
-  const success = !error && !running;
-  const col = running ? C.amber : success ? C.green : C.red;
+// ─── SECTION LABEL ────────────────────────────────────────────────
+function SectionLabel({ icon, label, color, count }: { icon: string; label: string; color: string; count?: number }) {
   return (
-    <Animated.View style={[erp.wrap, { opacity:fadeIn, transform:[{translateY:slideY}] }]}>
-      <View style={[erp.header, { borderBottomColor:col+'30' }]}>
-        <View style={{ width:8, height:8, borderRadius:4, backgroundColor:col }} />
-        <Text style={[erp.headerTxt, { color:col }]}>{running?'EXECUTING PIPELINE...':success?'PIPELINE COMPLETE':'PIPELINE FAILED'}</Text>
-        {!running && (
-          <TouchableOpacity onPress={onClose} hitSlop={{top:8,bottom:8,left:8,right:8}}>
-            <MaterialIcons name="close" size={16} color={C.textDim} />
-          </TouchableOpacity>
-        )}
-      </View>
-      <ScrollView style={{ maxHeight:200 }} contentContainerStyle={{ padding:12 }} showsVerticalScrollIndicator={false}>
-        {running ? (
-          <View style={{ flexDirection:'row', alignItems:'center', gap:10 }}>
-            <ActivityIndicator color={C.amber} size="small" />
-            <Text style={{ fontSize:12, color:C.amber, fontFamily:MONO }}>Running nodes...</Text>
-          </View>
-        ) : (
-          <Text style={{ fontSize:12, color:success?'#88FF99':'#FF8888', fontFamily:MONO, lineHeight:18 }} selectable>
-            {output||error||'No output returned'}
-          </Text>
-        )}
-      </ScrollView>
-    </Animated.View>
-  );
-}
-const erp = StyleSheet.create({
-  wrap:      { backgroundColor:'#050D10', borderTopWidth:1.5, borderTopColor:C.teal+'40' },
-  header:    { flexDirection:'row', alignItems:'center', gap:8, paddingHorizontal:14, paddingVertical:10, borderBottomWidth:1 },
-  headerTxt: { flex:1, fontSize:11, fontWeight:'900', fontFamily:MONO, letterSpacing:0.8 },
-});
-
-// ─── EMPTY CANVAS ─────────────────────────────────────────────
-function EmptyCanvas() {
-  const pulse = useRef(new Animated.Value(0.4)).current;
-  useFocusEffect(useCallback(() => {
-    const a = Animated.loop(Animated.sequence([
-      Animated.timing(pulse, { toValue:1, duration:1200, useNativeDriver:true }),
-      Animated.timing(pulse, { toValue:0.2, duration:1200, useNativeDriver:true }),
-    ]));
-    a.start();
-    return () => a.stop();
-  }, []));
-  return (
-    <View style={ec.wrap}>
-      <Animated.View style={{ opacity:pulse }}>
-        <MaterialIcons name="account-tree" size={52} color={C.teal+'60'} />
-      </Animated.View>
-      <Text style={ec.title}>PIPELINE EMPTY</Text>
-      <Text style={ec.hint}>{'Tap NODES tab to browse\n250+ automation nodes\n\nHold any node to see its Python code'}</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 8, marginTop: 4 }}>
+      <View style={{ width: 3, height: 13, borderRadius: 2, backgroundColor: color }} />
+      <MaterialIcons name={icon as any} size={11} color={color} />
+      <Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '900', color, letterSpacing: 1.8 }}>{label}</Text>
+      {count !== undefined && (
+        <View style={{ borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, borderColor: color + '45', backgroundColor: glow(color, 8) }}>
+          <Text style={{ fontFamily: MONO, fontSize: 8, fontWeight: '900', color }}>{count}</Text>
+        </View>
+      )}
+      <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: color + '30' }} />
     </View>
   );
 }
-const ec = StyleSheet.create({
-  wrap:  { flex:1, alignItems:'center', justifyContent:'center', gap:14, padding:20 },
-  title: { fontSize:13, fontWeight:'900', color:C.textDim, fontFamily:MONO, letterSpacing:1 },
-  hint:  { fontSize:11, color:C.textDim, fontFamily:MONO, textAlign:'center', lineHeight:18 },
+
+// ─── EXECUTE RESULT ───────────────────────────────────────────────
+function ExecResult({ output, error, running, onClose }: { output: string; error: string; running: boolean; onClose: () => void }) {
+  const col = running ? COLOR.amber : error ? COLOR.red : COLOR.green;
+  return (
+    <View style={[er.wrap, { borderTopColor: col }]}>
+      <View style={[er.hdr, { borderBottomColor: col + '30' }]}>
+        <PulseDot color={col} size={6} />
+        <Text style={[er.title, { color: col }]}>{running ? 'EXECUTING PIPELINE...' : error ? 'PIPELINE FAILED' : 'PIPELINE COMPLETE'}</Text>
+        {!running && <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><MaterialIcons name="close" size={16} color={COLOR.mid} /></TouchableOpacity>}
+      </View>
+      <ScrollView style={{ maxHeight: 200 }} contentContainerStyle={{ padding: 12 }} showsVerticalScrollIndicator={false}>
+        {running ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <ActivityIndicator color={COLOR.amber} size="small" />
+            <Text style={{ fontFamily: MONO, fontSize: 12, color: COLOR.amber }}>Running nodes...</Text>
+          </View>
+        ) : (
+          <Text style={{ fontFamily: MONO, fontSize: 12, color: error ? '#FF8888' : '#88FF99', lineHeight: 18 }} selectable>{output || error || 'No output'}</Text>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+const er = StyleSheet.create({
+  wrap:  { backgroundColor: '#050D10', borderTopWidth: 1.5 },
+  hdr:   { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1 },
+  title: { flex: 1, fontFamily: MONO, fontSize: 11, fontWeight: '900', letterSpacing: 0.8 },
 });
 
-// ─── MAIN SCREEN ─────────────────────────────────────────────
-function BuilderScreenInner() {
+// ─── MAIN SCREEN ─────────────────────────────────────────────────
+function ForgeInner() {
   const insets = useSafeAreaInsets();
+  const { T }  = useCosmetic();
   const [canvasNodes, setCanvasNodes] = useState<CanvasNode[]>([]);
-  const [activePane,  setActivePane]  = useState<'palette'|'canvas'>('palette');
-  const [widgetOpen,  setWidgetOpen]  = useState(false);
-  const widgetAnim = useRef(new Animated.Value(0)).current;
-  const [genStage, setGenStage] = useState<'idle'|'connecting'|'generating'|'validating'|'done'>('idle');
-  const [filter,      setFilter]      = useState<'ALL'|NodeType>('ALL');
+  const [pane,        setPane]        = useState<'palette' | 'canvas'>('palette');
+  const [filter,      setFilter]      = useState<'ALL' | NodeType>('ALL');
   const [search,      setSearch]      = useState('');
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConn,      setIsConn]      = useState(false);
   const [executing,   setExecuting]   = useState(false);
-  const [execOutput,  setExecOutput]  = useState('');
-  const [execError,   setExecError]   = useState('');
+  const [execOut,     setExecOut]     = useState('');
+  const [execErr,     setExecErr]     = useState('');
   const [showResult,  setShowResult]  = useState(false);
   const [saving,      setSaving]      = useState(false);
-  const [scriptName,  setScriptName]  = useState('My Pipeline');
-  const [detailNode,  setDetailNode]  = useState<NodeDef|null>(null);
-  const canvasScrollRef = useRef<ScrollView>(null);
+  const [pipelineName, setPipelineName] = useState('My Pipeline');
+  const canvasRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     const seed = autoConnectEngine.getCurrentConnection();
-    setIsConnected(seed.connected);
-    const unsub = autoConnectEngine.onEvent((evt: EngineEvent) => setIsConnected(evt.status === 'connected'));
-    if (!seed.connected) {
-      import('@/services/serverConnection').then(({ serverConnection: sc }) => {
-        const ip = sc.getIP(); const port = sc.getPort();
-        if (ip && port) sc.quickPing(ip, port).then(ms => { if (ms !== null) autoConnectEngine.notifyConnected(ip, port, ms); }).catch(() => {});
-      }).catch(() => {});
-    }
+    setIsConn(seed.connected);
+    const unsub = autoConnectEngine.onEvent(evt => setIsConn(evt.status === 'connected'));
     return () => unsub();
   }, []);
 
   const filteredPalette = useMemo(() => {
-    let nodes = NODE_PALETTE;
+    let nodes = PALETTE;
     if (filter !== 'ALL') nodes = nodes.filter(n => n.type === filter);
     if (search.trim()) {
       const q = search.toLowerCase();
-      nodes = nodes.filter(n => n.name.toLowerCase().includes(q) || n.description.toLowerCase().includes(q));
+      nodes = nodes.filter(n => n.name.toLowerCase().includes(q) || n.desc.toLowerCase().includes(q));
     }
     return nodes;
   }, [filter, search]);
 
-  const canvasNodeIds = useMemo(() => new Set(canvasNodes.map(cn => cn.def.id)), [canvasNodes]);
-
-  // Split by type for grouped 3-col rendering
-  const triggerNodes = useMemo(() => filteredPalette.filter(n => n.type === 'TRIGGER'), [filteredPalette]);
-  const actionNodes  = useMemo(() => filteredPalette.filter(n => n.type === 'ACTION'),  [filteredPalette]);
-  const outputNodes  = useMemo(() => filteredPalette.filter(n => n.type === 'OUTPUT'),  [filteredPalette]);
+  const canvasIds = useMemo(() => new Set(canvasNodes.map(c => c.def.id)), [canvasNodes]);
 
   const addNode = useCallback((def: NodeDef) => {
     const uid = `${def.id}_${Date.now()}`;
     setCanvasNodes(prev => [...prev, { uid, def }]);
-    setTimeout(() => canvasScrollRef.current?.scrollToEnd({ animated:true }), 100);
+    setTimeout(() => canvasRef.current?.scrollToEnd({ animated: true }), 100);
   }, []);
 
   const removeNode = useCallback((uid: string) => {
@@ -626,405 +320,235 @@ function BuilderScreenInner() {
 
   const clearCanvas = () => {
     if (!canvasNodes.length) return;
-    Alert.alert('Clear Pipeline', 'Remove all nodes from pipeline?', [
-      { text:'Cancel', style:'cancel' },
-      { text:'Clear', style:'destructive', onPress:() => { haptics.heavy(); setCanvasNodes([]); setShowResult(false); } },
+    Alert.alert('Clear Pipeline', 'Remove all nodes?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Clear', style: 'destructive', onPress: () => { haptics.heavy(); setCanvasNodes([]); setShowResult(false); } },
     ]);
   };
 
   const buildScript = useCallback(() => {
     if (!canvasNodes.length) return null;
-    setGenStage('generating');
-    const lines: string[] = [
-      '# NEXUS SCRIPT BUILDER — AUTO-GENERATED PIPELINE',
-      `# Nodes: ${canvasNodes.length} · Generated: ${new Date().toISOString()}`,
-      '', 'import sys', '',
-    ];
+    const lines: string[] = ['# BUTLER AI FORGE — AUTO-GENERATED PIPELINE', `# Nodes: ${canvasNodes.length}`, '', 'import sys', ''];
     canvasNodes.forEach((cn, i) => {
-      lines.push(`# ── STEP ${i+1}: ${cn.def.name.toUpperCase()} ──`);
-      lines.push(`print("Step ${i+1}: ${cn.def.name}")`);
+      lines.push(`# ── STEP ${i + 1}: ${cn.def.name.toUpperCase()} ──`);
+      lines.push(`print("Step ${i + 1}: ${cn.def.name}")`);
       lines.push(cn.def.code); lines.push('');
     });
     lines.push('print("Pipeline complete")');
-    const script = lines.join('\n');
-    setGenStage('validating');
-    if (!isValidPythonCode(script)) {
-      setGenStage('idle');
-      Alert.alert('Invalid Code', 'The generated pipeline does not look like valid Python. Add more specific nodes.');
-      return null;
-    }
-    setGenStage('done');
-    setTimeout(() => setGenStage('idle'), 2000);
-    return script;
+    return lines.join('\n');
   }, [canvasNodes]);
 
-  const execute = async () => {
-    if (!canvasNodes.length) { Alert.alert('Empty Pipeline', 'Add at least one node to execute.'); return; }
-    if (!isConnected) { Alert.alert('Offline', 'Connect to your PC via the HOME tab first.'); return; }
+  const execute = useCallback(async () => {
+    if (!canvasNodes.length) { Alert.alert('Empty Pipeline', 'Add nodes first.'); return; }
+    if (!isConn) { Alert.alert('Offline', 'Connect PC from HOME tab.'); return; }
     const script = buildScript();
     if (!script) return;
     haptics.heavy();
-    setExecuting(true); setExecOutput(''); setExecError(''); setShowResult(true);
-    // Switch to canvas tab so result is visible
-    setActivePane('canvas');
+    setExecuting(true); setExecOut(''); setExecErr(''); setShowResult(true);
+    setPane('canvas');
     try {
       const ip = serverConnection.getIP()!;
       const port = serverConnection.getPort()!;
       const token = serverConnection.getToken();
       const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 60000);
       const res = await fetch(`http://${ip}:${port}/api/execute`, {
-        method:'POST',
-        headers: { 'Content-Type':'application/json', ...(token?{Authorization:`Bearer ${token}`}:{}) },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ script }),
         signal: ctrl.signal,
       });
       const data = await res.json();
-      const raw = (data.output||'').trim();
-      if (raw.toLowerCase().includes('traceback')||raw.toLowerCase().includes('error:')) {
-        setExecError(raw);
+      const raw = (data.output || '').trim();
+      if (raw.toLowerCase().includes('traceback') || raw.toLowerCase().includes('error:')) {
+        setExecErr(raw);
       } else {
-        setExecOutput(raw||'Pipeline executed successfully');
+        setExecOut(raw || 'Pipeline executed successfully');
       }
       haptics.success();
     } catch (e: any) {
-      setExecError(e?.message||'Execution failed'); haptics.warning();
+      setExecErr(e?.message || 'Execution failed'); haptics.warning();
     } finally { setExecuting(false); }
-  };
+  }, [canvasNodes, isConn, buildScript]);
 
-  const saveToScripts = async () => {
+  const saveToScripts = useCallback(async () => {
     const script = buildScript();
-    if (!script) { Alert.alert('Empty Pipeline','Add nodes first.'); return; }
-    const name = scriptName.trim()||'NEXUS Pipeline';
+    if (!script) { Alert.alert('Empty Pipeline', 'Add nodes first.'); return; }
+    const name = pipelineName.trim() || 'FORGE Pipeline';
     setSaving(true); haptics.medium();
     try {
-      await saveButlerScript(script, { title:name, description:`Built with NEXUS Script Builder · ${canvasNodes.length} nodes`, category:'AI Generated' });
-      haptics.success(); Alert.alert('Saved!',`"${name}" added to your Scripts library.`);
+      await saveButlerScript(script, { title: name, description: `Built with FORGE · ${canvasNodes.length} nodes`, category: 'AI Generated' });
+      haptics.success(); Alert.alert('Saved!', `"${name}" added to Scripts.`);
     } catch (e: any) { Alert.alert('Save failed', e?.message); }
     finally { setSaving(false); }
-  };
+  }, [buildScript, pipelineName, canvasNodes.length]);
 
-  const TRIGGER_COUNT = NODE_PALETTE.filter(n => n.type==='TRIGGER').length;
-  const ACTION_COUNT  = NODE_PALETTE.filter(n => n.type==='ACTION').length;
-  const OUTPUT_COUNT  = NODE_PALETTE.filter(n => n.type==='OUTPUT').length;
-  const connCol = isConnected ? C.green : C.red;
+  const TRIGGER_COUNT = PALETTE.filter(n => n.type === 'TRIGGER').length;
+  const ACTION_COUNT  = PALETTE.filter(n => n.type === 'ACTION').length;
+  const OUTPUT_COUNT  = PALETTE.filter(n => n.type === 'OUTPUT').length;
 
-  const toggleWidget = useCallback(() => {
-    haptics.light();
-    setWidgetOpen(v => {
-      Animated.spring(widgetAnim, { toValue:v?0:1, tension:80, friction:12, useNativeDriver:false }).start();
-      return !v;
-    });
-  }, [widgetAnim]);
-  const widgetHeight = widgetAnim.interpolate({ inputRange:[0,1], outputRange:[0,240] });
+  // Grouped palette
+  const triggerNodes = useMemo(() => filteredPalette.filter(n => n.type === 'TRIGGER'), [filteredPalette]);
+  const actionNodes  = useMemo(() => filteredPalette.filter(n => n.type === 'ACTION'),  [filteredPalette]);
+  const outputNodes  = useMemo(() => filteredPalette.filter(n => n.type === 'OUTPUT'),  [filteredPalette]);
 
-  // Helper to render a 3-col grid row list for a given node group
   const renderNodeGrid = (nodes: NodeDef[]) => {
-    if (nodes.length === 0) return null;
     const rows: NodeDef[][] = [];
-    for (let i = 0; i < nodes.length; i += 3) rows.push(nodes.slice(i, i+3));
+    for (let i = 0; i < nodes.length; i += 3) rows.push(nodes.slice(i, i + 3));
     return rows.map((row, ri) => (
-      <View key={ri} style={{ flexDirection:'row', gap:GAP3, marginBottom:GAP3 }}>
-        {row.map(node => (
-          <PaletteCard key={node.id} node={node} onAdd={addNode}
-            isInCanvas={canvasNodeIds.has(node.id)} onLongPress={setDetailNode} />
-        ))}
-        {row.length < 3 && Array.from({ length:3-row.length }).map((_,k) => (
-          <View key={k} style={{ width:COL3_W }} />
-        ))}
+      <View key={ri} style={{ flexDirection: 'row', gap: GAP, marginBottom: GAP }}>
+        {row.map(node => <PaletteCard key={node.id} node={node} onAdd={addNode} inCanvas={canvasIds.has(node.id)} />)}
+        {row.length < 3 && Array.from({ length: 3 - row.length }).map((_, k) => <View key={k} style={{ width: COL3 }} />)}
       </View>
     ));
   };
 
   return (
-    <View style={s.root}>
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <ExpoImage
-          source={require('@/assets/images/nexus-circuit-grid.jpg')}
-          style={{ flex: 1, opacity: 0.05 }}
-          contentFit="cover"
-        />
-      </View>
+    <View style={{ flex: 1, backgroundColor: T.bg || COLOR.bg }}>
       <TabSwipeOverlay leftRoute="/(tabs)/logs" rightRoute="/(tabs)/settings" />
-      <NodeDetailModal node={detailNode} onClose={() => setDetailNode(null)} onAdd={addNode} />
+      <ForgeHeader safeTop={insets.top} isConn={isConn} nodeCount={canvasNodes.length} accent={T.primary || COLOR.magenta} />
 
-      <CompactPageHeader
-        accent="#BF00FF"
-        icon="hammer-screwdriver"
-        iconLib="community"
-        title="BUILDER"
-        badge={`${canvasNodes.length} NODES`}
-        badgeColor="#BF00FF"
-        isConnected={isConnected}
-        safeTop={insets.top}
-        rightAction={{ icon:'widgets', onPress:toggleWidget, color:widgetOpen?C.teal:C.textDim }}
-        rightAction2={{ icon:'play-arrow', onPress:execute, color:canvasNodes.length>0?C.purple:C.textDim }}
-        extraRow={
-          <View style={{ flexDirection:'row', alignItems:'center', gap:8, paddingHorizontal:12, paddingVertical:6 }}>
-            <View style={{ width:5, height:5, borderRadius:3, backgroundColor:connCol }} />
-            <Text style={{ fontFamily:MONO, fontSize:9, color:connCol, fontWeight:'700', letterSpacing:0.5 }}>
-              {isConnected?'PC CONNECTED':'OFFLINE'}
-            </Text>
-            <Text style={{ fontFamily:MONO, fontSize:8, color:C.textDim }}>
-              · {TRIGGER_COUNT}T / {ACTION_COUNT}A / {OUTPUT_COUNT}O
-            </Text>
-            <View style={{ flex:1 }} />
-            {['NODES','CHAIN','EXEC','SAVE'].map((label, i) => (
-              <View key={label} style={{ borderWidth:1, borderRadius:5, paddingHorizontal:5, paddingVertical:2,
-                borderColor:(['#BF00FF','#00BFFF','#00FF88','#FFB020'][i])+'40',
-                backgroundColor:(['#BF00FF','#00BFFF','#00FF88','#FFB020'][i])+'08' }}>
-                <Text style={{ fontFamily:MONO, fontSize:7, fontWeight:'900', color:['#BF00FF','#00BFFF','#00FF88','#FFB020'][i] }}>{label}</Text>
-              </View>
-            ))}
+      {/* Stats strip */}
+      <View style={{ flexDirection: 'row', gap: GAP, paddingHorizontal: PAD, paddingVertical: 9, backgroundColor: COLOR.surf, borderBottomWidth: 1, borderBottomColor: COLOR.border }}>
+        {[
+          { label: 'TRIGGERS', count: TRIGGER_COUNT, color: COLOR.teal    },
+          { label: 'ACTIONS',  count: ACTION_COUNT,  color: COLOR.green   },
+          { label: 'OUTPUTS',  count: OUTPUT_COUNT,  color: COLOR.magenta },
+          { label: 'PIPELINE', count: canvasNodes.length, color: COLOR.amber },
+        ].map(s => (
+          <View key={s.label} style={[{ flex: 1, backgroundColor: COLOR.surf2, borderRadius: 9, borderWidth: 1.5, borderTopWidth: 3, borderTopColor: s.color, borderColor: s.color + '30', paddingVertical: 7, alignItems: 'center', gap: 2 }]}>
+            <Text style={{ fontFamily: MONO, fontSize: 16, fontWeight: '900', color: s.color }}>{s.count}</Text>
+            <Text style={{ fontFamily: MONO, fontSize: 7, color: s.color + '80', letterSpacing: 0.8 }}>{s.label}</Text>
           </View>
-        }
-      />
+        ))}
+      </View>
 
-      {/* ── Widget drawer ── */}
-      <Animated.View style={[s.widgetDrawer, { height:widgetHeight, overflow:'hidden' }]}>
-        <View style={{ padding:8 }}>
-          <WidgetLayer pageId="builder" />
-          <View style={{ paddingHorizontal:10, paddingTop:6 }}><LiveWidgetStudio /></View>
-        </View>
-      </Animated.View>
-
-      {/* ── TYPE STATS STRIP ── */}
-      <TypeStatsStrip
-        triggerCount={TRIGGER_COUNT} actionCount={ACTION_COUNT}
-        outputCount={OUTPUT_COUNT} canvasCount={canvasNodes.length}
-      />
-
-      {/* ── PALETTE / CANVAS TOGGLE TABS ── */}
-      <View style={s.toggleBar}>
+      {/* Mode toggle */}
+      <View style={{ flexDirection: 'row', borderBottomWidth: 1.5, borderBottomColor: COLOR.magenta + '20', backgroundColor: '#030810' }}>
         {([
-          { key:'palette', icon:'view-module',  label:`NODES (${filteredPalette.length})`, color:C.teal   },
-          { key:'canvas',  icon:'account-tree', label:`PIPELINE (${canvasNodes.length})`,  color:C.purple },
+          { key: 'palette', icon: 'view-module',  label: `NODES (${filteredPalette.length})`, color: COLOR.teal    },
+          { key: 'canvas',  icon: 'account-tree', label: `PIPELINE (${canvasNodes.length})`,  color: COLOR.magenta },
         ] as const).map(tab => {
-          const isActive = activePane === tab.key;
+          const isActive = pane === tab.key;
           return (
-            <TouchableOpacity key={tab.key}
-              onPress={() => { haptics.selection(); setActivePane(tab.key as 'palette'|'canvas'); }}
-              style={[s.toggleBtn, isActive && { borderBottomColor:tab.color, backgroundColor:tab.color+'0E' }]}
-              activeOpacity={0.8}>
-              <MaterialIcons name={tab.icon as any} size={13} color={isActive?tab.color:C.textDim} />
-              <Text style={[s.toggleTxt, { color:isActive?tab.color:C.textDim }]}>{tab.label}</Text>
-              {isActive && <View style={{ width:4, height:4, borderRadius:2, backgroundColor:tab.color }} />}
+            <TouchableOpacity key={tab.key} onPress={() => { haptics.selection(); setPane(tab.key); }} activeOpacity={0.8}
+              style={[{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderBottomWidth: 3, borderBottomColor: isActive ? tab.color : 'transparent', backgroundColor: isActive ? glow(tab.color, 10) : 'transparent' }]}>
+              <MaterialIcons name={tab.icon as any} size={13} color={isActive ? tab.color : COLOR.dim} />
+              <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '900', color: isActive ? tab.color : COLOR.dim }}>{tab.label}</Text>
             </TouchableOpacity>
           );
         })}
       </View>
 
-      {/* ── PALETTE PANE — full-width 3-col grid grouped by type ── */}
-      {activePane === 'palette' && (
-        <View style={{ flex:1 }}>
-          {/* Filter + Search */}
-          <View style={s.filterSearchRow}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap:5 }} style={{ flexShrink:1 }}>
-              {(['ALL','TRIGGER','ACTION','OUTPUT'] as const).map(f => {
-                const col = f==='TRIGGER'?C.teal:f==='ACTION'?C.green:f==='OUTPUT'?C.purple:C.textMid;
+      {/* PALETTE PANE */}
+      {pane === 'palette' && (
+        <View style={{ flex: 1 }}>
+          {/* Filter + search */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: PAD, paddingVertical: 7, backgroundColor: COLOR.surf, borderBottomWidth: 1, borderBottomColor: COLOR.border }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 5 }}>
+              {(['ALL', 'TRIGGER', 'ACTION', 'OUTPUT'] as const).map(f => {
+                const col = f === 'TRIGGER' ? COLOR.teal : f === 'ACTION' ? COLOR.green : f === 'OUTPUT' ? COLOR.magenta : COLOR.mid;
                 const active = filter === f;
                 return (
-                  <TouchableOpacity key={f}
-                    onPress={() => { haptics.selection(); setFilter(f as any); }}
-                    style={[s.filterPill, active?{borderColor:col,backgroundColor:col+'20'}:{borderColor:C.border}]}
-                    activeOpacity={0.8}>
-                    <Text style={[s.filterTxt, { color:active?col:C.textDim }]}>{f}</Text>
+                  <TouchableOpacity key={f} onPress={() => { haptics.selection(); setFilter(f); }} activeOpacity={0.8}
+                    style={[{ borderWidth: 1.5, borderRadius: 14, paddingHorizontal: 9, paddingVertical: 5, borderColor: active ? col : COLOR.border, backgroundColor: active ? glow(col, 18) : 'transparent' }]}>
+                    <Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '700', color: active ? col : COLOR.dim }}>{f}</Text>
                   </TouchableOpacity>
                 );
               })}
             </ScrollView>
-            <View style={s.searchBox}>
-              <MaterialIcons name="search" size={12} color={C.textDim} />
-              <TextInput style={[s.searchInput,{flex:1}]}
-                value={search} onChangeText={setSearch}
-                placeholder="Search nodes..." placeholderTextColor={C.textDim}
-                autoCapitalize="none" autoCorrect={false} />
-              {search ? (
-                <TouchableOpacity onPress={() => setSearch('')} hitSlop={{top:6,bottom:6,left:6,right:6}}>
-                  <MaterialIcons name="close" size={11} color={C.textDim} />
-                </TouchableOpacity>
-              ) : null}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: COLOR.bg, borderWidth: 1, borderColor: COLOR.border, borderRadius: 9, paddingHorizontal: 9, paddingVertical: 6, minWidth: 100 }}>
+              <MaterialIcons name="search" size={12} color={COLOR.dim} />
+              <TextInput style={{ fontFamily: MONO, fontSize: 11, color: COLOR.text, flex: 1 }}
+                value={search} onChangeText={setSearch} placeholder="Search..." placeholderTextColor={COLOR.dim} autoCapitalize="none" />
             </View>
           </View>
-
-          {/* 3-col grid grouped by TRIGGER / ACTION / OUTPUT */}
-          <ScrollView style={{ flex:1 }}
-            contentContainerStyle={{ paddingHorizontal:PAD_H, paddingBottom:120, paddingTop:8 }}
-            showsVerticalScrollIndicator={false}
-            removeClippedSubviews={Platform.OS==='android'}>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: PAD, paddingBottom: 130, paddingTop: 8 }} showsVerticalScrollIndicator={false} removeClippedSubviews>
             {filteredPalette.length === 0 ? (
-              <View style={{ alignItems:'center', paddingTop:48, gap:12 }}>
-                <MaterialIcons name="search-off" size={36} color={C.textDim} />
-                <Text style={{ color:C.textDim, fontFamily:MONO, fontSize:11, textAlign:'center' }}>No nodes match your filter</Text>
+              <View style={{ alignItems: 'center', paddingTop: 40, gap: 10 }}>
+                <MaterialIcons name="search-off" size={36} color={COLOR.dim} />
+                <Text style={{ fontFamily: MONO, fontSize: 11, color: COLOR.dim }}>No nodes match</Text>
               </View>
             ) : (
               <>
-                {triggerNodes.length > 0 && (
-                  <>
-                    <View style={{ marginTop:8 }}>
-                      <SectionDiv icon="bolt" label="TRIGGER NODES" color={C.teal}
-                        right={<View style={[s.typeCountBadge,{borderColor:C.teal+'45',backgroundColor:C.teal+'0C'}]}>
-                          <Text style={[s.typeCountTxt,{color:C.teal}]}>{triggerNodes.length}</Text>
-                        </View>} />
-                    </View>
-                    {renderNodeGrid(triggerNodes)}
-                  </>
-                )}
-                {actionNodes.length > 0 && (
-                  <>
-                    <View style={{ marginTop:12 }}>
-                      <SectionDiv icon="build" label="ACTION NODES" color={C.green}
-                        right={<View style={[s.typeCountBadge,{borderColor:C.green+'45',backgroundColor:C.green+'0C'}]}>
-                          <Text style={[s.typeCountTxt,{color:C.green}]}>{actionNodes.length}</Text>
-                        </View>} />
-                    </View>
-                    {renderNodeGrid(actionNodes)}
-                  </>
-                )}
-                {outputNodes.length > 0 && (
-                  <>
-                    <View style={{ marginTop:12 }}>
-                      <SectionDiv icon="output" label="OUTPUT NODES" color={C.purple}
-                        right={<View style={[s.typeCountBadge,{borderColor:C.purple+'45',backgroundColor:C.purple+'0C'}]}>
-                          <Text style={[s.typeCountTxt,{color:C.purple}]}>{outputNodes.length}</Text>
-                        </View>} />
-                    </View>
-                    {renderNodeGrid(outputNodes)}
-                  </>
-                )}
+                {triggerNodes.length > 0 && (<><View style={{ marginTop: 8 }}><SectionLabel icon="bolt" label="TRIGGERS" color={COLOR.teal} count={triggerNodes.length} /></View>{renderNodeGrid(triggerNodes)}</>)}
+                {actionNodes.length  > 0 && (<><View style={{ marginTop: 12 }}><SectionLabel icon="build" label="ACTIONS" color={COLOR.green} count={actionNodes.length} /></View>{renderNodeGrid(actionNodes)}</>)}
+                {outputNodes.length  > 0 && (<><View style={{ marginTop: 12 }}><SectionLabel icon="output" label="OUTPUTS" color={COLOR.magenta} count={outputNodes.length} /></View>{renderNodeGrid(outputNodes)}</>)}
               </>
             )}
           </ScrollView>
         </View>
       )}
 
-      {/* ── CANVAS PANE — full-width pipeline ── */}
-      {activePane === 'canvas' && (
-        <View style={{ flex:1 }}>
-          {/* Canvas header */}
-          <View style={[s.canvasHeader]}>
-            <View style={{ flexDirection:'row', alignItems:'center', gap:6 }}>
-              <MaterialIcons name="account-tree" size={13} color={C.purple} />
-              <Text style={[s.paneTxt,{color:C.purple}]}>PIPELINE</Text>
-              <Text style={[s.paneCount,{color:C.purple+'80'}]}>({canvasNodes.length} nodes)</Text>
+      {/* CANVAS PANE */}
+      {pane === 'canvas' && (
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: PAD, paddingVertical: 9, backgroundColor: COLOR.surf, borderBottomWidth: 1, borderBottomColor: COLOR.magenta + '35' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+              <MaterialIcons name="account-tree" size={13} color={COLOR.magenta} />
+              <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '900', color: COLOR.magenta }}>PIPELINE</Text>
+              <Text style={{ fontFamily: MONO, fontSize: 9, color: COLOR.magenta + '80' }}>({canvasNodes.length} nodes)</Text>
             </View>
             {canvasNodes.length > 0 && (
-              <TouchableOpacity onPress={clearCanvas}
-                style={[s.clearBtn,{borderColor:C.red+'50',backgroundColor:C.red+'0C'}]}
-                hitSlop={{top:6,bottom:6,left:6,right:6}}>
-                <MaterialIcons name="delete-sweep" size={12} color={C.red} />
-                <Text style={{fontSize:9,fontWeight:'900',fontFamily:MONO,color:C.red}}>CLEAR</Text>
+              <TouchableOpacity onPress={clearCanvas} style={[{ flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1.5, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 6, borderColor: COLOR.red + '50', backgroundColor: glow(COLOR.red, 7) }]}>
+                <MaterialIcons name="delete-sweep" size={12} color={COLOR.red} />
+                <Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '900', color: COLOR.red }}>CLEAR</Text>
               </TouchableOpacity>
             )}
           </View>
 
           {canvasNodes.length === 0 ? (
-            <View style={{ flex:1 }}>
-              <EmptyCanvas />
-              <TouchableOpacity onPress={() => setActivePane('palette')}
-                style={{ margin:16, flexDirection:'row', alignItems:'center', justifyContent:'center',
-                  gap:8, borderWidth:1.5, borderRadius:12, paddingVertical:13,
-                  borderColor:C.teal+'60', backgroundColor:C.teal+'0E' }}
-                activeOpacity={0.85}>
-                <MaterialIcons name="add" size={16} color={C.teal} />
-                <Text style={{ fontSize:13, fontWeight:'900', fontFamily:MONO, color:C.teal }}>BROWSE NODES</Text>
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 20 }}>
+              <MaterialIcons name="account-tree" size={48} color={COLOR.dim} />
+              <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '900', color: COLOR.dim, letterSpacing: 1 }}>PIPELINE EMPTY</Text>
+              <Text style={{ fontFamily: MONO, fontSize: 10, color: COLOR.dim, textAlign: 'center', lineHeight: 16 }}>{'Go to NODES tab\nand tap any node to add it'}</Text>
+              <TouchableOpacity onPress={() => setPane('palette')} activeOpacity={0.85}
+                style={[{ flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1.5, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 20, borderColor: COLOR.teal + '60', backgroundColor: glow(COLOR.teal, 10) }]}>
+                <MaterialIcons name="add" size={16} color={COLOR.teal} />
+                <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '900', color: COLOR.teal }}>BROWSE NODES</Text>
               </TouchableOpacity>
             </View>
           ) : (
-            <ScrollView ref={canvasScrollRef} style={{ flex:1 }}
-              contentContainerStyle={{ paddingHorizontal:PAD_H, paddingBottom:20, paddingTop:8 }}
-              showsVerticalScrollIndicator={false}>
+            <ScrollView ref={canvasRef} style={{ flex: 1 }} contentContainerStyle={{ padding: PAD, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
               {canvasNodes.map((cn, i) => (
-                <CanvasNodeCard key={cn.uid} cnode={cn} index={i}
-                  total={canvasNodes.length} onRemove={() => removeNode(cn.uid)} />
+                <CanvasNodeCard key={cn.uid} cnode={cn} index={i} total={canvasNodes.length} onRemove={() => removeNode(cn.uid)} />
               ))}
-              <View style={s.saveRow}>
-                <TextInput style={s.nameInput}
-                  value={scriptName} onChangeText={setScriptName}
-                  placeholder="Pipeline name..." placeholderTextColor={C.textDim} maxLength={48} />
-                <TouchableOpacity style={[s.saveBtn, saving&&{opacity:0.5}]}
-                  onPress={saveToScripts} disabled={saving} activeOpacity={0.85}>
-                  {saving
-                    ? <ActivityIndicator size="small" color="#000" style={{transform:[{scale:0.7}]}} />
-                    : <MaterialIcons name="save" size={13} color="#000" />}
-                  <Text style={s.saveBtnTxt}>SAVE</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
+                <TextInput style={[{ flex: 1, backgroundColor: COLOR.surf, borderWidth: 1.5, borderColor: COLOR.magenta + '50', borderRadius: 9, paddingHorizontal: 12, paddingVertical: 10, fontFamily: MONO, fontSize: 12, color: COLOR.text }]}
+                  value={pipelineName} onChangeText={setPipelineName} placeholder="Pipeline name..." placeholderTextColor={COLOR.dim} maxLength={48} />
+                <TouchableOpacity onPress={saveToScripts} disabled={saving}
+                  style={[{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: COLOR.magenta, borderRadius: 9, paddingHorizontal: 14, paddingVertical: 10, opacity: saving ? 0.5 : 1 }]}>
+                  {saving ? <ActivityIndicator size="small" color="#000" style={{ transform: [{ scale: 0.7 }] }} /> : <MaterialIcons name="save" size={13} color="#000" />}
+                  <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '900', color: '#000' }}>SAVE</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
           )}
 
           {showResult && (
-            <ExecuteResultPanel output={execOutput} error={execError}
-              running={executing} onClose={() => setShowResult(false)} />
+            <ExecResult output={execOut} error={execErr} running={executing} onClose={() => setShowResult(false)} />
           )}
         </View>
       )}
 
-      {/* ── EXECUTE BUTTON (always visible when pipeline has nodes) ── */}
+      {/* Execute CTA */}
       {canvasNodes.length > 0 && (
-        <TouchableOpacity
-          style={[s.bottomExecuteBtn, { opacity:executing?0.6:1 }]}
-          onPress={() => { if (activePane!=='canvas') setActivePane('canvas'); execute(); }}
-          disabled={executing} activeOpacity={0.85}>
-          {executing
-            ? <ActivityIndicator size="small" color="#000" />
-            : <MaterialIcons name="play-arrow" size={20} color="#000" />}
-          <Text style={s.bottomExecuteBtnTxt}>
-            {executing?'EXECUTING PIPELINE...':`▶ EXECUTE ${canvasNodes.length}-NODE PIPELINE`}
+        <TouchableOpacity onPress={() => { if (pane !== 'canvas') setPane('canvas'); execute(); }}
+          disabled={executing}
+          style={[{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: COLOR.magenta, paddingVertical: 14, paddingHorizontal: 16, opacity: executing ? 0.6 : 1 }]}>
+          {executing ? <ActivityIndicator size="small" color="#000" /> : <MaterialIcons name="play-arrow" size={20} color="#000" />}
+          <Text style={{ fontFamily: MONO, fontSize: 13, fontWeight: '900', color: '#000', letterSpacing: 0.8 }}>
+            {executing ? 'EXECUTING PIPELINE...' : `▶ EXECUTE ${canvasNodes.length}-NODE PIPELINE`}
           </Text>
-          {genStage !== 'idle' && (
-            <Text style={{ fontSize:9, color:'#00004422', fontFamily:MONO }}>{genStage.toUpperCase()}</Text>
-          )}
         </TouchableOpacity>
       )}
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  root:             { flex:1, backgroundColor:'#020407' },
-  widgetDrawer:     { backgroundColor:C.surface, borderBottomWidth:1, borderBottomColor:C.border+'80', overflow:'hidden' },
-  // tab toggle
-  toggleBar:        { flexDirection:'row', borderBottomWidth:1.5, borderBottomColor:C.teal+'20', backgroundColor:'#030810', flexShrink:0 },
-  toggleBtn:        { flex:1, flexDirection:'row', alignItems:'center', justifyContent:'center', gap:6,
-                      paddingVertical:11, borderBottomWidth:3, borderBottomColor:'transparent' },
-  toggleTxt:        { fontSize:11, fontWeight:'900', fontFamily:MONO, letterSpacing:0.8 },
-  // filter + search
-  filterSearchRow:  { flexDirection:'row', alignItems:'center', gap:8,
-                      paddingHorizontal:PAD_H, paddingVertical:7,
-                      borderBottomWidth:1, borderBottomColor:C.border+'80',
-                      backgroundColor:C.surfaceHi, flexShrink:0 },
-  filterPill:       { borderWidth:1.5, borderRadius:14, paddingHorizontal:8, paddingVertical:5, flexShrink:0 },
-  filterTxt:        { fontSize:9, fontWeight:'700', fontFamily:MONO },
-  searchBox:        { flexDirection:'row', alignItems:'center', gap:5, backgroundColor:C.surface,
-                      borderWidth:1.5, borderColor:C.border, borderRadius:9,
-                      paddingHorizontal:9, paddingVertical:6, minWidth:100 },
-  searchInput:      { fontSize:11, color:C.text, fontFamily:MONO },
-  // type count badge in SectionDiv
-  typeCountBadge:   { borderWidth:1, borderRadius:6, paddingHorizontal:7, paddingVertical:2 },
-  typeCountTxt:     { fontFamily:MONO, fontSize:8, fontWeight:'900' },
-  // canvas header
-  canvasHeader:     { flexDirection:'row', alignItems:'center', justifyContent:'space-between',
-                      paddingHorizontal:PAD_H, paddingVertical:9,
-                      borderBottomWidth:1, borderBottomColor:C.purple+'35', backgroundColor:C.surfaceHi },
-  paneTxt:          { fontSize:10, fontWeight:'900', fontFamily:MONO, letterSpacing:1.2 },
-  paneCount:        { fontSize:9, fontFamily:MONO },
-  clearBtn:         { flexDirection:'row', alignItems:'center', gap:5, borderWidth:1.5, borderRadius:9, paddingHorizontal:10, paddingVertical:6 },
-  // save row
-  saveRow:          { flexDirection:'row', gap:8, marginTop:14 },
-  nameInput:        { flex:1, backgroundColor:C.surfaceHi, borderWidth:1.5, borderColor:C.purple+'50', borderRadius:9, paddingHorizontal:12, paddingVertical:10, fontSize:12, color:C.text, fontFamily:MONO },
-  saveBtn:          { flexDirection:'row', alignItems:'center', gap:5, backgroundColor:C.purple, borderRadius:9, paddingHorizontal:14, paddingVertical:10 },
-  saveBtnTxt:       { fontSize:11, fontWeight:'900', color:'#000', fontFamily:MONO },
-  // execute
-  bottomExecuteBtn: { flexDirection:'row', alignItems:'center', justifyContent:'center', gap:10, backgroundColor:C.purple, paddingVertical:14, paddingHorizontal:16,
-    ...Platform.select({ ios:{shadowColor:C.purple,shadowOffset:{width:0,height:-2},shadowOpacity:0.4,shadowRadius:10}, android:{elevation:8} }) },
-  bottomExecuteBtnTxt: { fontSize:13, fontWeight:'900', color:'#000', fontFamily:MONO, letterSpacing:0.8 },
-});
-
 export default function BuilderScreen() {
   return (
-    <TabErrorBoundary name="Builder">
-      <BuilderScreenInner />
+    <TabErrorBoundary name="Script Forge">
+      <ForgeInner />
     </TabErrorBoundary>
   );
 }
