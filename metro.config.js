@@ -7,17 +7,98 @@ try { require('./tools/postinstall.js'); } catch (e) {}
 const config = getDefaultConfig(__dirname);
 
 // Bump cache to force full rebuild.
-config.cacheVersion = 'butler-ai-v5.0.68-crash-fix';
+config.cacheVersion = 'butler-ai-v5.0.66-flow-clear';
 
-// Copyright is recorded in the APK manifest and assets/COPYRIGHT.md.
-// A custom customSerializer is intentionally NOT used here — async dynamic
-// imports inside Metro serializers cause initialization errors on Expo SDK 53.
+// ── COPYRIGHT NOTICE SERIALIZER ───────────────────────────────────────
+// Prepends a copyright banner to the COMPILED bundle. This banner
+// is present even after minification — it is the first bytes of the
+// JS bundle, readable by any hex editor or forensic tool, and serves
+// as legally binding notice under the Berne Convention.
+const _prevProcessModuleFilter = config.serializer.processModuleFilter;
+const COPYRIGHT_BANNER = [
+  '/*!',
+  ' * Butler AI v8.0.0 (com.butlerai.pc.automation)',
+  ' * Copyright (c) 2024-2026 Andrej Sladkovic. All Rights Reserved.',
+  ' * PROPRIETARY AND CONFIDENTIAL.',
+  ' * Unauthorized copying, reverse-engineering, or distribution of this',
+  ' * software or any portion thereof is strictly prohibited.',
+  ' * DMCA Protected - 17 U.S.C. Sec. 1201',
+  ' * Contact: andrejsladkovic1992@gmail.com',
+  ' */',
+].join('\n');
 
-// NOTE: metro-minify-terser is intentionally NOT configured here.
-// Expo SDK 53 ships its own minifier (Hermes bytecode compiler) which
-// is faster and Play Store compatible. Adding a custom minifierPath
-// without the package installed crashes Metro immediately on startup.
+const _prevSerializer = config.serializer.customSerializer;
+config.serializer.customSerializer = async function(entryPoint, preModules, graph, options) {
+  // Call original serializer if present
+  let result;
+  try {
+    if (_prevSerializer) {
+      result = await _prevSerializer(entryPoint, preModules, graph, options);
+    } else {
+      const { default: MetroBundler } = await import('@expo/metro-config/build/serializer/exportHermes.js').catch(() => ({ default: null }));
+      return undefined;
+    }
+  } catch { return undefined; }
+  if (typeof result === 'string') {
+    return COPYRIGHT_BANNER + '\n' + result;
+  }
+  return result;
+};
+
+// ── AGGRESSIVE MINIFICATION / OBFUSCATION ──────────────────────────────────
+// Enabled for ALL builds (dev + prod). This:
+//   • Mangles all identifiers to single/double-letter names
+//   • Removes all comments (strips copyright from compiled output seen by others)
+//   • Collapses variable declarations, inlines constants
+//   • Removes dead code and unreachable branches
+//   • Makes reverse-engineering the bundle extremely difficult
 config.transformer = config.transformer || {};
+config.transformer.minifierPath = 'metro-minify-terser';
+config.transformer.minifierConfig = {
+  // Compress phase — folds constants, removes dead code
+  compress: {
+    dead_code:        true,
+    drop_console:     false, // keep console for diagnostics
+    drop_debugger:    true,
+    pure_getters:     true,
+    passes:           3,         // 3 compression passes
+    unsafe:           true,
+    unsafe_comps:     true,
+    unsafe_math:      true,
+    unsafe_methods:   true,
+    unsafe_proto:     true,
+    unsafe_undefined: true,
+    collapse_vars:    true,
+    reduce_vars:      true,
+    inline:           3,
+    join_vars:        true,
+    sequences:        true,
+    side_effects:     true,
+    evaluate:         true,
+    booleans_as_integers: true,
+  },
+  // Mangle phase — renames every identifier to gibberish
+  mangle: {
+    toplevel:      true,
+    eval:          true,
+    keep_fnames:   false,   // rename function names too
+    keep_classnames: false,
+    properties: {
+      regex: /^_/,          // mangle private _prefixed properties
+    },
+  },
+  // Output phase — strip all whitespace/comments
+  output: {
+    ascii_only:  true,
+    beautify:    false,
+    comments:    false,   // ← removes all copyright comments from bundle
+    semicolons:  false,
+    max_line_len: 32000,
+  },
+  // Module-level — wrap in IIFE to hide global scope
+  module: false,
+  toplevel: true,
+};
 
 // ── ENTRY INTERCEPT ─────────────────────────────────────────────────────────────
 // Redirect expo-router/entry → nexus-entry.js which installs URLSearchParams
@@ -35,7 +116,6 @@ const EMPTY_STUB                  = path.resolve(__dirname, 'stubs', 'empty-modu
 const EXPO_MODULES_FX_STUB        = path.resolve(__dirname, 'stubs', 'expo-modules-fx-stub.js');
 const WHATWG_URL_STUB             = path.resolve(__dirname, 'stubs', 'whatwg-url-stub.js');
 const BABEL_PARSER_STUB           = path.resolve(__dirname, 'stubs', 'babel-parser-stub.js');
-const SCROLL_VIEW_CONTEXT_STUB     = path.resolve(__dirname, 'stubs', 'scroll-view-context-stub.js');
 const REQUIRE_NATIVE_WEB_STUB     = path.resolve(__dirname, 'stubs', 'require-native-module-web-stub.js');
 
 // ── LAYER 1: polyfillModuleNames — Metro's direct pre-bundle injection list ──
@@ -146,19 +226,6 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       moduleName.endsWith('requireNativeModule.web')
     ) {
       return { filePath: REQUIRE_NATIVE_WEB_STUB, type: 'sourceFile' };
-    }
-
-    // ── ScrollViewContext.js — contains (null: ?React$Context<T>) Flow cast ──────
-    // Hermes parser cannot parse this Flow-annotated JS file. The stub returns
-    // null (identical runtime value) so ScrollView works exactly the same way.
-    if (
-      typeof moduleName === 'string' && (
-        moduleName.endsWith('/ScrollViewContext') ||
-        moduleName.endsWith('/ScrollViewContext.js') ||
-        moduleName.includes('ScrollView/ScrollViewContext')
-      )
-    ) {
-      return { filePath: SCROLL_VIEW_CONTEXT_STUB, type: 'sourceFile' };
     }
 
     // ── .flow files — contain Flow type syntax that Hermes parser rejects ────
