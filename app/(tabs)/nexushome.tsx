@@ -23,7 +23,7 @@ import {
   Animated, Platform, Dimensions, TextInput, ActivityIndicator,
   RefreshControl, Alert, Clipboard, Image,
 } from 'react-native';
-import Svg, { Path, Line, Circle, Polyline, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Path, Line, Circle, Polyline, Defs, LinearGradient, Stop, Rect, G } from 'react-native-svg';
 import * as ExpoClipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -62,6 +62,47 @@ const TEXT2   = '#7898A8';
 const MONO: any = Platform.OS === 'ios' ? 'Courier' : 'monospace';
 const SW      = Math.max(320, Dimensions.get('window').width);
 const PAD     = 14;
+
+// ─── BUTLER AI 3-ICON SVG LOGO (AI chip · tuxedo vest · laptop) ─────────────
+function ButlerAILogo({ size = 46 }: { size?: number }) {
+  const iw = size * 0.28, ih = size * 0.62, g = size * 0.05;
+  const y0 = (size - ih) / 2;
+  const x1 = 0, x2 = iw + g, x3 = 2 * (iw + g);
+  const r = iw * 0.22;
+  return (
+    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <Rect x={0} y={0} width={size} height={size} rx={size * 0.14} fill="#06101c" />
+      {/* Card 1 — CPU chip */}
+      <Rect x={x1} y={y0} width={iw} height={ih} rx={r} fill="#0d1828" stroke="rgba(255,255,255,0.15)" strokeWidth={0.5} />
+      <Rect x={x1+iw*0.26} y={y0+ih*0.26} width={iw*0.48} height={ih*0.28} rx={iw*0.08} fill="none" stroke="#fff" strokeWidth={iw*0.08} />
+      {[0.35,0.5,0.65].map((p,i) => (
+        <G key={i}>
+          <Line x1={x1+iw*p} y1={y0+ih*0.08} x2={x1+iw*p} y2={y0+ih*0.26} stroke="#fff" strokeWidth={iw*0.07} strokeLinecap="round"/>
+          <Line x1={x1+iw*p} y1={y0+ih*0.54} x2={x1+iw*p} y2={y0+ih*0.72} stroke="#fff" strokeWidth={iw*0.07} strokeLinecap="round"/>
+        </G>
+      ))}
+      {[0.35,0.5,0.65].map((p,i) => (
+        <G key={i}>
+          <Line x1={x1+iw*0.07} y1={y0+ih*p*0.54+ih*0.26} x2={x1+iw*0.26} y2={y0+ih*p*0.54+ih*0.26} stroke="#fff" strokeWidth={iw*0.07} strokeLinecap="round"/>
+          <Line x1={x1+iw*0.74} y1={y0+ih*p*0.54+ih*0.26} x2={x1+iw*0.93} y2={y0+ih*p*0.54+ih*0.26} stroke="#fff" strokeWidth={iw*0.07} strokeLinecap="round"/>
+        </G>
+      ))}
+      <Circle cx={x1+iw*0.5} cy={y0+ih*0.4} r={iw*0.11} fill="#fff" />
+      {/* Card 2 — tuxedo vest */}
+      <Rect x={x2} y={y0} width={iw} height={ih} rx={r} fill="#0d1828" stroke="rgba(255,255,255,0.15)" strokeWidth={0.5} />
+      <Path d={`M${x2+iw*0.5} ${y0+ih*0.16} L${x2+iw*0.26} ${y0+ih*0.52} L${x2+iw*0.5} ${y0+ih*0.86} L${x2+iw*0.74} ${y0+ih*0.52} Z`} fill="#fff" />
+      {[0.36,0.49,0.62].map((p,i) => (
+        <Circle key={i} cx={x2+iw*0.5} cy={y0+ih*p} r={iw*0.048} fill="#0d1828" />
+      ))}
+      {/* Card 3 — laptop */}
+      <Rect x={x3} y={y0} width={iw} height={ih} rx={r} fill="#0d1828" stroke="rgba(255,255,255,0.15)" strokeWidth={0.5} />
+      <Rect x={x3+iw*0.14} y={y0+ih*0.14} width={iw*0.72} height={ih*0.44} rx={iw*0.06} fill="none" stroke="#fff" strokeWidth={iw*0.08} />
+      <Rect x={x3+iw*0.18} y={y0+ih*0.18} width={iw*0.64} height={ih*0.36} rx={iw*0.04} fill="rgba(255,255,255,0.10)" />
+      <Rect x={x3+iw*0.08} y={y0+ih*0.62} width={iw*0.84} height={ih*0.16} rx={iw*0.05} fill="#fff" opacity={0.9} />
+      <Rect x={x3+iw*0.30} y={y0+ih*0.64} width={iw*0.40} height={ih*0.10} rx={iw*0.03} fill="#0d1828" opacity={0.5} />
+    </Svg>
+  );
+}
 
 // ─── HERO ROBOT MASCOT IMAGE ──────────────────────────────────────
 const MASCOT_IMG = (() => {
@@ -251,7 +292,7 @@ function PowerDivider({ color = AMBER }: { color?: string }) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// HEADER — HERO ROBOT MASCOT + ANIMATED RINGS
+// HEADER — COMPACT PROFESSIONAL (70% smaller, elegant)
 // ══════════════════════════════════════════════════════════════════
 function HomeHeader({ safeTop, isConn, addr, onPair }: {
   safeTop: number; isConn: boolean; addr: string; onPair: () => void;
@@ -259,10 +300,8 @@ function HomeHeader({ safeTop, isConn, addr, onPair }: {
   const [time, setTime] = useState('');
   const [secs, setSecs] = useState('');
   const [dateStr, setDate] = useState('');
-  const shimX  = useRef(new Animated.Value(-100)).current;
-  const floatA = useRef(new Animated.Value(0)).current;
   const glowA  = useRef(new Animated.Value(0.4)).current;
-  const ringScA = useRef(new Animated.Value(0.7)).current;
+  const floatA = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const update = () => {
@@ -275,138 +314,103 @@ function HomeHeader({ safeTop, isConn, addr, onPair }: {
   }, []);
 
   useEffect(() => {
-    // Shimmer sweep
-    const shimLoop = Animated.loop(Animated.sequence([
-      Animated.timing(shimX, { toValue: SW + 100, duration: 2000, useNativeDriver: true }),
-      Animated.timing(shimX, { toValue: -100, duration: 0, useNativeDriver: true }),
-      Animated.delay(7000),
+    const gl = Animated.loop(Animated.sequence([
+      Animated.timing(glowA, { toValue: 1, duration: 1800, useNativeDriver: false }),
+      Animated.timing(glowA, { toValue: 0.2, duration: 1800, useNativeDriver: false }),
     ]));
-    // Robot gentle float
-    const floatLoop = Animated.loop(Animated.sequence([
+    const fl = Animated.loop(Animated.sequence([
       Animated.timing(floatA, { toValue: 1, duration: 2800, useNativeDriver: true }),
       Animated.timing(floatA, { toValue: 0, duration: 2800, useNativeDriver: true }),
     ]));
-    // Glow pulse
-    const glowLoop = Animated.loop(Animated.sequence([
-      Animated.timing(glowA, { toValue: 1.0, duration: 1600, useNativeDriver: false }),
-      Animated.timing(glowA, { toValue: 0.15, duration: 1600, useNativeDriver: false }),
-    ]));
-    // Expanding ring
-    const ringLoop = Animated.loop(Animated.sequence([
-      Animated.spring(ringScA, { toValue: 1.22, tension: 50, friction: 8, useNativeDriver: true }),
-      Animated.spring(ringScA, { toValue: 0.65, tension: 50, friction: 8, useNativeDriver: true }),
-    ]));
-    shimLoop.start(); floatLoop.start(); glowLoop.start(); ringLoop.start();
-    return () => { shimLoop.stop(); floatLoop.stop(); glowLoop.stop(); ringLoop.stop(); };
+    gl.start(); fl.start();
+    return () => { gl.stop(); fl.stop(); };
   }, []);
 
-  const floatY   = floatA.interpolate({ inputRange: [0, 1], outputRange: [0, -8] });
-  const connCol  = isConn ? GREEN : AMBER;
-  const glowBg   = glowA.interpolate({ inputRange: [0, 1], outputRange: [CYAN + '10', CYAN + '26'] });
+  const connCol = isConn ? GREEN : AMBER;
+  const floatY  = floatA.interpolate({ inputRange: [0, 1], outputRange: [0, -3] });
+  const glowBg  = glowA.interpolate({ inputRange: [0, 1], outputRange: [CYAN + '0E', CYAN + '20'] });
 
   return (
     <View style={[hdr.root, { paddingTop: safeTop }]}>
-      {/* Top accent bar */}
-      <View style={{ height: 3, backgroundColor: CYAN, position: 'absolute', top: safeTop, left: 0, right: 0 }} />
-      {/* Shimmer */}
-      <Animated.View pointerEvents="none" style={[hdr.shimmer, { transform: [{ translateX: shimX }] }]} />
-
+      <View style={{ height: 2.5, backgroundColor: CYAN }} />
       <View style={hdr.body}>
-        {/* ── ANIMATED ROBOT MASCOT ── */}
-        <Animated.View style={{ alignItems: 'center', transform: [{ translateY: floatY }] }}>
-          {/* Expanding outer ring — opacity and native transform MUST be on separate views.
-               Mixing useNativeDriver:true (transform) and useNativeDriver:false (opacity)
-               on the same Animated.View node causes the "moved to native" JS crash. */}
-          <Animated.View style={{ opacity: glowA.interpolate({ inputRange: [0.15, 1], outputRange: [0.18, 0.5] }) }}>
-            <Animated.View style={[hdr.outerRing, {
-              borderColor: CYAN + '80',
-              transform: [{ scale: ringScA }],
-            }]} />
-          </Animated.View>
-          {/* Glowing robot box */}
-          <Animated.View style={[hdr.robotBox, { borderColor: CYAN, backgroundColor: glowBg }]}>
-            <HUDCorners color={CYAN + '70'} size={9} t={1.5} />
+        {/* ── Shield mascot — compact ── */}
+        <Animated.View style={{ transform: [{ translateY: floatY }], flexShrink: 0 }}>
+          <Animated.View style={[hdr.mascotBox, { borderColor: CYAN + '70', backgroundColor: glowBg }]}>
             {MASCOT_IMG ? (
-              <Image source={MASCOT_IMG} style={hdr.robotImg} resizeMode="cover" />
+              <Image source={MASCOT_IMG} style={hdr.mascotImg} resizeMode="cover" />
             ) : (
-              <MaterialCommunityIcons name="robot-happy" size={36} color={CYAN} />
+              <MaterialCommunityIcons name="robot-happy" size={22} color={CYAN} />
             )}
-            {/* Live status orb */}
             <Animated.View style={[hdr.statusOrb, { backgroundColor: connCol, opacity: glowA }]} />
           </Animated.View>
-          <Text style={hdr.robotCaption}>AI COMMAND</Text>
         </Animated.View>
 
-        {/* ── INFO COLUMN ── */}
-        <View style={{ flex: 1, gap: 5, paddingLeft: 2 }}>
-          <Text style={hdr.eyebrow}>YOUR PC AUTOMATION SPECIALIST</Text>
-          <Text style={hdr.brand}>BUTLER <Text style={{ color: CYAN }}>AI</Text></Text>
-          <Text style={hdr.tagline}>Local · Private · Zero Cloud</Text>
-          <View style={{ flexDirection: 'row', gap: 6, marginTop: 5, flexWrap: 'wrap' }}>
+        {/* ── SVG logo ── */}
+        <View style={hdr.logoBox}>
+          <ButlerAILogo size={46} />
+        </View>
+
+        {/* ── Brand + status pills ── */}
+        <View style={{ flex: 1, gap: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 3 }}>
+            <Text style={hdr.brand}>BUTLER AI</Text>
+            <Text style={hdr.brandSep}>:</Text>
+            <Text style={hdr.brandSub}>PC AUTOMATION</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
             <TouchableOpacity onPress={() => { haptics.heavy(); onPair(); }} activeOpacity={0.8}
-              style={[hdr.pill, { borderColor: connCol + '70', backgroundColor: connCol + '0E' }]}>
-              {isConn
-                ? <PulseDot color={connCol} size={5} />
-                : <MaterialIcons name="wifi-tethering" size={10} color={connCol} />}
+              style={[hdr.pill, { borderColor: connCol + '60', backgroundColor: connCol + '0C' }]}>
+              <PulseDot color={connCol} size={4} />
               <Text style={[hdr.pillTxt, { color: connCol }]}>
                 {isConn ? (addr.split(':')[0] || 'ONLINE') : 'PAIR PC'}
               </Text>
             </TouchableOpacity>
             <View style={[hdr.pill, { borderColor: BORDER }]}>
-              <MaterialCommunityIcons name="lock-check" size={10} color={MID} />
-              <Text style={[hdr.pillTxt, { color: MID }]}>AES-256</Text>
+              <MaterialCommunityIcons name="lock-check" size={8} color={MID} />
+              <Text style={[hdr.pillTxt, { color: DIM }]}>AES-256</Text>
             </View>
             <View style={[hdr.pill, { borderColor: BORDER }]}>
-              <MaterialCommunityIcons name="lan-connect" size={10} color={MID} />
-              <Text style={[hdr.pillTxt, { color: MID }]}>LAN</Text>
+              <MaterialCommunityIcons name="lan-connect" size={8} color={MID} />
+              <Text style={[hdr.pillTxt, { color: DIM }]}>LAN</Text>
             </View>
           </View>
         </View>
 
-        {/* ── CLOCK + QR ── */}
-        <View style={{ alignItems: 'flex-end', gap: 4 }}>
+        {/* ── Compact clock + QR ── */}
+        <View style={{ alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 1 }}>
             <Text style={hdr.clockMain}>{time}</Text>
             <Text style={[hdr.clockSecs, { color: CYAN }]}>{secs}</Text>
           </View>
-          <Text style={hdr.clockSub}>LOCAL · SECURE</Text>
           <Text style={hdr.dateTxt}>{dateStr}</Text>
           <TouchableOpacity onPress={() => { haptics.heavy(); onPair(); }} activeOpacity={0.8}
-            style={[hdr.qrBtn, { borderColor: CYAN + '50', backgroundColor: CYAN + '0C' }]}>
-            <MaterialIcons name="qr-code-scanner" size={16} color={CYAN} />
+            style={[hdr.qrBtn, { borderColor: CYAN + '45', backgroundColor: CYAN + '0A' }]}>
+            <MaterialIcons name="qr-code-scanner" size={14} color={CYAN} />
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* Bottom accent line */}
-      <View style={{ height: 2, backgroundColor: CYAN + '35' }} />
+      <View style={{ height: 1.5, backgroundColor: CYAN + '25' }} />
     </View>
   );
 }
 
 const hdr = StyleSheet.create({
   root:       { backgroundColor: SURF3, overflow: 'hidden' },
-  shimmer:    { position: 'absolute', top: 0, bottom: 0, width: 90, backgroundColor: 'rgba(0,200,224,0.04)', zIndex: 0 },
-  body:       { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: PAD, paddingTop: 14, paddingBottom: 12, zIndex: 1 },
-  // Robot
-  outerRing:  { position: 'absolute', width: 90, height: 90, borderRadius: 45, borderWidth: 1.5 },
-  robotBox:   { width: 74, height: 74, borderRadius: 20, borderWidth: 2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' },
-  robotImg:   { width: 74, height: 74 },
-  statusOrb:  { position: 'absolute', bottom: 6, right: 6, width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: SURF3 },
-  robotCaption:{ fontFamily: MONO, fontSize: 7.5, fontWeight: '900', color: CYAN + '50', letterSpacing: 1.2, marginTop: 5, textAlign: 'center' },
-  // Text
-  eyebrow:    { fontFamily: MONO, fontSize: 7.5, fontWeight: '700', color: CYAN + '45', letterSpacing: 0.8 },
-  brand:      { fontSize: 27, fontWeight: '900', color: '#FFFFFF', letterSpacing: -0.5 },
-  tagline:    { fontFamily: MONO, fontSize: 9.5, color: MID, lineHeight: 13 },
-  pill:       { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 20, paddingHorizontal: 9, paddingVertical: 4 },
-  pillTxt:    { fontFamily: MONO, fontSize: 8.5, fontWeight: '900', letterSpacing: 0.3 },
-  // Clock
-  clockMain:  { fontFamily: MONO, fontSize: 28, fontWeight: '900', color: TEXT, letterSpacing: 1 },
-  clockSecs:  { fontFamily: MONO, fontSize: 17, fontWeight: '900' },
-  clockSub:   { fontFamily: MONO, fontSize: 8.5, color: MID, letterSpacing: 1, fontWeight: '700' },
-  dateTxt:    { fontFamily: MONO, fontSize: 8, color: DIM, letterSpacing: 0.5 },
-  qrBtn:      { width: 36, height: 36, borderRadius: 11, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
-  logoBox:    { width: 40, height: 40, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  body:       { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: PAD, paddingTop: 9, paddingBottom: 8 },
+  mascotBox:  { width: 42, height: 42, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative', flexShrink: 0 },
+  mascotImg:  { width: 42, height: 42 },
+  statusOrb:  { position: 'absolute', bottom: 3, right: 3, width: 8, height: 8, borderRadius: 4, borderWidth: 1.5, borderColor: SURF3 },
+  logoBox:    { width: 46, height: 46, borderRadius: 12, overflow: 'hidden', flexShrink: 0 },
+  brand:      { fontSize: 16, fontWeight: '900', color: '#FFFFFF', letterSpacing: 0.3 },
+  brandSep:   { fontSize: 14, fontWeight: '700', color: MID },
+  brandSub:   { fontSize: 11, fontWeight: '700', color: CYAN + 'BB', letterSpacing: 0.3 },
+  pill:       { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 12, paddingHorizontal: 7, paddingVertical: 3 },
+  pillTxt:    { fontFamily: MONO, fontSize: 7.5, fontWeight: '900', letterSpacing: 0.2 },
+  clockMain:  { fontFamily: MONO, fontSize: 17, fontWeight: '900', color: TEXT, letterSpacing: 0.5 },
+  clockSecs:  { fontFamily: MONO, fontSize: 10, fontWeight: '900' },
+  dateTxt:    { fontFamily: MONO, fontSize: 7, color: DIM, letterSpacing: 0.4 },
+  qrBtn:      { width: 28, height: 28, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
 });
 
 // ══════════════════════════════════════════════════════════════════
@@ -590,6 +594,25 @@ function PairPrompt({ onPair }: { onPair: () => void }) {
         <View style={{ flex: 1, gap: 6 }}>
           <Text style={pq.title}>Connect your PC</Text>
           <Text style={pq.body}>Run butler_server.py, then scan QR from terminal. Instant LAN pairing — 100% private.</Text>
+          {/* ── DOWNLOAD BUTTON — hidden when PC is connected ── */}
+          {!isConn && (
+            <TouchableOpacity
+              onPress={() => {
+                haptics.medium();
+                try {
+                  import('react-native').then(({ Linking }) =>
+                    Linking.openURL('https://github.com/shawnjan-cmd/butler-server/releases/latest').catch(() => {})
+                  );
+                } catch {}
+              }}
+              activeOpacity={0.85}
+              style={pq.downloadBtn}
+            >
+              <MaterialCommunityIcons name="github" size={14} color="#000" />
+              <Text style={pq.downloadTxt}>DOWNLOAD BUTLER SERVER</Text>
+              <MaterialIcons name="open-in-new" size={13} color="#000" />
+            </TouchableOpacity>
+          )}
           <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
             {[
               { label: 'PYTHON', col: CYAN   },
@@ -621,6 +644,8 @@ const pq = StyleSheet.create({
   tag:     { borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
   btn:     { margin: 16, marginTop: 4, backgroundColor: AMBER, borderRadius: 14, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   btnTxt:  { fontFamily: MONO, fontSize: 14, fontWeight: '900', color: BG },
+  downloadBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: 16, marginTop: 8, marginBottom: 4, backgroundColor: '#00CC88', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, justifyContent: 'center' },
+  downloadTxt: { fontFamily: MONO, fontSize: 11, fontWeight: '900', color: '#000', letterSpacing: 0.5, flex: 1, textAlign: 'center' },
 });
 
 // ══════════════════════════════════════════════════════════════════
