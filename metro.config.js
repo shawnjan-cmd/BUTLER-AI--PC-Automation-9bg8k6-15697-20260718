@@ -7,7 +7,7 @@ try { require('./tools/postinstall.js'); } catch (e) {}
 const config = getDefaultConfig(__dirname);
 
 // Bump cache to force full rebuild.
-config.cacheVersion = 'butler-ai-v5.0.56-dock-fix-qbb3';
+config.cacheVersion = 'butler-ai-v5.0.60-wire-fix';
 
 // ── COPYRIGHT NOTICE SERIALIZER ───────────────────────────────────────
 // Prepends a copyright banner to the COMPILED bundle. This banner
@@ -145,6 +145,16 @@ config.serializer.getPolyfills = function(options) {
   return [URL_POLYFILL_INJECT, ...base];
 };
 
+// ── LAYER 2b: exclude .flow from source extensions ─────────────────────────
+// .flow files contain Flow type syntax (`import typeof *`, `declare module`)
+// that Hermes parser rejects. Removing 'flow' from sourceExts ensures Metro
+// never attempts to parse them as JavaScript source files.
+if (Array.isArray(config.resolver.sourceExts)) {
+  config.resolver.sourceExts = config.resolver.sourceExts.filter(
+    (ext) => ext !== 'flow',
+  );
+}
+
 // ── LAYER 3: extraNodeModules — npm package name aliasing ────────────────────
 config.resolver.extraNodeModules = {
   ...(config.resolver.extraNodeModules || {}),
@@ -161,6 +171,8 @@ const expoFxBlockPattern        = /.*[/@+]expo[^/]*[/\\]src[/\\]Expo\.fx\.tsx$/;
 const loadBundleBlockPattern    = /.*[/@+]metro-runtime[^/]*.*[/\\]async-require[/\\]loadBundle\.ts$/;
 const errorManagerBlockPattern  = /.*expo-modules-core[^/]*.*[/\\]sweet[/\\]setUpErrorManager\.fx\.ts$/;
 const requireNativeWebPattern   = /.*expo-modules-core[^/\\]*.*[/\\]src[/\\]requireNativeModule\.web\.ts$/;
+// Block ALL .flow files — they contain Flow type syntax Hermes cannot parse
+const flowFilePattern           = /.*\.flow$/
 
 const newPatterns = [
   expoModulesFxPattern,
@@ -169,6 +181,7 @@ const newPatterns = [
   loadBundleBlockPattern,
   errorManagerBlockPattern,
   requireNativeWebPattern,
+  flowFilePattern,
 ];
 config.resolver.blockList = existingBlockList
   ? Array.isArray(existingBlockList)
@@ -213,6 +226,19 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       moduleName.endsWith('requireNativeModule.web')
     ) {
       return { filePath: REQUIRE_NATIVE_WEB_STUB, type: 'sourceFile' };
+    }
+
+    // ── .flow files — contain Flow type syntax that Hermes parser rejects ────
+    // react-native/index.js has `import typeof * from './index.js.flow'` which
+    // is valid Flow but not valid JS/TS. Stub all .flow imports to empty module.
+    if (
+      typeof moduleName === 'string' && (
+        moduleName.endsWith('.flow') ||
+        moduleName.endsWith('.js.flow') ||
+        moduleName === './index.js.flow'
+      )
+    ) {
+      return { filePath: EMPTY_STUB, type: 'sourceFile' };
     }
 
     // ── whatwg-url: only stub on NATIVE platforms ─────────────────────────────
