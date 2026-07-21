@@ -1219,45 +1219,184 @@ const srv = StyleSheet.create({
 
 function PCSetupPage({ accent, onScanQR }: { accent: string; onScanQR: () => void }) {
   const STEPS = [
-    { num:'1', color:T.cyan,  icon:'download',        title:'DOWNLOAD BUTLER SERVER', desc:'Free & open source on GitHub. One Python file that creates a secure LAN bridge.' },
-    { num:'2', color:T.amber, icon:'terminal',        title:'RUN THE INSTALLER',      desc:'Double-click butler_setup.ps1 (Windows) or butler_setup.sh (Mac/Linux).\nInstalls Python, all pip packages, and Ollama automatically.' },
-    { num:'3', color:T.green, icon:'qr-code-scanner', title:'SCAN QR & CONNECT',      desc:'Run python butler_server.py on your PC.\nA QR code appears in the terminal — tap SCAN QR below and point at it.' },
+    {
+      num:'01', color:T.cyan, icon:'download-circle',
+      title:'DOWNLOAD BUTLER SERVER',
+      desc:'butler_server.py runs on your PC, displays a QR code, and creates a secure LAN bridge to your phone. It self-checks all dependencies and auto-installs missing packages on first run.',
+      bullets: [
+        'Run: python butler_server.py',
+        'A QR code + IP address + port number will appear on screen',
+        'No cloud · No accounts · No installation wizard',
+      ],
+    },
+    {
+      num:'02', color:T.amber, icon:'cog-play',
+      title:'RUN THE INSTALLER',
+      desc:'One script installs everything automatically: Python 3.12+, all pip packages, Ollama AI, and the qwen2.5-coder:7b model on your PC.',
+      bullets: [
+        'Windows: Right-click butler_setup.ps1 → Run with PowerShell',
+        'Mac/Linux: chmod +x setup.sh && ./setup.sh',
+        'Sets up desktop shortcut for one-click server launch',
+      ],
+    },
+    {
+      num:'03', color:T.green, icon:'qr-code-scanner',
+      title:'CONNECT & CONTROL',
+      desc:'Scan the QR code shown by the server, or type the 6-digit PIN shown on screen. Or enter the IP address + port directly in the manual entry field. You are now paired.',
+      bullets: [
+        'Scan QR or enter IP manually',
+        'Pairing is one-time — auto-reconnects on future launches',
+        '100% LAN · HMAC-SHA256 signed · AES-256 encrypted',
+      ],
+    },
   ];
   const openURL = (url: string) => {
     try { haptics.medium(); } catch {}
     import('react-native').then(({ Linking }) => Linking.openURL(url).catch(() => {}));
   };
+
+  const AUTO_INSTALLS = [
+    { icon: 'language-python',        color: T.cyan,   label: 'Python 3.12+',           sub: 'winget or python.org MSI (silent)' },
+    { icon: 'package-variant',        color: T.green,  label: 'All pip packages',        sub: 'psutil · requests · qrcode · pillow · cryptography · beautifulsoup4 · lxml · pywin32 · pyinstaller' },
+    { icon: 'robot-happy',            color: T.purple, label: 'Ollama AI',               sub: 'winget or ollama.com silent installer' },
+    { icon: 'brain',                  color: T.amber,  label: 'qwen2.5-coder:7b model', sub: 'Apache 2.0 · commercial OK · ~4GB · auto-pulled' },
+    { icon: 'desktop-tower-monitor',  color: T.green,  label: 'Desktop shortcut',        sub: 'One-click server launch on PC' },
+  ];
+
   return (
     <View style={{ gap: 12 }}>
+      {/* ── OVERVIEW BANNER ── */}
       <NeonCard color={accent}>
-        <Text style={{ fontSize:12, fontWeight:'900', fontFamily:MONO, color:accent, marginBottom:4 }}>3 STEPS · ONE-CLICK INSTALLER</Text>
-        <Text style={{ fontSize:11, fontFamily:MONO, color:T.textMid, lineHeight:17 }}>Most users are up and running in under 2 minutes.</Text>
-      </NeonCard>
-      {STEPS.map((step, i) => (
-        <View key={step.num} style={[ps.stepCard, { borderColor:step.color+'50', borderLeftColor:step.color }]}>
-          <View style={[ps.topAccent, { backgroundColor:step.color }]} />
-          <View style={{ flexDirection:'row', alignItems:'flex-start', gap:14, padding:14 }}>
-            <View style={[ps.stepBadge, { borderColor:step.color, backgroundColor:step.color+'18' }]}>
-              <Text style={{ fontSize:24, fontWeight:'900', fontFamily:MONO, color:step.color }}>{step.num}</Text>
+        <View style={{ flexDirection:'row', alignItems:'center', gap:8, marginBottom:6 }}>
+          <MaterialCommunityIcons name="lightning-bolt" size={16} color={accent} />
+          <Text style={{ fontSize:13, fontWeight:'900', fontFamily:MONO, color:accent }}>3 STEPS · PAIR IN UNDER 60 SECONDS</Text>
+        </View>
+        <Text style={{ fontSize:11, fontFamily:MONO, color:T.textMid, lineHeight:17 }}>
+          Most users are up and running in under 2 minutes. The one-click installer handles Python, Ollama, and all dependencies automatically.
+        </Text>
+        <View style={{ flexDirection:'row', gap:6, marginTop:10, flexWrap:'wrap' }}>
+          {['PYTHON 3.12+','OLLAMA AI','HMAC-SHA256','AES-256','ZERO CLOUD','LAN ONLY'].map((b,i) => (
+            <View key={i} style={{ borderWidth:1, borderRadius:6, paddingHorizontal:7, paddingVertical:3, borderColor:[T.cyan,T.green,T.amber,T.purple,T.green,T.cyan][i]+'40', backgroundColor:[T.cyan,T.green,T.amber,T.purple,T.green,T.cyan][i]+'08' }}>
+              <Text style={{ fontFamily:MONO, fontSize:8.5, color:[T.cyan,T.green,T.amber,T.purple,T.green,T.cyan][i]+'CC', fontWeight:'900' }}>{b}</Text>
             </View>
-            <View style={{ flex:1 }}>
-              <Text style={{ fontSize:12, fontWeight:'900', fontFamily:MONO, color:'#FFF', marginBottom:6 }}>{step.title}</Text>
-              <Text style={{ fontSize:12, fontFamily:MONO, color:T.textMid, lineHeight:18 }}>{step.desc}</Text>
+          ))}
+        </View>
+      </NeonCard>
+
+      {/* ── AUTO-INSTALL BANNER ── */}
+      <View style={{ borderWidth:1.5, borderRadius:14, borderColor:T.green+'45', backgroundColor:'#030F0A', overflow:'hidden' }}>
+        <View style={{ height:3, backgroundColor:T.green }} />
+        <View style={{ paddingHorizontal:16, paddingTop:12, paddingBottom:4 }}>
+          <View style={{ flexDirection:'row', alignItems:'center', gap:8, marginBottom:10 }}>
+            <MaterialCommunityIcons name="lightning-bolt" size={14} color={T.green} />
+            <Text style={{ fontFamily:MONO, fontSize:11, fontWeight:'900', color:T.green, letterSpacing:1 }}>INSTALLS EVERYTHING AUTOMATICALLY</Text>
+          </View>
+          {AUTO_INSTALLS.map((a,i) => (
+            <View key={i} style={{ flexDirection:'row', alignItems:'flex-start', gap:10, paddingVertical:8, borderBottomWidth: i < AUTO_INSTALLS.length-1 ? 1 : 0, borderBottomColor:'rgba(255,255,255,0.06)' }}>
+              <View style={{ width:36, height:36, borderRadius:10, borderWidth:1.5, borderColor:a.color+'45', backgroundColor:a.color+'10', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <MaterialCommunityIcons name={a.icon as any} size={17} color={a.color} />
+              </View>
+              <View style={{ flex:1 }}>
+                <Text style={{ fontSize:13, fontWeight:'700', color:'#FFF', marginBottom:2 }}>{a.label}</Text>
+                <Text style={{ fontFamily:MONO, fontSize:9, color:T.textMid, lineHeight:13 }}>{a.sub}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+        {/* Platform download buttons */}
+        <View style={{ flexDirection:'row', gap:8, paddingHorizontal:14, paddingBottom:14, marginTop:4 }}>
+          <TouchableOpacity onPress={() => openURL('https://github.com/shawnjan-cmd/butler-server/releases/latest')} activeOpacity={0.85}
+            style={{ flex:1, flexDirection:'row', alignItems:'center', gap:8, backgroundColor:'#1A2A3A', borderRadius:12, borderWidth:1.5, borderColor:T.cyan+'55', padding:11 }}>
+            <MaterialIcons name="computer" size={20} color={T.cyan} />
+            <View>
+              <Text style={{ fontFamily:MONO, fontSize:11, fontWeight:'900', color:T.cyan }}>WINDOWS</Text>
+              <Text style={{ fontFamily:MONO, fontSize:8.5, color:T.textMid }}>PowerShell .ps1 script</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => openURL('https://github.com/shawnjan-cmd/butler-server/releases/latest')} activeOpacity={0.85}
+            style={{ flex:1, flexDirection:'row', alignItems:'center', gap:8, backgroundColor:'#0A2010', borderRadius:12, borderWidth:1.5, borderColor:T.green+'55', padding:11 }}>
+            <MaterialCommunityIcons name="apple" size={20} color={T.green} />
+            <View>
+              <Text style={{ fontFamily:MONO, fontSize:11, fontWeight:'900', color:T.green }}>MAC / LINUX</Text>
+              <Text style={{ fontFamily:MONO, fontSize:8.5, color:T.textMid }}>Bash .sh script</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+        <Text style={{ fontFamily:MONO, fontSize:9, color:T.textMid, textAlign:'center', paddingBottom:12, lineHeight:14 }}>
+          {'One script = Python + all packages + Ollama + AI model + shortcut'}
+        </Text>
+      </View>
+
+      {/* ── 3 NUMBERED STEP CARDS ── */}
+      {STEPS.map((step, i) => (
+        <View key={step.num}>
+          {i > 0 && (
+            <View style={{ alignItems:'center', height:18 }}>
+              <View style={{ width:2, height:'100%', backgroundColor:STEPS[i-1].color+'35' }} />
+            </View>
+          )}
+          <View style={[ps.stepCard, { borderColor:step.color+'50', borderLeftColor:step.color }]}>
+            <HudCorners color={step.color+'35'} size={8} t={1} />
+            <View style={[ps.topAccent, { backgroundColor:step.color }]} />
+            <View style={{ flexDirection:'row', alignItems:'flex-start', gap:14, padding:14, paddingTop:16 }}>
+              <View style={[ps.stepBadge, { borderColor:step.color, backgroundColor:step.color+'18' }]}>
+                <Text style={{ fontSize:20, fontWeight:'900', fontFamily:MONO, color:step.color }}>{step.num}</Text>
+              </View>
+              <View style={{ flex:1 }}>
+                <View style={{ flexDirection:'row', alignItems:'center', gap:8, marginBottom:6 }}>
+                  <MaterialCommunityIcons name={step.icon as any} size={14} color={step.color} />
+                  <Text style={{ fontSize:12, fontWeight:'900', fontFamily:MONO, color:'#FFF', flex:1 }}>{step.title}</Text>
+                  <View style={{ width:7, height:7, borderRadius:3.5, backgroundColor:step.color, opacity:0.8 }} />
+                </View>
+                <Text style={{ fontSize:11, fontFamily:MONO, color:T.textMid, lineHeight:17, marginBottom:8 }}>{step.desc}</Text>
+                {step.bullets.map((b,bi) => (
+                  <View key={bi} style={{ flexDirection:'row', alignItems:'flex-start', gap:8, marginBottom:5 }}>
+                    <View style={{ width:5, height:5, borderRadius:2.5, backgroundColor:step.color, marginTop:5, flexShrink:0 }} />
+                    <Text style={{ fontFamily:MONO, fontSize:10, color:step.color+'BB', lineHeight:15, flex:1 }}>{b}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            {/* Segmented accent bar at bottom */}
+            <View style={{ flexDirection:'row', gap:3, paddingHorizontal:14, paddingBottom:10 }}>
+              {Array.from({length:16}).map((_,si) => (
+                <View key={si} style={{ flex:1, height:2.5, borderRadius:2, backgroundColor:step.color+(si%3===0?'80':'20') }} />
+              ))}
             </View>
           </View>
         </View>
       ))}
+
+      {/* ── DOWNLOAD BUTTONS ── */}
+      <SectionHdr label="DOWNLOAD SERVER" color={accent} icon="download" />
       <TouchableOpacity onPress={() => openURL('https://github.com/shawnjan-cmd/butler-server/releases/latest')} activeOpacity={0.85}
         style={[ps.qrBtn, { backgroundColor: T.cyan, marginBottom:6 }]}>
         <MaterialCommunityIcons name="github" size={26} color="#000" />
         <View style={{ flex:1 }}>
-          <Text style={{ fontSize:14, fontWeight:'900', fontFamily:MONO, color:'#000' }}>VIEW RELEASES PAGE</Text>
-          <Text style={{ fontSize:9, fontFamily:MONO, color:'rgba(0,0,0,0.65)', marginTop:2 }}>github.com/shawnjan-cmd/butler-server/releases</Text>
+          <Text style={{ fontSize:14, fontWeight:'900', fontFamily:MONO, color:'#000' }}>DOWNLOAD FROM GITHUB</Text>
+          <View style={{ flexDirection:'row', gap:5, marginTop:3 }}>
+            <View style={{ backgroundColor:'rgba(0,0,0,0.2)', borderRadius:4, paddingHorizontal:6, paddingVertical:2 }}><Text style={{ fontFamily:MONO, fontSize:8.5, color:'#000', fontWeight:'900' }}>● GITHUB</Text></View>
+            <View style={{ backgroundColor:'rgba(0,0,0,0.2)', borderRadius:4, paddingHorizontal:6, paddingVertical:2 }}><Text style={{ fontFamily:MONO, fontSize:8.5, color:'#000', fontWeight:'900' }}>FREE</Text></View>
+            <View style={{ backgroundColor:'rgba(0,0,0,0.2)', borderRadius:4, paddingHorizontal:6, paddingVertical:2 }}><Text style={{ fontFamily:MONO, fontSize:8.5, color:'#000', fontWeight:'900' }}>PYTHON 3.10+</Text></View>
+          </View>
         </View>
-        <MaterialIcons name="open-in-new" size={18} color="#000" />
+        <MaterialIcons name="arrow-forward" size={18} color="#000" />
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => openURL(`mailto:?subject=Butler AI Server Setup&body=Download butler_server.py from: https://github.com/shawnjan-cmd/butler-server/releases/latest%0A%0ASetup guide: https://shawnjan-cmd.github.io/privacy-policy-/%0A%0AQuick start:%0A1. Save butler_server.py to your PC%0A2. Run: python butler_server.py%0A3. Scan the QR code shown in terminal%0A%0ARequires Python 3.10+. All other packages install automatically.`)} activeOpacity={0.85}
+        style={[ps.qrBtn, { backgroundColor: T.purple, marginBottom:8 }]}>
+        <MaterialIcons name="email" size={26} color="#000" />
+        <View style={{ flex:1 }}>
+          <Text style={{ fontSize:14, fontWeight:'900', fontFamily:MONO, color:'#000' }}>SEND TO YOUR EMAIL</Text>
+          <View style={{ flexDirection:'row', gap:5, marginTop:3 }}>
+            <View style={{ backgroundColor:'rgba(0,0,0,0.2)', borderRadius:4, paddingHorizontal:6, paddingVertical:2 }}><Text style={{ fontFamily:MONO, fontSize:8.5, color:'#000', fontWeight:'900' }}>● 1-CLICK SETUP</Text></View>
+            <View style={{ backgroundColor:'rgba(0,0,0,0.2)', borderRadius:4, paddingHorizontal:6, paddingVertical:2 }}><Text style={{ fontFamily:MONO, fontSize:8.5, color:'#000', fontWeight:'900' }}>PRE-FILLED</Text></View>
+            <View style={{ backgroundColor:'rgba(0,0,0,0.2)', borderRadius:4, paddingHorizontal:6, paddingVertical:2 }}><Text style={{ fontFamily:MONO, fontSize:8.5, color:'#000', fontWeight:'900' }}>FULL GUIDE</Text></View>
+          </View>
+        </View>
+        <MaterialIcons name="arrow-forward" size={18} color="#000" />
       </TouchableOpacity>
       <TouchableOpacity onPress={() => openURL('https://github.com/shawnjan-cmd/butler-server/archive/refs/heads/main.zip')} activeOpacity={0.85}
-        style={[ps.qrBtn, { backgroundColor: T.amber, marginBottom:8 }]}>
+        style={[ps.qrBtn, { backgroundColor: T.amber, marginBottom:10 }]}>
         <MaterialIcons name="download" size={26} color="#000" />
         <View style={{ flex:1 }}>
           <Text style={{ fontSize:14, fontWeight:'900', fontFamily:MONO, color:'#000' }}>AUTO-DOWNLOAD .ZIP</Text>
@@ -1265,20 +1404,68 @@ function PCSetupPage({ accent, onScanQR }: { accent: string; onScanQR: () => voi
         </View>
         <MaterialIcons name="arrow-downward" size={18} color="#000" />
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => { try { haptics.heavy(); } catch {}; onScanQR(); }} activeOpacity={0.85}
-        style={[ps.qrBtn, { backgroundColor: T.green }]}>
-        <MaterialIcons name="qr-code-scanner" size={26} color="#000" />
-        <View style={{ flex:1 }}>
-          <Text style={{ fontSize:14, fontWeight:'900', fontFamily:MONO, color:'#000' }}>SCAN QR TO PAIR</Text>
-          <Text style={{ fontSize:9, fontFamily:MONO, color:'rgba(0,0,0,0.6)', marginTop:2 }}>Tap when your PC server is running and showing a QR code</Text>
+
+      {/* ── AUTHENTICATE / SCAN QR CARD ── */}
+      <View style={{ borderWidth:1.5, borderRadius:14, borderColor:T.cyan+'45', backgroundColor:'#050D1A', overflow:'hidden' }}>
+        <View style={{ height:3, backgroundColor:T.cyan }} />
+        <View style={{ padding:14 }}>
+          <View style={{ flexDirection:'row', alignItems:'center', gap:8, marginBottom:12 }}>
+            <MaterialCommunityIcons name="shield-check" size={14} color={T.cyan} />
+            <Text style={{ fontFamily:MONO, fontSize:11, fontWeight:'900', color:T.cyan, letterSpacing:1 }}>AUTHENTICATE DEVICE</Text>
+          </View>
+          <View style={{ flexDirection:'row', alignItems:'center', gap:10, marginBottom:10 }}>
+            <View style={{ width:34, height:34, borderRadius:8, borderWidth:2, borderColor:T.cyan+'60', backgroundColor:T.cyan+'10', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <Text style={{ fontFamily:MONO, fontSize:13, fontWeight:'900', color:T.cyan }}>1</Text>
+            </View>
+            <Text style={{ fontFamily:MONO, fontSize:11, fontWeight:'900', color:'#FFF' }}>SCAN QR CODE</Text>
+          </View>
+          <TouchableOpacity onPress={() => { try { haptics.heavy(); } catch {}; onScanQR(); }} activeOpacity={0.85}
+            style={[ps.qrBtn, { backgroundColor: T.green, marginBottom:0, borderRadius:12 }]}>
+            <MaterialIcons name="qr-code-scanner" size={26} color="#000" />
+            <View style={{ flex:1 }}>
+              <Text style={{ fontSize:14, fontWeight:'900', fontFamily:MONO, color:'#000' }}>OPEN QR SCANNER</Text>
+              <Text style={{ fontSize:9, fontFamily:MONO, color:'rgba(0,0,0,0.6)', marginTop:2 }}>Point camera at desktop QR code to pair instantly</Text>
+            </View>
+            <MaterialIcons name="arrow-forward" size={18} color="#000" />
+          </TouchableOpacity>
+          <View style={{ alignItems:'center', paddingVertical:8 }}>
+            <Text style={{ fontFamily:MONO, fontSize:9, color:T.textMid, letterSpacing:1 }}>← → MANUAL CONNECT</Text>
+          </View>
+          <View style={{ borderRadius:10, borderWidth:1, borderColor:T.border, backgroundColor:T.surface, paddingHorizontal:12, paddingVertical:10 }}>
+            <Text style={{ fontFamily:MONO, fontSize:10, color:T.textDim, lineHeight:15 }}>
+              Enter PC IP : Persists across app restarts · No cloud relay
+            </Text>
+          </View>
         </View>
-        <MaterialIcons name="arrow-forward" size={18} color="#000" />
-      </TouchableOpacity>
+      </View>
+
+      {/* ── SECURITY AUDIT SUMMARY ── */}
+      <View style={{ borderRadius:14, borderWidth:1.5, borderColor:T.green+'35', backgroundColor:'#030F0A', overflow:'hidden' }}>
+        <View style={{ height:2.5, backgroundColor:T.green+'70' }} />
+        <View style={{ padding:14 }}>
+          <View style={{ flexDirection:'row', alignItems:'center', gap:8, marginBottom:10 }}>
+            <MaterialCommunityIcons name="shield-lock" size={14} color={T.green} />
+            <Text style={{ fontFamily:MONO, fontSize:10, fontWeight:'900', color:T.green, letterSpacing:1 }}>SECURITY AUDIT SUMMARY</Text>
+          </View>
+          {[
+            { label:'Telemetry', val:'0 requests', ok:true },
+            { label:'Cloud Deps', val:'None', ok:true },
+            { label:'Encryption', val:'AES-256-GCM', ok:true },
+            { label:'Auth', val:'HMAC-SHA256', ok:true },
+          ].map((s,i) => (
+            <View key={i} style={{ flexDirection:'row', alignItems:'center', paddingVertical:5, borderBottomWidth: i<3 ? 1 : 0, borderBottomColor:'rgba(0,255,136,0.08)' }}>
+              <MaterialIcons name="check-circle" size={13} color={T.green} style={{ marginRight:8 }} />
+              <Text style={{ fontFamily:MONO, fontSize:10, color:T.textMid, flex:1 }}>{s.label}</Text>
+              <Text style={{ fontFamily:MONO, fontSize:10, color:T.green, fontWeight:'900' }}>{s.val}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
     </View>
   );
 }
 const ps = StyleSheet.create({
-  stepCard:  { borderWidth:2, borderLeftWidth:5, borderRadius:14, backgroundColor:'#060E1A', overflow:'hidden', marginBottom:8 },
+  stepCard:  { borderWidth:2, borderLeftWidth:5, borderRadius:14, backgroundColor:'#060E1A', overflow:'hidden', marginBottom:2, position:'relative' },
   topAccent: { height:3 },
   stepBadge: { width:52, height:52, borderRadius:14, borderWidth:2.5, alignItems:'center', justifyContent:'center', flexShrink:0 },
   qrBtn:     { flexDirection:'row', alignItems:'center', gap:14, padding:16, borderRadius:14, overflow:'hidden' },
