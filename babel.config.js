@@ -3,6 +3,7 @@ module.exports = function (api) {
   return {
     presets: [['babel-preset-expo', { jsxImportSource: 'react' }]],
     plugins: [
+      // react-native-reanimated must be last
       'react-native-reanimated/plugin',
     ],
   };
