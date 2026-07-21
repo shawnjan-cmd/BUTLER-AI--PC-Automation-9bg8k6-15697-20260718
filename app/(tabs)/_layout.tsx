@@ -267,10 +267,12 @@ export default function TabsLayout() {
       <Tabs.Screen name="cosmetic"  options={{ title: 'SKINS',               tabBarLabel: 'SKINS'              }} />
       <Tabs.Screen name="settings"  options={{ title: TAB_LABELS.settings,   tabBarLabel: TAB_LABELS.settings  }} />
 
-      {/* ── ADDITIONAL VISIBLE TABS (scroll right past CFG) ── */}
-      <Tabs.Screen name="terminal" options={{ title: TAB_LABELS.terminal, tabBarLabel: TAB_LABELS.terminal }} />
-      <Tabs.Screen name="support"  options={{ title: TAB_LABELS.support,  tabBarLabel: TAB_LABELS.support  }} />
+      {/* ── PAIR PC — visible tab ── */}
       <Tabs.Screen name="connect"  options={{ title: TAB_LABELS.connect,  tabBarLabel: TAB_LABELS.connect  }} />
+
+      {/* ── HIDDEN UTILITY SCREENS — accessible via Settings / in-app links ── */}
+      <Tabs.Screen name="terminal" options={{ href: null }} />
+      <Tabs.Screen name="support"  options={{ href: null }} />
 
       {/* ── HIDDEN UTILITY TABS ── */}
       <Tabs.Screen name="index" options={{ href: null }} />

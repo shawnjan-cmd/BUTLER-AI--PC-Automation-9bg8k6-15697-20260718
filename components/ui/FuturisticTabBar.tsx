@@ -1,16 +1,15 @@
 /**
- * FuturisticTabBar — NEXUS COMMAND DOCK v6.0
- * SCROLLABLE HORIZONTAL — all tabs visible without overlap.
- * Completely new visual: terminal-pill style with colored tags,
- * no icon-in-box, just SVG icon + neon label chip.
- * Active = glowing pill background + top neon stripe.
- * Inactive = ghosted label + dim icon, fully legible.
+ * FuturisticTabBar — NEXUS COMMAND DOCK v7.0
+ * ALL TABS VISIBLE ON SCREEN — no horizontal scroll.
+ * Compact icon-only pills that fit any phone width.
+ * Each tab gets its unique neon accent. Active = glowing top stripe + filled bg.
+ * Inactive = minimal ghost. Fits 10 tabs on 320px screens.
  */
 
 import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Platform, Animated,
-  ScrollView, Dimensions,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -39,11 +38,16 @@ export function clearButlerUnread() {
 
 // ── CONSTANTS ────────────────────────────────────────────────────
 const MONO: any = Platform.OS === 'ios' ? 'Courier' : 'monospace';
-const BAR_H  = 64;
-const ICON_S = 18;
-const _SW    = Dimensions.get('window').width;
+const BAR_H  = 58;   // compact height — fits icon + label
+const ICON_S = 16;
+const _SW    = Math.max(320, Dimensions.get('window').width);
 
-const HIDDEN_TABS = new Set(['onboarding', 'index', 'terminal', 'support']);
+// Tabs that should never be shown in the bar
+const HIDDEN_TABS = new Set([
+  'onboarding', 'index',
+  // terminal and support are now accessible through other tabs
+  'terminal', 'support',
+]);
 
 const TAB_ALIASES: Record<string, string> = {
   home: 'nexushome', nexushome: 'nexushome', core: 'nexushome',
@@ -55,71 +59,58 @@ const TAB_ALIASES: Record<string, string> = {
   fileshare: 'fileshare', vault: 'fileshare',
   settings: 'settings', config: 'settings', cfg: 'settings',
   cosmetic: 'cosmetic', themes: 'cosmetic', skins: 'cosmetic',
-  connect: 'connect',
+  connect: 'connect', pair: 'connect',
 };
 
-// Each tab gets a unique color + short 4-char label
 const TAB_META: Record<string, { color: string; label: string }> = {
-  nexushome:      { color: '#00E5FF', label: 'HOME' },
-  scripts:        { color: '#CC44FF', label: 'FORG' },
-  butler:         { color: '#00FF88', label: 'BTLR' },
-  knowledge:      { color: '#00CCFF', label: 'KB  ' },
-  logs:           { color: '#FFB020', label: 'INTL' },
-  builder:        { color: '#4A9EFF', label: 'BILD' },
-  fileshare:      { color: '#FF44AA', label: 'VLUT' },
-  settings:       { color: '#FF6644', label: 'CFG ' },
-  cosmetic:       { color: '#AA44FF', label: 'SKIN' },
-  connect:        { color: '#00CCBB', label: 'PAIR' },
-  butler_v1:      { color: '#33AA66', label: 'AI-1' },
-  knowledge_v1:   { color: '#3388BB', label: 'KB-1' },
-  scripts_legacy: { color: '#AA6633', label: 'SCR1' },
-  logs_v1:        { color: '#AA8833', label: 'PC-1' },
-  builder_v1:     { color: '#3366AA', label: 'BLD1' },
-  fileshare_v1:   { color: '#AA3366', label: 'NET1' },
-  cosmetic_v1:    { color: '#6633AA', label: 'SKN1' },
+  nexushome: { color: '#00E5FF', label: 'HOME' },
+  scripts:   { color: '#CC44FF', label: 'SCRPT' },
+  butler:    { color: '#00FF88', label: 'AI' },
+  knowledge: { color: '#4A9EFF', label: 'KB' },
+  logs:      { color: '#FFB020', label: 'PC' },
+  builder:   { color: '#FF6644', label: 'BUILD' },
+  fileshare: { color: '#FF44AA', label: 'NET' },
+  settings:  { color: '#8888AA', label: 'CFG' },
+  cosmetic:  { color: '#AA44FF', label: 'SKIN' },
+  connect:   { color: '#00CCBB', label: 'PAIR' },
 };
 
-function getColor(routeName: string) {
-  return TAB_META[routeName]?.color ?? '#00E5FF';
-}
-function getLabel(routeName: string) {
-  return (TAB_META[routeName]?.label ?? routeName.slice(0, 4).toUpperCase()).trim();
-}
+function getColor(r: string) { return TAB_META[r]?.color ?? '#00E5FF'; }
+function getLabel(r: string) { return TAB_META[r]?.label ?? r.slice(0,4).toUpperCase(); }
 
 function renderIcon(routeName: string, color: string, active: boolean) {
-  const props = { size: ICON_S, color, active, dimOpacity: 0.85 };
+  const props = { size: ICON_S, color, active, dimOpacity: 0.9 };
   switch (routeName) {
-    case 'nexushome':    return <NexusCoreIcon    {...props} />;
-    case 'scripts':      return <ForgeScriptsIcon {...props} />;
-    case 'butler':       return <ButlerAIIcon      {...props} />;
-    case 'knowledge':    return <KnowledgeBaseIcon {...props} />;
-    case 'logs':         return <IntelLogsIcon     {...props} />;
-    case 'builder':      return <BuilderIcon       {...props} />;
-    case 'fileshare':    return <VaultIcon         {...props} />;
-    case 'settings':     return <ConfigIcon        {...props} />;
-    case 'cosmetic':     return <SkinsIcon         {...props} />;
-    default:
-      return <ButlerAIIcon {...props} />;
+    case 'nexushome':  return <NexusCoreIcon    {...props} />;
+    case 'scripts':    return <ForgeScriptsIcon {...props} />;
+    case 'butler':     return <ButlerAIIcon     {...props} />;
+    case 'knowledge':  return <KnowledgeBaseIcon {...props} />;
+    case 'logs':       return <IntelLogsIcon    {...props} />;
+    case 'builder':    return <BuilderIcon      {...props} />;
+    case 'fileshare':  return <VaultIcon        {...props} />;
+    case 'settings':   return <ConfigIcon       {...props} />;
+    case 'cosmetic':   return <SkinsIcon        {...props} />;
+    default:           return <ButlerAIIcon     {...props} />;
   }
 }
 
-// ── SINGLE TAB PILL ───────────────────────────────────────────────
+// ── TAB PILL (compact) ────────────────────────────────────────────
 interface TabPillProps {
   routeName: string;
   isFocused: boolean;
   label: string;
+  flex: number;
   onPress: () => void;
 }
 
-function TabPill({ routeName, isFocused, label, onPress }: TabPillProps) {
-  const color   = getColor(routeName);
-  const shortLbl = getLabel(routeName);
+const TabPill = React.memo(function TabPill({ routeName, isFocused, label, flex, onPress }: TabPillProps) {
+  const color = getColor(routeName);
+  const shortLabel = getLabel(routeName);
 
-  // Animations — all native-driver safe (opacity + scale only)
-  const scaleA   = useRef(new Animated.Value(isFocused ? 1.06 : 1)).current;
-  const opA      = useRef(new Animated.Value(isFocused ? 1 : 0.62)).current;
-  const dotA     = useRef(new Animated.Value(0.4)).current;
-  const redDotA  = useRef(new Animated.Value(0.5)).current;
+  const scaleA  = useRef(new Animated.Value(isFocused ? 1.04 : 1)).current;
+  const opA     = useRef(new Animated.Value(isFocused ? 1 : 0.55)).current;
+  const dotA    = useRef(new Animated.Value(0.4)).current;
+  const redDotA = useRef(new Animated.Value(0.5)).current;
   const [hasUnread, setHasUnread] = useState(_butlerUnread && routeName === 'butler');
 
   useEffect(() => {
@@ -135,26 +126,28 @@ function TabPill({ routeName, isFocused, label, onPress }: TabPillProps) {
 
   useEffect(() => {
     Animated.parallel([
-      Animated.spring(scaleA, { toValue: isFocused ? 1.06 : 1,    useNativeDriver: true, speed: 28, bounciness: 12 }),
-      Animated.timing(opA,    { toValue: isFocused ? 1   : 0.62, useNativeDriver: true, duration: 200 }),
+      Animated.spring(scaleA, { toValue: isFocused ? 1.04 : 1,   useNativeDriver: true, speed: 32, bounciness: 10 }),
+      Animated.timing(opA,    { toValue: isFocused ? 1   : 0.55, useNativeDriver: true, duration: 180 }),
     ]).start();
   }, [isFocused]);
 
+  // Pulsing dot for active tab
   useEffect(() => {
     if (!isFocused) return;
     const loop = Animated.loop(Animated.sequence([
-      Animated.timing(dotA, { toValue: 1,   duration: 700, useNativeDriver: true }),
-      Animated.timing(dotA, { toValue: 0.2, duration: 700, useNativeDriver: true }),
+      Animated.timing(dotA, { toValue: 1,   duration: 800, useNativeDriver: true }),
+      Animated.timing(dotA, { toValue: 0.1, duration: 800, useNativeDriver: true }),
     ]));
     loop.start();
     return () => loop.stop();
   }, [isFocused]);
 
+  // Unread dot pulse
   useEffect(() => {
     if (!hasUnread) return;
     const loop = Animated.loop(Animated.sequence([
-      Animated.timing(redDotA, { toValue: 1,    duration: 380, useNativeDriver: true }),
-      Animated.timing(redDotA, { toValue: 0.25, duration: 380, useNativeDriver: true }),
+      Animated.timing(redDotA, { toValue: 1,    duration: 400, useNativeDriver: true }),
+      Animated.timing(redDotA, { toValue: 0.2,  duration: 400, useNativeDriver: true }),
     ]));
     loop.start();
     return () => loop.stop();
@@ -163,67 +156,75 @@ function TabPill({ routeName, isFocused, label, onPress }: TabPillProps) {
   return (
     <TouchableOpacity
       onPress={() => { haptics.light(); onPress(); }}
-      activeOpacity={0.85}
+      activeOpacity={0.8}
+      style={{ flex, alignItems: 'center', justifyContent: 'center' }}
       accessibilityRole="button"
       accessibilityState={{ selected: isFocused }}
       accessibilityLabel={label}
-      style={tp.touch}
     >
-      <Animated.View style={[tp.pill,
+      <Animated.View style={[
+        tp.inner,
         isFocused
-          ? { backgroundColor: color + '18', borderColor: color + '80' }
-          : { backgroundColor: 'transparent', borderColor: color + '28' },
+          ? { backgroundColor: color + '18', borderColor: color + '70' }
+          : { backgroundColor: 'transparent', borderColor: 'transparent' },
         { transform: [{ scale: scaleA }], opacity: opA },
       ]}>
-        {/* Top accent stripe on active */}
+        {/* Active top stripe */}
         {isFocused && (
-          <View style={[tp.topStripe, { backgroundColor: color }]} />
+          <View style={[tp.stripe, { backgroundColor: color,
+            shadowColor: color, shadowOpacity: 0.85, shadowRadius: 6,
+            shadowOffset: { width: 0, height: 0 },
+          }]} />
         )}
 
-        {/* Icon row */}
-        <View style={tp.iconRow}>
+        {/* Icon with unread dot */}
+        <View style={tp.iconWrap}>
           {renderIcon(routeName, color, isFocused)}
-
-          {/* Active pulsing dot */}
           {isFocused && (
             <Animated.View style={[tp.activeDot, { backgroundColor: color, opacity: dotA }]} />
           )}
-
-          {/* Unread badge */}
           {hasUnread && !isFocused && (
             <Animated.View style={[tp.unreadDot, { opacity: redDotA }]} />
           )}
         </View>
 
-        {/* Label */}
-        <Text
-          style={[tp.label, { color: isFocused ? color : color + '88' }]}
-          numberOfLines={1}
-        >
-          {shortLbl}
+        {/* Short label */}
+        <Text style={[tp.label, { color: isFocused ? color : color + '66' }]} numberOfLines={1}>
+          {shortLabel}
         </Text>
       </Animated.View>
     </TouchableOpacity>
   );
-}
+});
 
 const tp = StyleSheet.create({
-  touch:      { marginHorizontal: 3 },
-  pill:       {
-    width: 54, alignItems: 'center', justifyContent: 'center',
-    paddingTop: 6, paddingBottom: 5,
-    borderRadius: 13, borderWidth: 1.5,
-    overflow: 'hidden', position: 'relative',
+  inner: {
+    alignItems: 'center', justifyContent: 'center',
+    paddingTop: 6, paddingBottom: 4, paddingHorizontal: 2,
+    borderRadius: 10, borderWidth: 1.5,
+    minWidth: 30, width: '100%',
+    position: 'relative', overflow: 'hidden',
   },
-  topStripe:  { position: 'absolute', top: 0, left: 4, right: 4, height: 2.5, borderRadius: 1.5 },
-  iconRow:    { position: 'relative', marginBottom: 3, alignItems: 'center', justifyContent: 'center' },
-  activeDot:  { position: 'absolute', bottom: -4, width: 4, height: 4, borderRadius: 2 },
-  unreadDot:  {
-    position: 'absolute', top: -4, right: -4,
-    width: 9, height: 9, borderRadius: 5,
-    backgroundColor: '#FF3344', borderWidth: 1.5, borderColor: '#010810',
+  stripe: {
+    position: 'absolute', top: 0, left: 3, right: 3,
+    height: 2.5, borderRadius: 1.5,
   },
-  label:      { fontFamily: MONO, fontSize: 7.5, fontWeight: '900', letterSpacing: 0.4 },
+  iconWrap: {
+    position: 'relative', alignItems: 'center', justifyContent: 'center',
+    marginBottom: 2,
+  },
+  activeDot: {
+    position: 'absolute', bottom: -3, width: 3, height: 3, borderRadius: 1.5,
+  },
+  unreadDot: {
+    position: 'absolute', top: -3, right: -3,
+    width: 8, height: 8, borderRadius: 4,
+    backgroundColor: '#FF3344', borderWidth: 1.5, borderColor: '#020912',
+  },
+  label: {
+    fontFamily: MONO, fontSize: 7, fontWeight: '900', letterSpacing: 0.3,
+    textAlign: 'center', includeFontPadding: false,
+  },
 });
 
 // ── MAIN TAB BAR ─────────────────────────────────────────────────
@@ -235,6 +236,7 @@ export default function FuturisticTabBar(
   const { state, descriptors, navigation } = props;
   const insets = useSafeAreaInsets();
 
+  // Wire global tab switch helper
   useEffect(() => {
     (global as any).__butlerSwitchTab = (tab: string) => {
       const route = TAB_ALIASES[String(tab || '').toLowerCase()] || tab;
@@ -249,9 +251,9 @@ export default function FuturisticTabBar(
       .filter(({ route }) => {
         if (HIDDEN_TABS.has(route.name)) return false;
         const opts = descriptors[route.key].options as any;
-        if (opts?.href === null)                         return false;
-        if (opts?.tabBarButton === null)                 return false;
-        if ((opts?.tabBarItemStyle as any)?.display === 'none') return false;
+        if (opts?.href === null)                                       return false;
+        if (opts?.tabBarButton === null)                               return false;
+        if ((opts?.tabBarItemStyle as any)?.display === 'none')       return false;
         return true;
       }),
     [state.routes, descriptors],
@@ -260,54 +262,34 @@ export default function FuturisticTabBar(
   const activeRouteName = visibleRoutes.find(r => r.idx === state.index)?.route?.name ?? 'nexushome';
   const isOnButlerTab   = activeRouteName === 'butler';
 
-  const scrollRef = useRef<ScrollView>(null);
-  const activeVisIdx = visibleRoutes.findIndex(r => r.idx === state.index);
+  const bottomPad = Math.max(insets.bottom, 8);
 
-  // Auto-scroll to keep active tab visible
-  useEffect(() => {
-    if (scrollRef.current && activeVisIdx >= 0) {
-      // Each pill is ~60px wide with 6px margin — scroll to center it
-      const approxX = Math.max(0, activeVisIdx * 60 - _SW / 2 + 30);
-      scrollRef.current.scrollTo({ x: approxX, animated: true });
-    }
-  }, [activeVisIdx]);
-
-  const bottomPad = insets.bottom > 0 ? insets.bottom : 8;
-
-  // Multi-color top signal line colors
+  // Multi-color signal line
   const signalColors = visibleRoutes.map(({ route }) => getColor(route.name));
+
+  // flex weight for each tab (equal)
+  const tabFlex = 1;
 
   return (
     <View pointerEvents="box-none" style={[st.outerWrap, { paddingBottom: bottomPad }]}>
-      {/* QuickButlerBar only when not on AI chat tab */}
+      {/* Quick Butler prompt bar — hidden on AI tab */}
       {!isOnButlerTab && <QuickButlerBar />}
 
-      {/* Shadow plate */}
+      {/* Elevation plate */}
       <View pointerEvents="none" style={st.shadowPlate} />
 
-      {/* The dock */}
+      {/* Dock */}
       <View style={st.deck}>
 
-        {/* ── MULTI-COLOR SIGNAL LINE ── */}
+        {/* Signal line */}
         <View pointerEvents="none" style={st.signalLine}>
           {signalColors.map((c, i) => (
             <View key={i} style={{ flex: 1, backgroundColor: c }} />
           ))}
         </View>
 
-        {/* ── SCROLLABLE TAB ROW ── */}
-        <ScrollView
-          ref={scrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={st.scrollContent}
-          style={st.scroll}
-          decelerationRate="fast"
-          snapToInterval={60}
-          snapToAlignment="start"
-          bounces={false}
-          overScrollMode="never"
-        >
+        {/* Fixed tab row — all tabs in one row, no scroll */}
+        <View style={st.tabRow}>
           {visibleRoutes.map(({ route, idx }) => {
             const { options } = descriptors[route.key];
             const isFocused   = state.index === idx;
@@ -323,17 +305,12 @@ export default function FuturisticTabBar(
                 routeName={route.name}
                 isFocused={isFocused}
                 label={String(label)}
+                flex={tabFlex}
                 onPress={onPress}
               />
             );
           })}
-          {/* Trailing spacer so last tab isn't clipped */}
-          <View style={{ width: 12 }} />
-        </ScrollView>
-
-        {/* Right fade-out gradient hint */}
-        <View pointerEvents="none" style={st.rightFade} />
-
+        </View>
       </View>
     </View>
   );
@@ -344,39 +321,31 @@ const st = StyleSheet.create({
     position: 'absolute', left: 0, right: 0, bottom: 0, paddingTop: 4,
   },
   shadowPlate: {
-    position: 'absolute', left: 6, right: 6, bottom: 0, top: 10,
-    borderRadius: 18, backgroundColor: '#000', opacity: 0.8,
+    position: 'absolute', left: 6, right: 6, bottom: 0, top: 8,
+    borderRadius: 18, backgroundColor: '#000', opacity: 0.75,
     ...Platform.select({
-      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 14 }, shadowOpacity: 0.92, shadowRadius: 22 },
-      android: { elevation: 22 },
+      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: -8 }, shadowOpacity: 0.85, shadowRadius: 20 },
+      android: { elevation: 20 },
       default: {},
     }),
   },
   deck: {
-    height: BAR_H, marginHorizontal: 6, borderRadius: 16, overflow: 'hidden',
+    height: BAR_H, marginHorizontal: 6, borderRadius: 14, overflow: 'hidden',
     backgroundColor: '#020912',
-    borderWidth: 1.5, borderColor: 'rgba(0,229,255,0.18)',
+    borderWidth: 1.5, borderColor: 'rgba(0,229,255,0.16)',
     ...Platform.select({ android: { elevation: 14 }, default: {} }),
   },
   signalLine: {
-    height: 3, flexDirection: 'row', position: 'absolute', top: 0, left: 0, right: 0, zIndex: 3,
+    height: 2.5, flexDirection: 'row', position: 'absolute', top: 0, left: 0, right: 0, zIndex: 3,
   },
-  scroll: {
+  tabRow: {
     flex: 1,
-    marginTop: 3,     // below the signal line
-  },
-  scrollContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingTop: 4,
-    paddingBottom: 4,
-    minHeight: BAR_H - 3,
-  },
-  rightFade: {
-    position: 'absolute', right: 0, top: 3, bottom: 0, width: 28,
-    // Simple transparency hint — not a real gradient (no expo-linear-gradient dep needed)
-    backgroundColor: 'transparent',
-    borderRightWidth: 0,
+    justifyContent: 'space-around',
+    paddingHorizontal: 4,
+    paddingTop: 2,
+    paddingBottom: 2,
+    marginTop: 2.5, // below signal line
   },
 });
