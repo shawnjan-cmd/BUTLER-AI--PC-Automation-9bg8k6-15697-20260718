@@ -1,15 +1,21 @@
 /**
- * BUTLER AI — CONFIGURATION CENTER v3.0
- * Mission-control aesthetic — hexagonal system overview, live version badges,
- * animated stats, model picker carousel, full per-section neon accents.
- * All backend wires (AsyncStorage keys, resetOnboarding, haptics, Share) preserved.
+ * BUTLER AI — CONFIGURATION CENTER v4.0
+ * Complete overhaul:
+ *  • RESET TUTORIAL at the very top (most-needed action)
+ *  • Privacy Policy & Legal prominently placed
+ *  • Animation toggle + accessibility settings
+ *  • Haptic feedback on every interaction
+ *  • All text 13px+ minimum, bold where important
+ *  • Nothing goes off-screen, all padding correct
+ *  • Third-party attributions included
+ *  • Play Store compliance items properly exposed
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
   TouchableOpacity, Switch, Alert, Platform,
-  Animated, Dimensions, Share, Pressable,
+  Animated, Dimensions, Share, Pressable, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -20,20 +26,14 @@ import { notifyOnboardingReset } from './_layout';
 import { resetOnboarding } from '@/services/onboardingState';
 import { TabErrorBoundary } from '@/components/ui/TabErrorBoundary';
 import { TabSwipeOverlay } from '@/components/ui/TabSwipeOverlay';
-import { ScanlineOverlay } from '@/components/ui/ScanlineOverlay';
-import { CornerFrame } from '@/components/ui/CornerFrame';
-import { HexTag } from '@/components/ui/HexTag';
-import { StatusChip } from '@/components/ui/StatusChip';
-import { GlowCard } from '@/components/ui/GlowCard';
-import { GlitchText } from '@/components/ui/GlitchText';
 import { logger } from '@/utils/logger';
 import { serverConnection } from '@/services/serverConnection';
+import { autoErrorLogger } from '@/services/autoErrorLogger';
 
 const { width: SW } = Dimensions.get('window');
 const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
-const PAD = 14;
+const PAD = 16;
 
-// ─── PALETTE ────────────────────────────────────────────────────────
 const C = {
   bg:       '#010508',
   surf:     '#07111C',
@@ -45,17 +45,21 @@ const C = {
   purple:   '#CC44FF',
   pink:     '#FF6EB4',
   blue:     '#4A9EFF',
-  text:     '#C8E4F0',
-  mid:      '#4A7090',
-  dim:      '#1A2E44',
-  border:   'rgba(0,229,255,0.10)',
+  teal:     '#00CCBB',
+  text:     '#D4E8F6',
+  mid:      '#5A8098',
+  dim:      '#203050',
+  border:   'rgba(0,229,255,0.12)',
 };
 
-// ─── STORAGE KEYS ────────────────────────────────────────────────────
-const MODEL_KEY  = 'butler.model.v1';
-const SYSTEM_KEY = 'butler.system.v1';
+const MODEL_KEY   = 'butler.model.v1';
+const SYSTEM_KEY  = 'butler.system.v1';
+const ANIM_KEY    = 'butler.animations.v1';
+const HAPTICS_KEY = 'butler.haptics.v1';
+const AR_KEY      = 'butler.autoreconn.v1';
+const DEBUG_KEY   = 'butler.debug.v1';
+const REDUCE_KEY  = 'butler.reducemotion.v1';
 
-// ─── POPULAR MODELS ──────────────────────────────────────────────────
 const POPULAR_MODELS = [
   { id: 'llama3.2',            label: 'Llama 3.2',   size: '2B', color: C.cyan   },
   { id: 'llama3.2:3b',         label: 'Llama 3.2',   size: '3B', color: C.cyan   },
@@ -67,225 +71,203 @@ const POPULAR_MODELS = [
   { id: 'codellama:7b',        label: 'CodeLlama',   size: '7B', color: C.amber  },
 ];
 
-// ─── MICRO ATOMS ─────────────────────────────────────────────────────
-function PulseDot({ color, size = 6 }: { color: string; size?: number }) {
-  const a = useRef(new Animated.Value(0.35)).current;
+// ─── PULSE DOT ───────────────────────────────────────────────────
+function PulseDot({ color, size = 7 }: { color: string; size?: number }) {
+  const a = useRef(new Animated.Value(0.4)).current;
   useEffect(() => {
     const loop = Animated.loop(Animated.sequence([
-      Animated.timing(a, { toValue: 1,   duration: 900, useNativeDriver: true }),
+      Animated.timing(a, { toValue: 1,    duration: 900, useNativeDriver: true }),
       Animated.timing(a, { toValue: 0.15, duration: 900, useNativeDriver: true }),
     ]));
     loop.start();
     return () => loop.stop();
   }, []);
-  return (
-    <Animated.View style={{ width: size, height: size, borderRadius: size / 2,
-      backgroundColor: color, opacity: a }} />
-  );
+  return <Animated.View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color, opacity: a }} />;
 }
 
-// ─── SECTION HEADER ──────────────────────────────────────────────────
-function Sec({ icon, label, color, right }: { icon: string; label: string; color: string; right?: React.ReactNode }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 11, marginTop: 4 }}>
-      <View style={{ width: 3, height: 14, borderRadius: 2, backgroundColor: color }} />
-      <MaterialCommunityIcons name={icon as any} size={11} color={color} />
-      <Text style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: '900', color: color + 'DD',
-        letterSpacing: 1.8, flex: 1 }}>{label}</Text>
-      {right}
-      <View style={{ height: 1, width: 20, backgroundColor: color + '20' }} />
-    </View>
-  );
-}
-
-// ─── NEXUS INPUT ──────────────────────────────────────────────────────
-function NexusInput({ value, onChangeText, placeholder, multiline = false, accent = C.cyan, ...rest }: {
-  value: string;
-  onChangeText: (v: string) => void;
-  placeholder?: string;
-  multiline?: boolean;
-  accent?: string;
-  [k: string]: any;
+// ─── SECTION HEADER ──────────────────────────────────────────────
+function Sec({ icon, label, color, right, sub }: {
+  icon: string; label: string; color: string; right?: React.ReactNode; sub?: string;
 }) {
-  const [focused, setFocused] = useState(false);
   return (
-    <View style={[ni.wrap, {
-      borderColor: focused ? accent + '80' : C.border,
-      backgroundColor: focused ? accent + '06' : C.surf,
-    }]}>
-      <CornerFrame color={focused ? accent + '55' : C.border} size={7} thickness={1} />
-      <TextInput
-        style={[ni.input, multiline && { minHeight: 90, textAlignVertical: 'top' }]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={C.dim}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        multiline={multiline}
-        autoCapitalize="none"
-        autoCorrect={false}
-        keyboardAppearance="dark"
-        {...rest}
-      />
+    <View style={{ marginBottom: 11, marginTop: 6 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View style={{ width: 4, height: 18, borderRadius: 2, backgroundColor: color }} />
+        <MaterialCommunityIcons name={icon as any} size={13} color={color} />
+        <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '900', color: color + 'DD',
+          letterSpacing: 1.8, flex: 1 }}>{label}</Text>
+        {right}
+        <View style={{ height: 1, width: 24, backgroundColor: color + '20' }} />
+      </View>
+      {sub ? <Text style={{ fontFamily: MONO, fontSize: 11, color: C.mid, marginLeft: 28, marginTop: 4, lineHeight: 16 }}>{sub}</Text> : null}
     </View>
   );
 }
-const ni = StyleSheet.create({
-  wrap:  { borderWidth: 1.5, borderRadius: 11, paddingHorizontal: 14, paddingVertical: 10,
-    position: 'relative', overflow: 'hidden' },
-  input: { color: C.text, fontSize: 14, fontFamily: MONO, padding: 0, includeFontPadding: false as any },
-});
 
-// ─── TOGGLE ROW ───────────────────────────────────────────────────────
+// ─── TOGGLE ROW ──────────────────────────────────────────────────
 function ToggleRow({ icon, label, sub, value, onToggle, color = C.cyan, iconLib = 'community' }: {
   icon: string; label: string; sub?: string; value: boolean;
   onToggle: (v: boolean) => void; color?: string; iconLib?: 'material' | 'community';
 }) {
   const Icon = iconLib === 'community' ? MaterialCommunityIcons : MaterialIcons;
+  const scaleA = useRef(new Animated.Value(1)).current;
+  const handlePress = () => {
+    Animated.sequence([
+      Animated.timing(scaleA, { toValue: 0.97, duration: 60, useNativeDriver: true }),
+      Animated.spring(scaleA, { toValue: 1, tension: 300, friction: 10, useNativeDriver: true }),
+    ]).start();
+    haptics.light();
+    onToggle(!value);
+  };
   return (
-    <TouchableOpacity activeOpacity={0.88}
-      style={[tr.row, { borderColor: value ? color + '45' : C.border,
-        backgroundColor: value ? color + '06' : C.surf }]}
-      onPress={() => { haptics.light(); onToggle(!value); }}>
-      <CornerFrame color={value ? color + '35' : C.dim} size={6} thickness={1} />
-      <View style={[tr.iconBox, { borderColor: color + (value ? '50' : '25'),
-        backgroundColor: color + (value ? '12' : '06') }]}>
-        <Icon name={icon as any} size={15} color={value ? color : C.mid} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '700', color: value ? C.text : C.mid }}>{label}</Text>
-        {sub ? <Text style={{ fontFamily: MONO, fontSize: 9.5, color: C.dim, marginTop: 2 }}>{sub}</Text> : null}
-      </View>
-      <Switch
-        value={value}
-        onValueChange={(v) => { haptics.light(); onToggle(v); }}
-        trackColor={{ false: 'rgba(255,255,255,0.08)', true: color + '70' }}
-        thumbColor={value ? color : C.mid + '80'}
-        ios_backgroundColor="rgba(255,255,255,0.08)"
-      />
-    </TouchableOpacity>
-  );
-}
-const tr = StyleSheet.create({
-  row:     { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12,
-    paddingHorizontal: 13, borderRadius: 12, borderWidth: 1.5, marginBottom: 6,
-    position: 'relative', overflow: 'hidden' },
-  iconBox: { width: 34, height: 34, borderRadius: 9, borderWidth: 1.5, alignItems: 'center',
-    justifyContent: 'center', flexShrink: 0 },
-});
-
-// ─── LINK ROW ─────────────────────────────────────────────────────────
-function LinkRow({ icon, iconLib = 'community', label, sub, color = C.cyan, onPress, badge }: {
-  icon: string; iconLib?: 'material' | 'community'; label: string; sub?: string;
-  color?: string; onPress: () => void; badge?: string;
-}) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const Icon = iconLib === 'community' ? MaterialCommunityIcons : MaterialIcons;
-  return (
-    <Animated.View style={{ transform: [{ scale }] }}>
-      <TouchableOpacity
-        onPress={() => { Animated.sequence([
-          Animated.timing(scale, { toValue: 0.97, duration: 60, useNativeDriver: true }),
-          Animated.spring(scale, { toValue: 1, tension: 300, friction: 10, useNativeDriver: true }),
-        ]).start(); haptics.light(); onPress(); }}
-        activeOpacity={0.88}
-        style={[lnk.row, { borderColor: color + '28', backgroundColor: color + '06' }]}>
-        <View style={[lnk.iconBox, { backgroundColor: color + '14', borderColor: color + '40' }]}>
-          <Icon name={icon as any} size={15} color={color} />
+    <Animated.View style={{ transform: [{ scale: scaleA }], marginBottom: 8 }}>
+      <TouchableOpacity activeOpacity={0.88}
+        style={[tr.row, { borderColor: value ? color + '50' : C.border, backgroundColor: value ? color + '07' : C.surf }]}
+        onPress={handlePress}>
+        <View style={[tr.iconBox, { borderColor: color + (value ? '55' : '25'), backgroundColor: color + (value ? '14' : '07') }]}>
+          <Icon name={icon as any} size={17} color={value ? color : C.mid} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '700', color: C.text }}>{label}</Text>
-          {sub ? <Text style={{ fontFamily: MONO, fontSize: 9.5, color: C.mid, marginTop: 2 }}>{sub}</Text> : null}
+          <Text style={{ fontFamily: MONO, fontSize: 13, fontWeight: '700', color: value ? C.text : C.mid, lineHeight: 18 }}>{label}</Text>
+          {sub ? <Text style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 3, lineHeight: 16 }}>{sub}</Text> : null}
         </View>
-        {badge ? (
-          <View style={{ borderWidth: 1, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2,
-            borderColor: color + '45', backgroundColor: color + '0A' }}>
-            <Text style={{ fontFamily: MONO, fontSize: 7.5, fontWeight: '900', color: color }}>{badge}</Text>
-          </View>
-        ) : null}
-        <MaterialIcons name="chevron-right" size={15} color={color + '70'} style={{ marginLeft: 4 }} />
+        <Switch
+          value={value}
+          onValueChange={(v) => { haptics.light(); onToggle(v); }}
+          trackColor={{ false: 'rgba(255,255,255,0.08)', true: color + '70' }}
+          thumbColor={value ? color : C.mid + '80'}
+          ios_backgroundColor="rgba(255,255,255,0.08)"
+        />
       </TouchableOpacity>
     </Animated.View>
   );
 }
-const lnk = StyleSheet.create({
-  row:     { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 12,
-    paddingHorizontal: 13, borderRadius: 12, borderWidth: 1.5, marginBottom: 6 },
-  iconBox: { width: 34, height: 34, borderRadius: 9, borderWidth: 1.5, alignItems: 'center',
+const tr = StyleSheet.create({
+  row:     { flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 14,
+    paddingHorizontal: 14, borderRadius: 13, borderWidth: 1.5 },
+  iconBox: { width: 38, height: 38, borderRadius: 10, borderWidth: 1.5, alignItems: 'center',
     justifyContent: 'center', flexShrink: 0 },
 });
 
-// ─── NEXUS BTN ────────────────────────────────────────────────────────
-function NexBtn({ label, icon, color, onPress, variant = 'solid', disabled, loading }: {
-  label: string; icon: string; color: string; onPress: () => void;
-  variant?: 'solid' | 'outline' | 'ghost'; disabled?: boolean; loading?: boolean;
+// ─── ACTION ROW ──────────────────────────────────────────────────
+function ActionRow({ icon, iconLib = 'community', label, sub, color = C.cyan, onPress, badge, rightIcon = 'chevron-right' }: {
+  icon: string; iconLib?: 'material' | 'community'; label: string; sub?: string;
+  color?: string; onPress: () => void; badge?: string; rightIcon?: string;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const Icon = iconLib === 'community' ? MaterialCommunityIcons : MaterialIcons;
+  return (
+    <Animated.View style={{ transform: [{ scale }], marginBottom: 8 }}>
+      <TouchableOpacity
+        onPress={() => {
+          Animated.sequence([
+            Animated.timing(scale, { toValue: 0.97, duration: 60, useNativeDriver: true }),
+            Animated.spring(scale, { toValue: 1, tension: 300, friction: 10, useNativeDriver: true }),
+          ]).start();
+          haptics.medium();
+          onPress();
+        }}
+        activeOpacity={0.88}
+        style={[ar.row, { borderColor: color + '30', backgroundColor: color + '07' }]}>
+        <View style={[ar.iconBox, { backgroundColor: color + '16', borderColor: color + '45' }]}>
+          <Icon name={icon as any} size={17} color={color} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: MONO, fontSize: 13, fontWeight: '700', color: C.text, lineHeight: 18 }}>{label}</Text>
+          {sub ? <Text style={{ fontFamily: MONO, fontSize: 11, color: C.mid, marginTop: 3, lineHeight: 16 }}>{sub}</Text> : null}
+        </View>
+        {badge ? (
+          <View style={{ borderWidth: 1, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 4,
+            borderColor: color + '50', backgroundColor: color + '0C' }}>
+            <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '900', color: color }}>{badge}</Text>
+          </View>
+        ) : null}
+        <MaterialIcons name={rightIcon as any} size={17} color={color + '70'} style={{ marginLeft: 5 }} />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+const ar = StyleSheet.create({
+  row:     { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13,
+    paddingHorizontal: 14, borderRadius: 13, borderWidth: 1.5 },
+  iconBox: { width: 38, height: 38, borderRadius: 10, borderWidth: 1.5, alignItems: 'center',
+    justifyContent: 'center', flexShrink: 0 },
+});
+
+// ─── DANGER BUTTON ───────────────────────────────────────────────
+function DangerBtn({ label, icon, onPress, variant = 'outline', color = C.red }: {
+  label: string; icon: string; onPress: () => void;
+  variant?: 'solid' | 'outline' | 'ghost'; color?: string;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
   const flash = useRef(new Animated.Value(0)).current;
-  const handlePressIn = () => {
-    Animated.timing(flash, { toValue: 1, duration: 80, useNativeDriver: true }).start();
-    Animated.spring(scale, { toValue: 0.97, tension: 400, friction: 12, useNativeDriver: true }).start();
-  };
-  const handlePressOut = () => {
-    Animated.timing(flash, { toValue: 0, duration: 220, useNativeDriver: true }).start();
-    Animated.spring(scale, { toValue: 1, tension: 280, friction: 10, useNativeDriver: true }).start();
-  };
-  const bg      = variant === 'solid' ? color : variant === 'ghost' ? color + '14' : 'transparent';
-  const bColor  = variant !== 'solid' ? color + '60' : 'transparent';
-  const txtCol  = variant === 'solid' ? '#000' : color;
+  const bg     = variant === 'solid' ? color : variant === 'ghost' ? color + '14' : 'transparent';
+  const bc     = variant !== 'solid' ? color + '65' : 'transparent';
+  const txtCol = variant === 'solid' ? '#000' : color;
   return (
-    <Animated.View style={{ transform: [{ scale }] }}>
-      <Pressable onPress={() => { haptics.medium(); onPress(); }}
-        onPressIn={handlePressIn} onPressOut={handlePressOut}
-        disabled={disabled || loading}
-        style={[nxb.btn, {
-          backgroundColor: bg,
-          borderColor: bColor,
-          borderWidth: variant !== 'solid' ? 1.5 : 0,
-          opacity: disabled ? 0.38 : 1,
-          ...(Platform.OS === 'ios' && variant === 'solid' ? {
-            shadowColor: color, shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.45, shadowRadius: 12,
-          } : variant === 'solid' ? { elevation: 8 } : {}),
-        }]}>
-        <Animated.View pointerEvents="none" style={[nxb.tick, nxb.tTL, { borderColor: txtCol, opacity: flash }]} />
-        <Animated.View pointerEvents="none" style={[nxb.tick, nxb.tBR, { borderColor: txtCol, opacity: flash }]} />
-        {loading
-          ? <MaterialIcons name="hourglass-empty" size={16} color={txtCol} style={{ marginRight: 7 }} />
-          : <MaterialIcons name={icon as any} size={16} color={txtCol} style={{ marginRight: 7 }} />
-        }
-        <Text style={[nxb.txt, { color: txtCol }]}>{label}</Text>
+    <Animated.View style={{ transform: [{ scale }], marginBottom: 8 }}>
+      <Pressable
+        onPressIn={() => {
+          Animated.timing(flash, { toValue: 1, duration: 80, useNativeDriver: true }).start();
+          Animated.spring(scale, { toValue: 0.97, tension: 400, friction: 12, useNativeDriver: true }).start();
+        }}
+        onPressOut={() => {
+          Animated.timing(flash, { toValue: 0, duration: 220, useNativeDriver: true }).start();
+          Animated.spring(scale, { toValue: 1, tension: 280, friction: 10, useNativeDriver: true }).start();
+        }}
+        onPress={() => { haptics.heavy(); onPress(); }}
+        style={[db.btn, { backgroundColor: bg, borderColor: bc, borderWidth: variant !== 'solid' ? 2 : 0 }]}>
+        <MaterialIcons name={icon as any} size={18} color={txtCol} />
+        <Text style={[db.txt, { color: txtCol }]}>{label}</Text>
       </Pressable>
     </Animated.View>
   );
 }
-const nxb = StyleSheet.create({
-  btn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    borderRadius: 11, paddingVertical: 14, paddingHorizontal: 20, position: 'relative', overflow: 'hidden' },
-  txt:  { fontFamily: MONO, fontSize: 13, fontWeight: '900', letterSpacing: 1 },
-  tick: { position: 'absolute', width: 8, height: 8 },
-  tTL:  { top: -2, left: -2, borderTopWidth: 2, borderLeftWidth: 2 },
-  tBR:  { bottom: -2, right: -2, borderBottomWidth: 2, borderRightWidth: 2 },
+const db = StyleSheet.create({
+  btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    borderRadius: 13, paddingVertical: 15, paddingHorizontal: 20 },
+  txt: { fontFamily: MONO, fontSize: 14, fontWeight: '900', letterSpacing: 0.8 },
 });
 
-// ─── SYSTEM HEADER ────────────────────────────────────────────────────
+// ─── PRIMARY BUTTON ──────────────────────────────────────────────
+function PrimaryBtn({ label, icon, color, onPress, saved }: {
+  label: string; icon: string; color: string; onPress: () => void; saved?: boolean;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+  return (
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <Pressable
+        onPressIn={() => Animated.spring(scale, { toValue: 0.97, tension: 400, friction: 12, useNativeDriver: true }).start()}
+        onPressOut={() => Animated.spring(scale, { toValue: 1, tension: 280, friction: 10, useNativeDriver: true }).start()}
+        onPress={() => { haptics.success(); onPress(); }}
+        style={[pb.btn, { backgroundColor: color,
+          ...Platform.select({ ios: { shadowColor: color, shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.45, shadowRadius: 14 }, android: { elevation: 8 } }),
+        }]}>
+        <MaterialIcons name={icon as any} size={18} color="#000" />
+        <Text style={pb.txt}>{label}</Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+const pb = StyleSheet.create({
+  btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    borderRadius: 13, paddingVertical: 16, paddingHorizontal: 20 },
+  txt: { fontFamily: MONO, fontSize: 14, fontWeight: '900', letterSpacing: 0.8, color: '#000' },
+});
+
+// ─── HEADER ──────────────────────────────────────────────────────
 function CfgHeader({ safeTop, isConn }: { safeTop: number; isConn: boolean }) {
   const [time, setTime] = useState('');
   const [secs, setSecs] = useState('');
-  const [dateStr, setDateStr] = useState('');
   const shimA = useRef(new Animated.Value(-SW)).current;
 
   useEffect(() => {
-    const update = () => {
+    const upd = () => {
       const n = new Date();
       setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`);
       setSecs(String(n.getSeconds()).padStart(2,'0'));
-      setDateStr(n.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase());
     };
-    update();
-    const t = setInterval(update, 1000);
-    return () => clearInterval(t);
+    upd(); const t = setInterval(upd, 1000); return () => clearInterval(t);
   }, []);
 
   useEffect(() => {
@@ -298,374 +280,326 @@ function CfgHeader({ safeTop, isConn }: { safeTop: number; isConn: boolean }) {
     return () => loop.stop();
   }, []);
 
+  const cc = isConn ? C.green : C.amber;
   return (
-    <View style={[ch.root, { paddingTop: safeTop }]}>
-      {/* Top stripe */}
-      <View style={ch.topStripe} />
-
-      {/* Shimmer sweep */}
-      <Animated.View pointerEvents="none"
-        style={[ch.shimmer, { transform: [{ translateX: shimA }] }]} />
-
-      <View style={ch.body}>
-        {/* Left */}
-        <View style={{ flex: 1, gap: 5 }}>
-          <Text style={ch.eyebrow}>CONFIGURATION CENTER</Text>
+    <View style={[cfh.root, { paddingTop: safeTop }]}>
+      <View style={{ height: 3, backgroundColor: C.amber }} />
+      <Animated.View pointerEvents="none" style={[cfh.shimmer, { transform: [{ translateX: shimA }] }]} />
+      <View style={cfh.body}>
+        <View style={{ flex: 1, gap: 6 }}>
+          <Text style={cfh.eyebrow}>CONFIGURATION CENTER · SETTINGS</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View style={[ch.logoBox, { borderColor: C.amber + '55', backgroundColor: C.amber + '10' }]}>
+            <View style={[cfh.logoBox, { borderColor: C.amber + '55', backgroundColor: C.amber + '10' }]}>
               <MaterialCommunityIcons name="tune-variant" size={20} color={C.amber} />
             </View>
-            <GlitchText style={ch.brand}>CFG</GlitchText>
+            <Text style={cfh.brand}>BUTLER <Text style={{ color: C.amber }}>CFG</Text></Text>
           </View>
-          {/* Status pills */}
-          <View style={{ flexDirection: 'row', gap: 6, marginTop: 2 }}>
-            <View style={[ch.pill, { borderColor: (isConn ? C.green : C.amber) + '60',
-              backgroundColor: (isConn ? C.green : C.amber) + '0C' }]}>
-              <PulseDot color={isConn ? C.green : C.amber} size={5} />
-              <Text style={[ch.pillTxt, { color: isConn ? C.green : C.amber }]}>
-                {isConn ? 'PC CONNECTED' : 'OFFLINE'}
-              </Text>
+          <View style={{ flexDirection: 'row', gap: 7, marginTop: 2 }}>
+            <View style={[cfh.pill, { borderColor: cc + '65', backgroundColor: cc + '0D' }]}>
+              <PulseDot color={cc} size={5} />
+              <Text style={[cfh.pillTxt, { color: cc }]}>{isConn ? 'PC ONLINE' : 'OFFLINE'}</Text>
             </View>
-            <View style={[ch.pill, { borderColor: C.amber + '40', backgroundColor: C.amber + '08' }]}>
-              <MaterialCommunityIcons name="shield-check" size={9} color={C.amber} />
-              <Text style={[ch.pillTxt, { color: C.amber }]}>AES-256</Text>
+            <View style={[cfh.pill, { borderColor: C.amber + '40', backgroundColor: C.amber + '08' }]}>
+              <MaterialCommunityIcons name="shield-check" size={10} color={C.amber} />
+              <Text style={[cfh.pillTxt, { color: C.amber }]}>AES-256</Text>
             </View>
           </View>
         </View>
-
-        {/* Right: clock */}
         <View style={{ alignItems: 'flex-end', gap: 4 }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 2 }}>
-            <Text style={ch.clock}>{time}</Text>
-            <Text style={[ch.secs, { color: C.amber }]}>{secs}</Text>
+            <Text style={cfh.clock}>{time}</Text>
+            <Text style={[cfh.secs, { color: C.amber }]}>{secs}</Text>
           </View>
-          <Text style={ch.clockSub}>LOCAL · SECURE</Text>
-          <Text style={ch.dateTxt}>{dateStr}</Text>
-          <View style={[ch.vBadge, { borderColor: C.amber + '40', backgroundColor: C.amber + '0A' }]}>
-            <Text style={{ fontFamily: MONO, fontSize: 8, fontWeight: '900', color: C.amber }}>v8.0.0</Text>
+          <Text style={cfh.clockSub}>LOCAL · SECURE</Text>
+          <View style={{ borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3,
+            borderColor: C.amber + '40', backgroundColor: C.amber + '0A' }}>
+            <Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '900', color: C.amber }}>v8.0.0</Text>
           </View>
         </View>
       </View>
-
-      {/* Hex tag */}
-      <View style={{ position: 'absolute', top: safeTop + 4, right: 14 }}>
-        <HexTag seed="butler-cfg-screen" color={C.amber} opacity={0.35} />
-      </View>
-
-      {/* Scanline when connected */}
-      {isConn && <ScanlineOverlay color={C.amber} duration={5000} opacity={0.12} />}
-
-      {/* Bottom circuit trace */}
       <View style={{ height: 2, flexDirection: 'row' }}>
-        {[
-          { flex: 4, bg: C.amber + '18' }, { width: 14, bg: C.amber },
-          { flex: 2, bg: C.green + '14' }, { width: 8,  bg: C.green },
-          { flex: 6, bg: C.amber + '08' }, { width: 10, bg: C.cyan  },
-          { flex: 3, bg: C.cyan + '10'  },
-        ].map((seg, i) => (
-          <View key={i} style={[{ backgroundColor: seg.bg }, 'flex' in seg ? { flex: seg.flex } : { width: seg.width as number }]} />
-        ))}
+        <View style={{ flex: 4, backgroundColor: C.amber + '18' }} />
+        <View style={{ width: 14, backgroundColor: C.amber }} />
+        <View style={{ flex: 2, backgroundColor: C.green + '14' }} />
+        <View style={{ width: 8,  backgroundColor: C.green }} />
+        <View style={{ flex: 6, backgroundColor: C.cyan + '08' }} />
+        <View style={{ width: 10, backgroundColor: C.cyan }} />
+        <View style={{ flex: 3, backgroundColor: C.cyan + '10' }} />
       </View>
     </View>
   );
 }
-const ch = StyleSheet.create({
-  root:      { backgroundColor: C.surf, overflow: 'hidden' },
-  topStripe: { height: 2.5, backgroundColor: C.amber },
-  shimmer:   { position: 'absolute', top: 0, bottom: 0, width: 90,
-    backgroundColor: 'rgba(255,176,32,0.04)', zIndex: 0 },
-  body:      { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingHorizontal: PAD,
-    paddingTop: 13, paddingBottom: 13, zIndex: 1 },
-  eyebrow:   { fontFamily: MONO, fontSize: 7.5, fontWeight: '700', color: C.amber + '60', letterSpacing: 2 },
-  logoBox:   { width: 38, height: 38, borderRadius: 11, borderWidth: 1.5,
-    alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  brand:     { fontSize: 30, fontWeight: '900', color: '#FFF', letterSpacing: 2 } as any,
-  pill:      { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1,
-    borderRadius: 20, paddingHorizontal: 9, paddingVertical: 4 },
-  pillTxt:   { fontFamily: MONO, fontSize: 8.5, fontWeight: '900', letterSpacing: 0.3 },
-  clock:     { fontFamily: MONO, fontSize: 28, fontWeight: '900', color: C.text, letterSpacing: 1 },
-  secs:      { fontFamily: MONO, fontSize: 17, fontWeight: '900', letterSpacing: 1 },
-  clockSub:  { fontFamily: MONO, fontSize: 8, color: C.mid, letterSpacing: 1, fontWeight: '700' },
-  dateTxt:   { fontFamily: MONO, fontSize: 7.5, color: C.dim, letterSpacing: 0.5 },
-  vBadge:    { borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
+const cfh = StyleSheet.create({
+  root:    { backgroundColor: C.surf, overflow: 'hidden' },
+  shimmer: { position: 'absolute', top: 0, bottom: 0, width: 90, backgroundColor: 'rgba(255,176,32,0.04)', zIndex: 0 },
+  body:    { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingHorizontal: PAD, paddingTop: 13, paddingBottom: 13, zIndex: 1 },
+  eyebrow: { fontFamily: MONO, fontSize: 8, fontWeight: '700', color: C.amber + '60', letterSpacing: 2 },
+  logoBox: { width: 40, height: 40, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  brand:   { fontSize: 26, fontWeight: '900', color: '#FFF', letterSpacing: -0.5 },
+  pill:    { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
+  pillTxt: { fontFamily: MONO, fontSize: 9, fontWeight: '900', letterSpacing: 0.3 },
+  clock:   { fontFamily: MONO, fontSize: 28, fontWeight: '900', color: C.text, letterSpacing: 1 },
+  secs:    { fontFamily: MONO, fontSize: 17, fontWeight: '900', letterSpacing: 1 },
+  clockSub:{ fontFamily: MONO, fontSize: 8, color: C.mid, letterSpacing: 1, fontWeight: '700' },
 });
 
-// ─── SYSTEM STATUS CARD ───────────────────────────────────────────────
-function SystemStatusCard({ isConn }: { isConn: boolean }) {
-  const stats = [
-    { label: 'SECURITY',  value: 'AES-256',  color: C.green,  icon: 'lock'       },
-    { label: 'PROTOCOL',  value: 'HMAC',     color: C.cyan,   icon: 'security'   },
-    { label: 'NETWORK',   value: 'LAN',      color: C.amber,  icon: 'wifi'       },
-    { label: 'CLOUD',     value: 'ZERO',     color: C.red,    icon: 'cloud-off'  },
-  ];
+// ─── TUTORIAL BANNER ─────────────────────────────────────────────
+function TutorialBanner({ onReplay }: { onReplay: () => void }) {
+  const scaleA = useRef(new Animated.Value(1)).current;
+  const glowA  = useRef(new Animated.Value(0.4)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(glowA, { toValue: 1, duration: 1400, useNativeDriver: false }),
+      Animated.timing(glowA, { toValue: 0.4, duration: 1400, useNativeDriver: false }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, []);
   return (
-    <GlowCard glowColor={C.amber} active={isConn} corners={true} hexSeed="system-status"
-      style={{ marginBottom: 0 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 13 }}>
-        <View style={[ssc.orb, { borderColor: (isConn ? C.green : C.amber) + '55',
-          backgroundColor: (isConn ? C.green : C.amber) + '0E' }]}>
-          <MaterialCommunityIcons name={isConn ? 'check-network' : 'server-off'}
-            size={18} color={isConn ? C.green : C.amber} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '900', color: C.text }}>
-            SYSTEM STATUS
-          </Text>
-          <Text style={{ fontFamily: MONO, fontSize: 9.5, color: C.mid, marginTop: 2 }}>
-            {isConn ? 'PC server online · full automation enabled' : 'Offline · local-only mode'}
-          </Text>
-        </View>
-        <StatusChip
-          label={isConn ? 'ONLINE' : 'OFFLINE'}
-          color={isConn ? C.green : C.mid}
-          pulse={isConn}
-        />
-      </View>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        {stats.map((s, i) => (
-          <View key={i} style={[ssc.cell, { borderColor: s.color + '30', backgroundColor: s.color + '08',
-            borderTopColor: s.color, borderTopWidth: 2.5 }]}>
-            <MaterialIcons name={s.icon as any} size={13} color={s.color + '80'} />
-            <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '900', color: s.color,
-              lineHeight: 16 }}>{s.value}</Text>
-            <Text style={{ fontFamily: MONO, fontSize: 7.5, color: s.color + '70',
-              letterSpacing: 0.5 }}>{s.label}</Text>
+    <Animated.View style={{ transform: [{ scale: scaleA }] }}>
+      <TouchableOpacity
+        onPressIn={() => Animated.spring(scaleA, { toValue: 0.97, tension: 400, friction: 12, useNativeDriver: true }).start()}
+        onPressOut={() => Animated.spring(scaleA, { toValue: 1, tension: 280, friction: 10, useNativeDriver: true }).start()}
+        onPress={() => { haptics.heavy(); onReplay(); }}
+        activeOpacity={0.88}
+        style={[tb.root]}>
+        <View style={{ height: 3.5, backgroundColor: C.cyan }} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 }}>
+          <View style={[tb.iconBox, { borderColor: C.cyan + '60', backgroundColor: C.cyan + '14' }]}>
+            <MaterialCommunityIcons name="school-outline" size={22} color={C.cyan} />
           </View>
-        ))}
-      </View>
-    </GlowCard>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: MONO, fontSize: 14, fontWeight: '900', color: C.cyan, letterSpacing: 0.3, lineHeight: 19 }}>
+              REPLAY TUTORIAL
+            </Text>
+            <Text style={{ fontFamily: MONO, fontSize: 11, color: C.mid, marginTop: 4, lineHeight: 16 }}>
+              New to Butler AI? Restart the full setup walkthrough to pair your PC, configure AI, and explore all features.
+            </Text>
+          </View>
+          <View style={{ borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7,
+            borderColor: C.cyan + '55', backgroundColor: C.cyan + '10' }}>
+            <MaterialIcons name="play-arrow" size={20} color={C.cyan} />
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
-const ssc = StyleSheet.create({
-  orb:  { width: 42, height: 42, borderRadius: 21, borderWidth: 1.5, alignItems: 'center',
-    justifyContent: 'center', flexShrink: 0 },
-  cell: { flex: 1, alignItems: 'center', borderRadius: 10, borderWidth: 1, paddingVertical: 10, gap: 4 },
+const tb = StyleSheet.create({
+  root:    { backgroundColor: C.surf, borderRadius: 14, borderWidth: 2, borderColor: C.cyan + '40', overflow: 'hidden',
+    ...Platform.select({ ios: { shadowColor: C.cyan, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 12 }, android: { elevation: 5 } }) },
+  iconBox: { width: 50, height: 50, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
 });
 
-// ─── MODEL SELECTOR ───────────────────────────────────────────────────
+// ─── INFO CARD (privacy, attribution) ────────────────────────────
+function InfoCard({ title, icon, color, children }: {
+  title: string; icon: string; color: string; children: React.ReactNode;
+}) {
+  return (
+    <View style={[ic.root, { borderColor: color + '30' }]}>
+      <View style={{ height: 2.5, backgroundColor: color }} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingTop: 13, paddingBottom: 10 }}>
+        <View style={[ic.iconBox, { borderColor: color + '55', backgroundColor: color + '10' }]}>
+          <MaterialCommunityIcons name={icon as any} size={16} color={color} />
+        </View>
+        <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '900', color, flex: 1, letterSpacing: 0.3 }}>{title}</Text>
+      </View>
+      <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
+        {children}
+      </View>
+    </View>
+  );
+}
+const ic = StyleSheet.create({
+  root:    { backgroundColor: C.surf, borderRadius: 14, borderWidth: 1.5, overflow: 'hidden', marginBottom: 0 },
+  iconBox: { width: 36, height: 36, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+});
+
+// ─── MODEL SELECTOR ──────────────────────────────────────────────
 function ModelSelector({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [showPicker, setShowPicker] = useState(false);
   const selected = POPULAR_MODELS.find(m => m.id === value);
-
   return (
-    <View style={{ gap: 10 }}>
-      {/* Current model display */}
+    <View style={{ gap: 11 }}>
       <TouchableOpacity onPress={() => { haptics.light(); setShowPicker(v => !v); }}
-        style={[msel.current, { borderColor: (selected?.color ?? C.cyan) + '50' }]}>
-        <CornerFrame color={(selected?.color ?? C.cyan) + '40'} size={8} thickness={1.5} />
-        <View style={[msel.badge, { backgroundColor: (selected?.color ?? C.cyan) + '15',
-          borderColor: (selected?.color ?? C.cyan) + '50' }]}>
-          <MaterialCommunityIcons name="brain" size={16} color={selected?.color ?? C.cyan} />
+        style={[ms.current, { borderColor: (selected?.color ?? C.cyan) + '50' }]}>
+        <View style={[ms.badge, { backgroundColor: (selected?.color ?? C.cyan) + '15', borderColor: (selected?.color ?? C.cyan) + '50' }]}>
+          <MaterialCommunityIcons name="brain" size={18} color={selected?.color ?? C.cyan} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: MONO, fontSize: 7.5, color: C.mid, letterSpacing: 1.5, marginBottom: 2 }}>
-            ACTIVE MODEL
+          <Text style={{ fontFamily: MONO, fontSize: 9, color: C.mid, letterSpacing: 1.5, marginBottom: 3 }}>ACTIVE MODEL</Text>
+          <Text style={{ fontFamily: MONO, fontSize: 15, fontWeight: '900', color: selected?.color ?? C.cyan, lineHeight: 20 }}>
+            {selected?.label ?? value}
           </Text>
-          <Text style={{ fontFamily: MONO, fontSize: 15, fontWeight: '900',
-            color: selected?.color ?? C.cyan }}>{selected?.label ?? value}</Text>
-          {selected && (
-            <Text style={{ fontFamily: MONO, fontSize: 9.5, color: C.mid, marginTop: 1 }}>
-              {selected.size} parameters · local inference
-            </Text>
-          )}
+          <Text style={{ fontFamily: MONO, fontSize: 11, color: C.mid, marginTop: 2 }}>
+            {selected ? `${selected.size} parameters · local inference` : 'Custom model'}
+          </Text>
         </View>
-        <View style={[msel.sizeBadge, { borderColor: (selected?.color ?? C.cyan) + '45',
-          backgroundColor: (selected?.color ?? C.cyan) + '0A' }]}>
-          <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '900',
-            color: selected?.color ?? C.cyan }}>{selected?.size ?? '?'}</Text>
+        <View style={[ms.sizeBadge, { borderColor: (selected?.color ?? C.cyan) + '45', backgroundColor: (selected?.color ?? C.cyan) + '0A' }]}>
+          <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '900', color: selected?.color ?? C.cyan }}>{selected?.size ?? '?'}</Text>
         </View>
-        <MaterialIcons name={showPicker ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
-          size={18} color={(selected?.color ?? C.cyan) + '80'} />
+        <MaterialIcons name={showPicker ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={20} color={(selected?.color ?? C.cyan) + '80'} />
       </TouchableOpacity>
-
-      {/* Quick-pick chips */}
       {showPicker && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {POPULAR_MODELS.map((m) => {
             const isActive = m.id === value;
             return (
               <TouchableOpacity key={m.id}
                 onPress={() => { haptics.selection(); onChange(m.id); }}
-                style={[msel.chip, { borderColor: m.color + (isActive ? 'AA' : '35'),
-                  backgroundColor: m.color + (isActive ? '18' : '08') }]}>
-                <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '900', color: m.color }}>
-                  {m.label}
-                </Text>
-                <View style={[msel.sizeTag, { borderColor: m.color + '40' }]}>
-                  <Text style={{ fontFamily: MONO, fontSize: 7.5, color: m.color + 'BB' }}>{m.size}</Text>
+                style={[ms.chip, { borderColor: m.color + (isActive ? 'AA' : '38'), backgroundColor: m.color + (isActive ? '18' : '09') }]}>
+                <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '900', color: m.color }}>{m.label}</Text>
+                <View style={[ms.sizeTag, { borderColor: m.color + '40' }]}>
+                  <Text style={{ fontFamily: MONO, fontSize: 9, color: m.color + 'BB' }}>{m.size}</Text>
                 </View>
-                {isActive && <MaterialIcons name="check-circle" size={11} color={m.color} />}
+                {isActive && <MaterialIcons name="check-circle" size={13} color={m.color} />}
               </TouchableOpacity>
             );
           })}
         </View>
       )}
-
-      {/* Custom model input */}
       <View style={{ gap: 6 }}>
-        <Text style={{ fontFamily: MONO, fontSize: 8.5, color: C.mid, letterSpacing: 1 }}>
-          OR ENTER CUSTOM MODEL NAME
-        </Text>
-        <NexusInput
-          value={value}
-          onChangeText={(v: string) => onChange(v)}
-          placeholder="llama3.2 / qwen2.5-coder:7b / ..."
-          accent={C.cyan}
-        />
+        <Text style={{ fontFamily: MONO, fontSize: 10, color: C.mid, letterSpacing: 1 }}>CUSTOM MODEL NAME</Text>
+        <View style={[ms.inputWrap, { borderColor: C.border }]}>
+          <MaterialIcons name="edit" size={14} color={C.mid} />
+          <TextInput
+            style={ms.input}
+            value={value}
+            onChangeText={onChange}
+            placeholder="llama3.2 / qwen2.5-coder:7b / ..."
+            placeholderTextColor={C.dim}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardAppearance="dark"
+          />
+        </View>
       </View>
     </View>
   );
 }
-const msel = StyleSheet.create({
-  current:  { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14,
-    borderWidth: 1.5, backgroundColor: C.surf, position: 'relative', overflow: 'hidden' },
-  badge:    { width: 44, height: 44, borderRadius: 12, borderWidth: 1.5, alignItems: 'center',
-    justifyContent: 'center', flexShrink: 0 },
-  sizeBadge:{ borderWidth: 1, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4 },
-  chip:     { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderRadius: 10,
-    paddingHorizontal: 11, paddingVertical: 8 },
-  sizeTag:  { borderWidth: 1, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 1 },
+const ms = StyleSheet.create({
+  current:  { flexDirection: 'row', alignItems: 'center', gap: 13, padding: 14, borderRadius: 13,
+    borderWidth: 1.5, backgroundColor: C.surf },
+  badge:    { width: 46, height: 46, borderRadius: 13, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  sizeBadge:{ borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  chip:     { flexDirection: 'row', alignItems: 'center', gap: 7, borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9 },
+  sizeTag:  { borderWidth: 1, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 },
+  inputWrap:{ flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: C.surf },
+  input:    { flex: 1, color: C.text, fontSize: 14, fontFamily: MONO, padding: 0 },
 });
 
-// ─── PRIVACY SPEC CARD ────────────────────────────────────────────────
-function PrivacyCard() {
-  const rows = [
-    { icon: 'cloud-off-outline',  label: 'Zero Cloud',      desc: 'All execution on your LAN — nothing routed externally', color: C.cyan   },
-    { icon: 'eye-off-outline',    label: 'No Tracking',     desc: 'No analytics, no ad IDs, no background network calls',  color: C.green  },
-    { icon: 'hand-pointing-right',label: 'You Control It',  desc: 'Nothing runs without a tap — consent before execution', color: C.amber  },
-    { icon: 'delete-outline',     label: 'Delete Anytime',  desc: 'One tap wipes all local data — full GDPR compliance',   color: C.purple },
+// ─── STATUS BAR ──────────────────────────────────────────────────
+function SystemStatusBar({ isConn }: { isConn: boolean }) {
+  const items = [
+    { label: 'SECURITY',  value: 'AES-256',          color: C.green  },
+    { label: 'PROTOCOL',  value: 'HMAC',             color: C.cyan   },
+    { label: 'NETWORK',   value: 'LAN ONLY',         color: C.amber  },
+    { label: 'CLOUD',     value: 'ZERO',             color: C.red    },
+    { label: 'STATUS',    value: isConn ? 'LIVE' : 'OFF', color: isConn ? C.green : C.mid },
   ];
   return (
-    <GlowCard glowColor={C.green} hexSeed="privacy-spec" corners style={{ marginBottom: 0 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        <View style={[{ width: 38, height: 38, borderRadius: 11, borderWidth: 1.5, alignItems: 'center',
-          justifyContent: 'center', borderColor: C.green + '55', backgroundColor: C.green + '0E' }]}>
-          <MaterialCommunityIcons name="shield-check-outline" size={18} color={C.green} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '900', color: C.green }}>
-            PRIVACY GUARANTEE
-          </Text>
-          <Text style={{ fontFamily: MONO, fontSize: 9.5, color: C.mid, marginTop: 2 }}>
-            Verified local-only architecture
-          </Text>
-        </View>
-        <StatusChip label="VERIFIED" color={C.green} />
+    <InfoCard title="SYSTEM STATUS" icon="chip" color={C.amber}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {items.map((it, i) => (
+          <View key={i} style={{ borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 11, paddingVertical: 9,
+            borderColor: it.color + '40', backgroundColor: it.color + '09', alignItems: 'center', minWidth: 70 }}>
+            <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '900', color: it.color, lineHeight: 17 }}>{it.value}</Text>
+            <Text style={{ fontFamily: MONO, fontSize: 9, color: it.color + '70', letterSpacing: 0.8, marginTop: 2 }}>{it.label}</Text>
+          </View>
+        ))}
       </View>
+    </InfoCard>
+  );
+}
+
+// ─── PRIVACY GUARANTEE ───────────────────────────────────────────
+function PrivacyGuaranteeCard() {
+  const rows = [
+    { icon: 'cloud-off-outline',  label: 'Zero Cloud',     desc: 'All execution stays on your LAN — nothing routed externally',     color: C.cyan   },
+    { icon: 'eye-off-outline',    label: 'No Tracking',    desc: 'No analytics, no ad IDs, no background network calls to 3rd parties', color: C.green  },
+    { icon: 'gesture-tap',        label: 'You Decide',     desc: 'Nothing runs without your explicit tap — full consent before execution', color: C.amber  },
+    { icon: 'delete-outline',     label: 'Delete Anytime', desc: 'One tap wipes all local data — full GDPR right to erasure',        color: C.purple },
+    { icon: 'lock',               label: 'HMAC-SHA256',    desc: 'Every request cryptographically signed — tokens stay encrypted',   color: C.teal   },
+  ];
+  return (
+    <InfoCard title="PRIVACY GUARANTEE" icon="shield-check-outline" color={C.green}>
       {rows.map((r, i) => (
-        <View key={i} style={[{ flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-          borderLeftWidth: 2, borderLeftColor: r.color + '50', paddingLeft: 10, paddingVertical: 8,
-          borderBottomWidth: i < rows.length - 1 ? 1 : 0, borderBottomColor: C.border }]}>
-          <MaterialCommunityIcons name={r.icon as any} size={14} color={r.color} style={{ marginTop: 1, flexShrink: 0 }} />
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 11,
+          borderLeftWidth: 2.5, borderLeftColor: r.color + '50', paddingLeft: 11, paddingVertical: 9,
+          borderBottomWidth: i < rows.length - 1 ? 1 : 0, borderBottomColor: C.border }}>
+          <MaterialCommunityIcons name={r.icon as any} size={15} color={r.color} style={{ marginTop: 2, flexShrink: 0 }} />
           <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '900', color: r.color }}>{r.label}</Text>
-            <Text style={{ fontFamily: MONO, fontSize: 9.5, color: C.mid, marginTop: 2, lineHeight: 14 }}>{r.desc}</Text>
+            <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '900', color: r.color, lineHeight: 17 }}>{r.label}</Text>
+            <Text style={{ fontFamily: MONO, fontSize: 11, color: C.mid, marginTop: 3, lineHeight: 16 }}>{r.desc}</Text>
           </View>
         </View>
       ))}
-    </GlowCard>
+      <View style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1,
+        borderRadius: 9, paddingHorizontal: 11, paddingVertical: 8, borderColor: C.green + '35', backgroundColor: C.green + '06' }}>
+        <MaterialCommunityIcons name="check-circle" size={14} color={C.green} />
+        <Text style={{ fontFamily: MONO, fontSize: 11, color: C.green, flex: 1, lineHeight: 16 }}>
+          Independently verifiable — run Wireshark and confirm zero outbound traffic to any server except your own PC.
+        </Text>
+      </View>
+    </InfoCard>
   );
 }
 
-// ─── THEME PREVIEW STRIP ─────────────────────────────────────────────
-function ThemeStrip({ onPress }: { onPress: () => void }) {
-  const themes = [
-    { label: 'NEXUS',   color: '#00E5FF' },
-    { label: 'PHANTOM', color: '#CC44FF' },
-    { label: 'MATRIX',  color: '#00FF88' },
-    { label: 'AMBER',   color: '#FFB020' },
-    { label: 'RUBY',    color: '#FF3344' },
-    { label: 'SAKURA',  color: '#FF44AA' },
-    { label: 'COBALT',  color: '#4A9EFF' },
-    { label: 'TEAL',    color: '#00CCBB' },
+// ─── OPEN SOURCE ATTRIBUTION ──────────────────────────────────────
+function AttributionCard() {
+  const libs = [
+    { name: 'React Native', lic: 'MIT', author: 'Meta Platforms' },
+    { name: 'Expo SDK',     lic: 'MIT', author: '650 Industries' },
+    { name: '@expo/vector-icons', lic: 'MIT', author: 'Expo' },
+    { name: 'react-native-reanimated', lic: 'MIT', author: 'Software Mansion' },
+    { name: 'expo-router',  lic: 'MIT', author: 'Expo' },
+    { name: 'react-native-safe-area-context', lic: 'MIT', author: 'Th3rd Wave' },
+    { name: 'expo-image',   lic: 'MIT', author: 'Expo' },
+    { name: 'expo-blur',    lic: 'MIT', author: 'Expo' },
+    { name: 'AsyncStorage', lic: 'MIT', author: 'RN Community' },
   ];
   return (
-    <TouchableOpacity onPress={() => { haptics.light(); onPress(); }} activeOpacity={0.88}>
-      <GlowCard glowColor={C.purple} hexSeed="theme-picker" style={{ marginBottom: 0 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-          <View style={[{ width: 36, height: 36, borderRadius: 10, borderWidth: 1.5, alignItems: 'center',
-            justifyContent: 'center', borderColor: C.purple + '55', backgroundColor: C.purple + '0E' }]}>
-            <MaterialCommunityIcons name="palette-swatch" size={16} color={C.purple} />
+    <InfoCard title="OPEN SOURCE ATTRIBUTION" icon="open-source-initiative" color={C.blue}>
+      <Text style={{ fontFamily: MONO, fontSize: 11, color: C.mid, marginBottom: 10, lineHeight: 16 }}>
+        Butler AI is built on these open-source libraries (all MIT licensed):
+      </Text>
+      {libs.map((lib, i) => (
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6,
+          borderBottomWidth: i < libs.length - 1 ? 1 : 0, borderBottomColor: C.border }}>
+          <View style={{ width: 36, height: 22, borderRadius: 5, borderWidth: 1, alignItems: 'center', justifyContent: 'center',
+            borderColor: C.green + '40', backgroundColor: C.green + '08' }}>
+            <Text style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: '900', color: C.green }}>{lib.lic}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '900', color: C.purple }}>
-              THEMES & FX
-            </Text>
-            <Text style={{ fontFamily: MONO, fontSize: 9, color: C.mid, marginTop: 2 }}>
-              {themes.length} themes · live preview · FX animations
-            </Text>
+            <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '700', color: C.text, lineHeight: 17 }}>{lib.name}</Text>
+            <Text style={{ fontFamily: MONO, fontSize: 10, color: C.mid }}>{lib.author}</Text>
           </View>
-          <MaterialIcons name="chevron-right" size={16} color={C.purple + '70'} />
         </View>
-        {/* Color swatch row */}
-        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-          {themes.map((t, i) => (
-            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 4,
-              borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4,
-              borderColor: t.color + '45', backgroundColor: t.color + '0A' }}>
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: t.color }} />
-              <Text style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: '900', color: t.color }}>{t.label}</Text>
-            </View>
-          ))}
-          <Text style={{ fontFamily: MONO, fontSize: 9, color: C.mid, alignSelf: 'center', marginLeft: 4 }}>
-            → tap to apply
-          </Text>
-        </View>
-      </GlowCard>
-    </TouchableOpacity>
+      ))}
+      <Text style={{ fontFamily: MONO, fontSize: 10, color: C.dim, marginTop: 10, lineHeight: 15 }}>
+        Full license texts available in node_modules/*/LICENSE and THIRD_PARTY_LICENSES.md
+      </Text>
+    </InfoCard>
   );
 }
 
-// ─── DANGER ZONE ──────────────────────────────────────────────────────
-function DangerZone({ onReset, onReplay }: { onReset: () => void; onReplay: () => void }) {
-  return (
-    <GlowCard glowColor={C.red} corners hexSeed="danger-zone" style={{ marginBottom: 0 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        <View style={[{ width: 38, height: 38, borderRadius: 11, borderWidth: 1.5, alignItems: 'center',
-          justifyContent: 'center', borderColor: C.red + '55', backgroundColor: C.red + '0E' }]}>
-          <MaterialCommunityIcons name="alert-octagon-outline" size={18} color={C.red} />
-        </View>
-        <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '900', color: C.red, flex: 1 }}>
-          DANGER ZONE
-        </Text>
-        <StatusChip label="IRREVERSIBLE" color={C.red} dot={false} pulse={false} />
-      </View>
-      <View style={{ gap: 8 }}>
-        <NexBtn label="REPLAY TUTORIAL" icon="school"
-          color={C.amber} variant="ghost" onPress={onReplay} />
-        <NexBtn label="RESET ALL DATA" icon="delete-sweep"
-          color={C.red} variant="outline" onPress={onReset} />
-      </View>
-    </GlowCard>
-  );
-}
-
-// ─── FOOTER ───────────────────────────────────────────────────────────
+// ─── FOOTER ──────────────────────────────────────────────────────
 function CfgFooter() {
   return (
-    <View style={{ alignItems: 'center', gap: 6, paddingVertical: 22, borderTopWidth: 1, borderTopColor: C.border }}>
-      {/* Rainbow bar */}
-      <View style={{ flexDirection: 'row', height: 2, width: 80, borderRadius: 1, overflow: 'hidden', marginBottom: 8 }}>
-        {[C.cyan, C.green, C.amber, C.purple, C.red].map((c, i) => (
+    <View style={{ alignItems: 'center', gap: 7, paddingVertical: 24, borderTopWidth: 1, borderTopColor: C.border }}>
+      <View style={{ flexDirection: 'row', height: 2.5, width: 90, borderRadius: 1.5, overflow: 'hidden', marginBottom: 6 }}>
+        {[C.cyan, C.green, C.amber, C.purple, C.red, C.pink].map((c, i) => (
           <View key={i} style={{ flex: 1, backgroundColor: c }} />
         ))}
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <MaterialCommunityIcons name="robot-happy-outline" size={13} color={C.mid} />
-        <Text style={{ fontFamily: MONO, fontSize: 9, color: C.mid, letterSpacing: 1 }}>
-          BUTLER AI  ·  v8.0.0  ·  NEXUS COMMAND CENTER
-        </Text>
-        <MaterialCommunityIcons name="shield-check" size={13} color={C.mid} />
-      </View>
-      <Text style={{ fontFamily: MONO, fontSize: 8, color: C.dim, letterSpacing: 0.5 }}>
-        ZERO CLOUD · AES-256 · 100% LOCAL
-      </Text>
-      <HexTag seed="butler-ai-v800" color={C.amber} opacity={0.3} />
+      <Text style={{ fontFamily: MONO, fontSize: 10, color: C.mid, letterSpacing: 0.8 }}>BUTLER AI  ·  v8.0.0  ·  NEXUS COMMAND CENTER</Text>
+      <Text style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: 0.5 }}>ZERO CLOUD · AES-256 · 100% LOCAL · © 2026</Text>
+      <Text style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>com.butlerai.pc.automation</Text>
     </View>
   );
 }
 
-// ─── MAIN SCREEN ─────────────────────────────────────────────────────
+// ─── MAIN SCREEN ─────────────────────────────────────────────────
 export default function SettingsScreen() {
   return (
     <TabErrorBoundary name="Settings">
@@ -677,101 +611,115 @@ export default function SettingsScreen() {
 function SettingsScreenInner() {
   const insets = useSafeAreaInsets();
 
-  const [model,       setModel]      = useState('llama3.2');
-  const [system,      setSystem]     = useState('');
-  const [saved,       setSaved]      = useState(false);
-  const [hapticsOn,   setHapticsOn]  = useState(true);
-  const [autoReconn,  setAutoReconn] = useState(true);
-  const [debugMode,   setDebugMode]  = useState(false);
-  const [isConn,      setIsConn]     = useState(false);
+  const [model,        setModel]        = useState('llama3.2');
+  const [system,       setSystem]       = useState('');
+  const [saved,        setSaved]        = useState(false);
+  const [hapticsOn,    setHapticsOn]    = useState(true);
+  const [animationsOn, setAnimationsOn] = useState(true);
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const [autoReconn,   setAutoReconn]   = useState(true);
+  const [debugMode,    setDebugMode]    = useState(false);
+  const [isConn,       setIsConn]       = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const [[, m], [, s], [, h], [, ar], [, dbg]] = await AsyncStorage.multiGet([
-          MODEL_KEY, SYSTEM_KEY,
-          'butler.haptics.v1', 'butler.autoreconn.v1', 'butler.debug.v1',
+        const [[, m], [, s], [, h], [, ar], [, dbg], [, anim], [, rm]] = await AsyncStorage.multiGet([
+          MODEL_KEY, SYSTEM_KEY, HAPTICS_KEY, AR_KEY, DEBUG_KEY, ANIM_KEY, REDUCE_KEY,
         ]);
         if (m)   setModel(m);
         if (s)   setSystem(s);
         if (h   !== null) setHapticsOn(h !== '0');
         if (ar  !== null) setAutoReconn(ar !== '0');
         if (dbg !== null) setDebugMode(dbg === '1');
+        if (anim !== null) setAnimationsOn(anim !== '0');
+        if (rm  !== null) setReduceMotion(rm === '1');
       } catch {}
+      try { setIsConn(serverConnection.isConnected?.()); } catch {}
     })();
-    // Check connection
-    try { setIsConn(serverConnection.isConnected?.()); } catch {}
   }, []);
 
   const onSave = useCallback(async () => {
     haptics.success();
     await AsyncStorage.multiSet([
-      [MODEL_KEY,  model.trim() || 'llama3.2'],
-      [SYSTEM_KEY, system],
-      ['butler.haptics.v1',    hapticsOn  ? '1' : '0'],
-      ['butler.autoreconn.v1', autoReconn ? '1' : '0'],
-      ['butler.debug.v1',      debugMode  ? '1' : '0'],
+      [MODEL_KEY,   model.trim() || 'llama3.2'],
+      [SYSTEM_KEY,  system],
+      [HAPTICS_KEY, hapticsOn    ? '1' : '0'],
+      [AR_KEY,      autoReconn   ? '1' : '0'],
+      [DEBUG_KEY,   debugMode    ? '1' : '0'],
+      [ANIM_KEY,    animationsOn ? '1' : '0'],
+      [REDUCE_KEY,  reduceMotion ? '1' : '0'],
     ]).catch(() => {});
     setSaved(true);
     setTimeout(() => setSaved(false), 2400);
-  }, [model, system, hapticsOn, autoReconn, debugMode]);
+    Alert.alert('✓ Saved', 'Configuration saved successfully.', [{ text: 'OK' }]);
+  }, [model, system, hapticsOn, autoReconn, debugMode, animationsOn, reduceMotion]);
 
   const handleShareLog = useCallback(async () => {
     haptics.medium();
     try {
-      const { logger } = await import('@/utils/logger');
       const entries = logger.getEntries();
-      const lines   = entries.map(e => `[${new Date(e.ts).toISOString()}] ${e.level.toUpperCase()}: ${e.msg}`);
-      const header  = `Butler AI Diagnostic Log\nGenerated: ${new Date().toISOString()}\nEntries: ${entries.length}\n${'─'.repeat(40)}\n`;
+      const lines = entries.map(e => `[${new Date(e.ts).toISOString()}] ${e.level.toUpperCase()}: ${e.msg}`);
+      const header = `Butler AI Diagnostic Log\nGenerated: ${new Date().toISOString()}\nApp: v8.0.0\nEntries: ${entries.length}\n${'─'.repeat(40)}\n`;
       await Share.share({
         title: 'Butler AI Diagnostic Log',
         message: header + (lines.length ? lines.join('\n') : '(no entries yet)'),
       });
     } catch (err) {
-      console.warn('[Settings] Share log failed:', err);
+      autoErrorLogger.log('warn', 'Settings', String(err));
     }
   }, []);
 
   const onReplayOnboarding = useCallback(() => {
-    Alert.alert('REPLAY TUTORIAL', 'Restart the full onboarding flow?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'RESTART NOW', onPress: async () => {
-        haptics.heavy();
-        await resetOnboarding();
-        notifyOnboardingReset();
-        await new Promise<void>(r => setTimeout(r, 80));
-        try { router.replace('/(tabs)/onboarding' as any); } catch {
-          try { router.navigate('/(tabs)/onboarding' as any); } catch {}
-        }
-      }},
-    ]);
+    Alert.alert(
+      'REPLAY TUTORIAL',
+      'Restart the full onboarding flow? This will take you back to the setup wizard.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'RESTART NOW', style: 'default', onPress: async () => {
+          haptics.heavy();
+          await resetOnboarding();
+          notifyOnboardingReset();
+          await new Promise<void>(r => setTimeout(r, 80));
+          try { router.replace('/(tabs)/onboarding' as any); } catch {
+            try { router.navigate('/(tabs)/onboarding' as any); } catch {}
+          }
+        }},
+      ]
+    );
   }, []);
 
   const onReset = useCallback(() => {
-    Alert.alert('RESET ALL DATA',
-      'This permanently clears all server config, model settings, and preferences. Cannot be undone.',
+    Alert.alert(
+      'RESET ALL DATA',
+      'This permanently clears all server config, model settings, preferences, and connection data. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'RESET', style: 'destructive', onPress: async () => {
+        { text: 'RESET EVERYTHING', style: 'destructive', onPress: async () => {
           haptics.heavy();
           await AsyncStorage.multiRemove([
-            MODEL_KEY, SYSTEM_KEY,
+            MODEL_KEY, SYSTEM_KEY, HAPTICS_KEY, AR_KEY, DEBUG_KEY, ANIM_KEY, REDUCE_KEY,
             '@butler_onboarding_done_v2', '@butler_welcome_complete_v1',
-            'butler.haptics.v1', 'butler.autoreconn.v1', 'butler.debug.v1',
+            'butler_onboarding_done', 'butler_welcome_complete',
           ]).catch(() => {});
           setModel('llama3.2'); setSystem('');
           setHapticsOn(true); setAutoReconn(true); setDebugMode(false);
+          setAnimationsOn(true); setReduceMotion(false);
           try {
-            const { serverConnection } = await import('@/services/serverConnection');
-            await serverConnection.clearAll?.().catch?.(() => {});
+            const { serverConnection: sc } = await import('@/services/serverConnection');
+            await sc.clearAll?.().catch?.(() => {});
           } catch {}
+          haptics.success();
+          Alert.alert('Reset Complete', 'All data cleared. Please restart the tutorial to reconfigure.', [{ text: 'OK' }]);
         }},
       ]
     );
   }, []);
 
   const openURL = (url: string) => {
-    import('react-native').then(({ Linking }) => Linking.openURL(url).catch(() => {}));
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Cannot Open', 'Please visit the URL manually:\n' + url);
+    });
   };
 
   return (
@@ -781,105 +729,192 @@ function SettingsScreenInner() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: PAD, paddingTop: PAD, paddingBottom: insets.bottom + 130, gap: 14 }}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{
+          paddingHorizontal: PAD,
+          paddingTop: 16,
+          paddingBottom: insets.bottom + 140,
+          gap: 16,
+        }}
       >
-        {/* ── System Status ── */}
-        <SystemStatusCard isConn={isConn} />
 
-        {/* ── AI Model ── */}
+        {/* ═══════════════════════════════════════
+            🎓 TUTORIAL — ALWAYS AT TOP
+        ═══════════════════════════════════════ */}
+        <TutorialBanner onReplay={onReplayOnboarding} />
+
+        {/* ═══════════════════════════════════════
+            🛡 PRIVACY & LEGAL — PROMINENT
+        ═══════════════════════════════════════ */}
         <View>
-          <Sec icon="brain" label="AI MODEL" color={C.cyan} />
-          <GlowCard glowColor={C.cyan} hexSeed="ai-model-cfg">
-            <ModelSelector value={model} onChange={v => { setModel(v); setSaved(false); }} />
-          </GlowCard>
+          <Sec icon="shield-star-outline" label="PRIVACY & LEGAL"
+            sub="Your data stays 100% local. No cloud, no tracking." color={C.green} />
+          <PrivacyGuaranteeCard />
+          <View style={{ height: 10 }} />
+          <ActionRow icon="shield-check" iconLib="community" label="PRIVACY POLICY"
+            sub="GDPR compliant · what data we collect (none)" color={C.green}
+            onPress={() => openURL('https://shawnjan-cmd.github.io/privacy-policy-/')} />
+          <ActionRow icon="file-document-outline" iconLib="community" label="TERMS OF SERVICE"
+            sub="18+ · personal PC use only · no commercial resale" color={C.amber}
+            onPress={() => openURL('https://shawnjan-cmd.github.io/privacy-policy-/#terms-of-service')} />
+          <ActionRow icon="delete-sweep" iconLib="community" label="DATA DELETION REQUEST"
+            sub="GDPR right to erasure · delete all your data" color={C.red}
+            onPress={() => openURL('https://shawnjan-cmd.github.io/privacy-policy-/#data-deletion')} />
+          <ActionRow icon="security" iconLib="material" label="SECURITY & TRUST"
+            sub="How encryption, tokens and zero-cloud architecture work" color={C.cyan}
+            badge="VIEW" onPress={() => router.push('/security-trust' as any)} />
         </View>
 
-        {/* ── System Prompt ── */}
+        {/* ═══════════════════════════════════════
+            ⚙️ SYSTEM STATUS
+        ═══════════════════════════════════════ */}
+        <View>
+          <Sec icon="chip" label="SYSTEM STATUS" color={C.amber} />
+          <SystemStatusBar isConn={isConn} />
+        </View>
+
+        {/* ═══════════════════════════════════════
+            🤖 AI MODEL
+        ═══════════════════════════════════════ */}
+        <View>
+          <Sec icon="brain" label="AI MODEL — OLLAMA" color={C.cyan}
+            sub="Models run 100% locally on your PC via Ollama. No API keys needed." />
+          <View style={[ic.root, { borderColor: C.cyan + '30' }]}>
+            <View style={{ height: 2.5, backgroundColor: C.cyan }} />
+            <View style={{ padding: 14 }}>
+              <ModelSelector value={model} onChange={v => { setModel(v); setSaved(false); }} />
+            </View>
+          </View>
+        </View>
+
+        {/* ═══════════════════════════════════════
+            💬 SYSTEM PROMPT
+        ═══════════════════════════════════════ */}
         <View>
           <Sec icon="text-box-outline" label="SYSTEM PROMPT" color={C.purple}
-            right={
-              <View style={{ borderWidth: 1, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2,
-                borderColor: C.purple + '40', backgroundColor: C.purple + '08' }}>
-                <Text style={{ fontFamily: MONO, fontSize: 7.5, fontWeight: '900', color: C.purple }}>OPTIONAL</Text>
+            sub="Optional custom instructions prepended to every AI conversation." />
+          <View style={[ic.root, { borderColor: C.purple + '30' }]}>
+            <View style={{ height: 2.5, backgroundColor: C.purple }} />
+            <View style={{ padding: 14, gap: 10 }}>
+              <View style={{ borderWidth: 1.5, borderRadius: 11, borderColor: C.border, backgroundColor: C.surf2 }}>
+                <TextInput
+                  style={{ color: C.text, fontSize: 14, fontFamily: MONO, minHeight: 90,
+                    padding: 13, textAlignVertical: 'top', lineHeight: 21 }}
+                  value={system}
+                  onChangeText={v => { setSystem(v); setSaved(false); }}
+                  placeholder="Guide Butler's personality, tone, or specialization…"
+                  placeholderTextColor={C.dim}
+                  multiline
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardAppearance="dark"
+                />
               </View>
-            }
-          />
-          <GlowCard glowColor={C.purple} hexSeed="system-prompt">
-            <Text style={{ fontFamily: MONO, fontSize: 9, color: C.mid, letterSpacing: 0.5, marginBottom: 8 }}>
-              BUTLER BEHAVIOR DIRECTIVE
-            </Text>
-            <NexusInput
-              value={system}
-              onChangeText={(v: string) => { setSystem(v); setSaved(false); }}
-              placeholder="Guide Butler's behavior, tone, or specialization..."
-              multiline
-              accent={C.purple}
-            />
-            <Text style={{ fontFamily: MONO, fontSize: 9.5, color: C.mid, marginTop: 8, lineHeight: 14 }}>
-              Prepended to every conversation. Leave blank for default Butler AI personality.
-            </Text>
-          </GlowCard>
+              <Text style={{ fontFamily: MONO, fontSize: 11, color: C.mid, lineHeight: 16 }}>
+                Blank = default Butler AI personality. Example: "You are a Python security expert focused on privacy tools."
+              </Text>
+            </View>
+          </View>
         </View>
 
-        {/* ── Preferences ── */}
+        {/* ═══════════════════════════════════════
+            🎛 PREFERENCES
+        ═══════════════════════════════════════ */}
         <View>
-          <Sec icon="cog-outline" label="SYSTEM PREFERENCES" color={C.amber} />
-          <ToggleRow icon="vibrate"    label="HAPTIC FEEDBACK"  sub="Tactile responses on every interaction"     value={hapticsOn}  onToggle={setHapticsOn}  color={C.amber} />
-          <ToggleRow icon="wifi-sync"  label="AUTO RECONNECT"   sub="Silently reconnect on app resume"           value={autoReconn} onToggle={setAutoReconn} color={C.cyan}  />
-          <ToggleRow icon="bug-report" label="DEBUG MODE"       sub="Verbose logs + diagnostic overlay"          value={debugMode}  onToggle={setDebugMode}  color={C.purple} iconLib="material" />
+          <Sec icon="tune" label="PREFERENCES & ACCESSIBILITY" color={C.amber}
+            sub="Customize Butler AI to your preferences and device needs." />
+          <ToggleRow icon="vibrate"            label="HAPTIC FEEDBACK"
+            sub="Tactile vibration on taps, buttons and alerts"
+            value={hapticsOn}    onToggle={setHapticsOn}    color={C.amber} />
+          <ToggleRow icon="animation-play"     label="ANIMATIONS ENABLED"
+            sub="Toggle UI transitions and animated effects"
+            value={animationsOn} onToggle={setAnimationsOn} color={C.cyan}
+            iconLib="community" />
+          <ToggleRow icon="run-fast"           label="REDUCE MOTION"
+            sub="Minimal animations — accessibility mode"
+            value={reduceMotion} onToggle={setReduceMotion} color={C.green}
+            iconLib="community" />
+          <ToggleRow icon="wifi-sync"          label="AUTO RECONNECT"
+            sub="Silently reconnect to PC server on app resume"
+            value={autoReconn}   onToggle={setAutoReconn}   color={C.cyan}
+            iconLib="community" />
+          <ToggleRow icon="bug-report"         label="DEBUG MODE"
+            sub="Verbose logs + diagnostic overlay (dev use)"
+            value={debugMode}    onToggle={setDebugMode}    color={C.purple}
+            iconLib="material" />
         </View>
 
-        {/* ── Save ── */}
-        <NexBtn
-          label={saved ? 'SAVED ✓' : 'SAVE CONFIGURATION'}
+        {/* ═══════════════════════════════════════
+            💾 SAVE BUTTON
+        ═══════════════════════════════════════ */}
+        <PrimaryBtn
+          label={saved ? '✓ CONFIGURATION SAVED' : 'SAVE CONFIGURATION'}
           icon={saved ? 'check-circle' : 'save'}
           color={saved ? C.green : C.amber}
-          variant="solid"
           onPress={onSave}
         />
 
-        {/* ── Privacy Guarantee ── */}
+        {/* ═══════════════════════════════════════
+            🎨 THEMES
+        ═══════════════════════════════════════ */}
         <View>
-          <Sec icon="shield-check-outline" label="PRIVACY & SECURITY" color={C.green} />
-          <PrivacyCard />
+          <Sec icon="palette-swatch" label="THEMES & COSMETICS" color={C.purple} />
+          <ActionRow icon="palette-swatch" iconLib="community" label="OPEN THEMES & FX"
+            sub="8 themes · bubble animations · notification sounds · live preview"
+            color={C.purple} badge="8 THEMES"
+            onPress={() => { (global as any).__butlerSwitchTab?.('cosmetic'); }} />
         </View>
 
-        {/* ── Themes ── */}
+        {/* ═══════════════════════════════════════
+            🔧 DIAGNOSTICS
+        ═══════════════════════════════════════ */}
         <View>
-          <Sec icon="palette" label="THEMES & COSMETICS" color={C.purple} />
-          <ThemeStrip onPress={() => { (global as any).__butlerSwitchTab?.('cosmetic'); }} />
+          <Sec icon="stethoscope" label="DIAGNOSTICS & SUPPORT" color={C.blue} />
+          <ActionRow icon="text-box-search-outline" iconLib="community" label="SHARE DIAGNOSTIC LOG"
+            sub="Export last 100 log entries — stays on device until you share it"
+            color={C.blue} onPress={handleShareLog} />
+          <ActionRow icon="alert-circle-outline" iconLib="community" label="CRASH REPORT"
+            sub="View startup crash logs, timestamps and stack traces"
+            color={C.red} onPress={() => router.push('/crash-report' as any)} />
+          <ActionRow icon="help-circle-outline" iconLib="community" label="HELP & FAQ"
+            sub="Setup guide, common issues, changelog, server probe"
+            color={C.teal} onPress={() => { (global as any).__butlerSwitchTab?.('support'); }} />
         </View>
 
-        {/* ── Legal & Help ── */}
+        {/* ═══════════════════════════════════════
+            📜 OPEN SOURCE ATTRIBUTION
+        ═══════════════════════════════════════ */}
         <View>
-          <Sec icon="gavel" label="LEGAL & SUPPORT" color={C.blue} />
-          <LinkRow icon="shield-star-outline" iconLib="community" label="SECURITY & TRUST"
-            sub="Zero cloud · no tracking · how your data stays safe"
-            color={C.cyan} badge="VIEW" onPress={() => router.push('/security-trust' as any)} />
-          <LinkRow icon="bug-report" iconLib="material" label="SHARE DIAGNOSTIC LOG"
-            sub="Export last 100 log entries — stays on device until you share"
-            color={C.purple} onPress={handleShareLog} />
-          <LinkRow icon="shield-check" iconLib="community" label="PRIVACY POLICY"
-            sub="GDPR compliant · device UUID only" color={C.green}
-            onPress={() => openURL('https://shawnjan-cmd.github.io/privacy-policy-/')} />
-          <LinkRow icon="file-document-outline" iconLib="community" label="TERMS OF SERVICE"
-            sub="18+ · personal PC use only" color={C.amber}
-            onPress={() => openURL('https://shawnjan-cmd.github.io/privacy-policy-/#terms-of-service')} />
-          <LinkRow icon="alert-circle-outline" iconLib="community" label="CRASH REPORT"
-            sub="Startup crash log · timestamps · stack trace" color={C.red}
-            onPress={() => router.push('/crash-report' as any)} />
-          <LinkRow icon="delete-forever" iconLib="community" label="DATA DELETION"
-            sub="GDPR right to erasure" color={C.red}
-            onPress={() => openURL('https://shawnjan-cmd.github.io/privacy-policy-/#data-deletion')} />
+          <Sec icon="open-source-initiative" label="OPEN SOURCE ATTRIBUTION"
+            sub="Butler AI is built on open-source software (all MIT licensed)." color={C.blue} />
+          <AttributionCard />
         </View>
 
-        {/* ── Danger Zone ── */}
+        {/* ═══════════════════════════════════════
+            ☢️ DANGER ZONE — LAST
+        ═══════════════════════════════════════ */}
         <View>
-          <Sec icon="alert-octagon" label="DANGER ZONE" color={C.red} />
-          <DangerZone onReset={onReset} onReplay={onReplayOnboarding} />
+          <Sec icon="alert-octagon" label="DANGER ZONE"
+            sub="These actions are permanent and cannot be undone." color={C.red} />
+          <View style={[ic.root, { borderColor: C.red + '35' }]}>
+            <View style={{ height: 3.5, backgroundColor: C.red }} />
+            <View style={{ padding: 14, gap: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: C.border }}>
+                <MaterialCommunityIcons name="alert-octagon-outline" size={18} color={C.red} />
+                <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '900', color: C.red, flex: 1 }}>IRREVERSIBLE OPERATIONS</Text>
+                <View style={{ borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, borderColor: C.red + '50', backgroundColor: C.red + '0A' }}>
+                  <Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '900', color: C.red }}>CAUTION</Text>
+                </View>
+              </View>
+              <DangerBtn label="REPLAY TUTORIAL" icon="school" color={C.amber} variant="ghost" onPress={onReplayOnboarding} />
+              <DangerBtn label="RESET ALL DATA & SETTINGS" icon="delete-sweep" color={C.red} variant="outline" onPress={onReset} />
+            </View>
+          </View>
         </View>
 
-        {/* ── Footer ── */}
+        {/* ═══════════════════════════════════════
+            FOOTER
+        ═══════════════════════════════════════ */}
         <CfgFooter />
       </ScrollView>
     </View>

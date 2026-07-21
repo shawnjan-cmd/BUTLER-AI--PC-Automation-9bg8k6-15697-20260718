@@ -1149,7 +1149,9 @@ function ConnectModal({ visible, onClose, onConnected }: {
 
   const handleQR = useCallback(async (data: string) => {
     if (scanned.current) return;
-    scanned.current = true; setShowCam(false); haptics.success();
+    scanned.current = true;
+    setShowCam(false);
+    haptics.success();
     try {
       const p = parseQRConnection(data);
       if (p?.ip) {
@@ -1183,6 +1185,18 @@ function ConnectModal({ visible, onClose, onConnected }: {
 
   if (!visible) return null;
   const sc2 = status.includes('Error') ? RED : status.includes('Connected') ? GREEN : AMBER;
+
+  // Pre-camera permission/info prompt
+  const openCamera = () => {
+    Alert.alert(
+      '📷 SCAN QR CODE',
+      'Butler AI needs camera access to scan the QR code displayed in your PC terminal.\n\n• Run butler_server.py on your PC first\n• Point camera at the QR shown in the terminal\n• This stays 100% on your local network — no cloud',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'OPEN CAMERA', style: 'default', onPress: () => { scanned.current = false; setShowCam(true); haptics.success(); } },
+      ]
+    );
+  };
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
@@ -1220,7 +1234,7 @@ function ConnectModal({ visible, onClose, onConnected }: {
               </TouchableOpacity>
             </View>
           ) : (
-            <TouchableOpacity onPress={() => { scanned.current = false; setShowCam(true); }} activeOpacity={0.82} style={cm.scanBtn}>
+            <TouchableOpacity onPress={openCamera} activeOpacity={0.82} style={cm.scanBtn}>
               <MaterialIcons name="qr-code-scanner" size={20} color={CYAN} />
               <View>
                 <Text style={cm.scanBtnTxt}>SCAN QR CODE</Text>
