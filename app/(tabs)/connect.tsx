@@ -397,7 +397,8 @@ function PairPCScreenInner() {
     if (ok) { haptics.success(); setActiveStep(4); } else haptics.warning();
   }, [cfg]);
 
-  const downloadUrl = 'https://github.com/butlerai/butler-server/releases';
+  const downloadUrl = 'https://github.com/shawnjan-cmd/butler-server/releases/latest';
+  const downloadZip = 'https://github.com/shawnjan-cmd/butler-server/archive/refs/heads/main.zip';
 
   return (
     <View style={{ flex:1, backgroundColor:C.bg }}>

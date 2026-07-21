@@ -1073,8 +1073,43 @@ function ButlerInner() {
 
   const sendRef = useRef(sendMessage);
   useEffect(() => { sendRef.current = sendMessage; }, [sendMessage]);
+
+  // Read prefill from QuickButlerBar (sent when user was on a different tab)
   useEffect(() => {
-    (global as any).__butlerInjectMessage = (t: string) => { if (t?.trim()) sendRef.current(t.trim()); };
+    const PREFILL_KEY = '@butler_prefill_prompt';
+    const checkPrefill = async () => {
+      try {
+        const AS = require('@react-native-async-storage/async-storage').default;
+        const stored = await AS.getItem(PREFILL_KEY);
+        if (stored?.trim()) {
+          await AS.removeItem(PREFILL_KEY);
+          // Small delay to ensure the chat UI is mounted and ready
+          setTimeout(() => {
+            if (sendRef.current && stored.trim()) sendRef.current(stored.trim());
+          }, 400);
+        }
+      } catch {}
+    };
+    // Check on mount AND when tab comes into focus via the global listener
+    checkPrefill();
+    const fn = () => checkPrefill();
+    (global as any).__butlerPrefillListeners = (global as any).__butlerPrefillListeners ?? [];
+    (global as any).__butlerPrefillListeners.push(fn);
+    return () => {
+      const arr: any[] = (global as any).__butlerPrefillListeners ?? [];
+      const i = arr.indexOf(fn);
+      if (i > -1) arr.splice(i, 1);
+    };
+  }, []);
+  useEffect(() => {
+    (global as any).__butlerInjectMessage = (t: string) => {
+      if (t?.trim()) {
+        sendRef.current(t.trim());
+        // Also notify prefill listeners (future-proof for tab-based injection)
+        const listeners: any[] = (global as any).__butlerPrefillListeners ?? [];
+        listeners.forEach((fn: any) => { try { fn(); } catch {} });
+      }
+    };
     return () => { delete (global as any).__butlerInjectMessage; };
   }, []);
 
