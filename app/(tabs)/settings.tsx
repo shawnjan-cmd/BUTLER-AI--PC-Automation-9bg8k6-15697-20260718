@@ -739,6 +739,84 @@ function SettingsScreenInner() {
       >
 
         {/* ═══════════════════════════════════════
+            ™ COPYRIGHT BANNER — ALWAYS FIRST
+        ═══════════════════════════════════════ */}
+        <View style={[
+          { backgroundColor: '#07040E', borderRadius: 16, borderWidth: 2,
+            borderColor: '#9B40FF55', overflow: 'hidden',
+            ...Platform.select({ ios: { shadowColor: '#9B40FF', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 18 }, android: { elevation: 10 } }) },
+        ]}>
+          {/* Rainbow top stripe */}
+          <View style={{ height: 4, flexDirection: 'row' }}>
+            {['#9B40FF','#9B40FF','#CC44FF','#00E5FF','#00FF88','#FFB020','#FF3344','#9B40FF'].map((c, i) => (
+              <View key={i} style={{ flex: 1, backgroundColor: c }} />
+            ))}
+          </View>
+          <View style={{ padding: 16, gap: 10 }}>
+            {/* Main copyright line */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={{ width: 44, height: 44, borderRadius: 12, borderWidth: 1.5,
+                borderColor: '#CC44FF55', backgroundColor: '#CC44FF0D',
+                alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <MaterialCommunityIcons name="shield-crown" size={22} color="#CC44FF" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: MONO, fontSize: 8, fontWeight: '900',
+                  color: '#CC44FF50', letterSpacing: 2, lineHeight: 12 }}>INTELLECTUAL PROPERTY</Text>
+                <Text style={{ fontFamily: MONO, fontSize: 16, fontWeight: '900',
+                  color: '#CC44FF', letterSpacing: 1, lineHeight: 22 }}>BUTLER AI™</Text>
+                <Text style={{ fontFamily: MONO, fontSize: 11, color: '#9B40FFBB', lineHeight: 16, marginTop: 2 }}>
+                  © 2024–2026 AIKIDO. All rights reserved.
+                </Text>
+              </View>
+            </View>
+
+            {/* Divider */}
+            <View style={{ height: 1, backgroundColor: '#CC44FF20' }} />
+
+            {/* Copyright details grid */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {[
+                { icon: 'trademark',         label: 'BUTLER AI™',         sub: 'Trademark · Aikido',       color: '#CC44FF' },
+                { icon: 'code-braces',        label: 'SOURCE CODE',         sub: '© 2024–2026 Aikido',       color: '#00E5FF' },
+                { icon: 'server',             label: 'SERVER CODE',         sub: 'butler_server.py © Aikido',color: '#00FF88' },
+                { icon: 'shield-lock',        label: 'PROPRIETARY',         sub: 'All rights reserved',      color: '#FFB020' },
+                { icon: 'eye-off',            label: 'NOT OPEN SOURCE',     sub: 'No licence to copy',       color: '#FF3344' },
+                { icon: 'gavel',              label: 'DMCA PROTECTED',       sub: '17 U.S.C. § 1201',        color: '#9B40FF' },
+              ].map((b, i) => (
+                <View key={i} style={{ width: '31%', borderWidth: 1.5, borderRadius: 10, padding: 9,
+                  borderColor: b.color + '40', backgroundColor: b.color + '08',
+                  borderTopWidth: 3, borderTopColor: b.color }}>
+                  <MaterialCommunityIcons name={b.icon as any} size={14} color={b.color} style={{ marginBottom: 5 }} />
+                  <Text style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: '900', color: b.color, lineHeight: 13 }}>{b.label}</Text>
+                  <Text style={{ fontFamily: MONO, fontSize: 8, color: b.color + '70', lineHeight: 12, marginTop: 2 }}>{b.sub}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Warning notice */}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 9,
+              borderWidth: 1, borderRadius: 10, borderColor: '#FF334445',
+              backgroundColor: '#FF33440A', padding: 11 }}>
+              <MaterialCommunityIcons name="alert-octagon" size={14} color="#FF3344" style={{ flexShrink: 0, marginTop: 1 }} />
+              <Text style={{ fontFamily: MONO, fontSize: 10, color: '#FF3344BB', flex: 1, lineHeight: 16 }}>
+                Unauthorized copying, reverse-engineering, redistribution or resale of this software, server code or any portion is strictly prohibited and may result in legal action.
+              </Text>
+            </View>
+
+            {/* Contact + package */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8,
+              borderWidth: 1, borderRadius: 9, borderColor: '#CC44FF30',
+              backgroundColor: '#CC44FF07', paddingHorizontal: 12, paddingVertical: 8 }}>
+              <MaterialIcons name="email" size={12} color="#CC44FF" />
+              <Text style={{ fontFamily: MONO, fontSize: 10, color: '#CC44FFBB', flex: 1, letterSpacing: 0.3 }}>
+                andrejsladkovic1992@gmail.com  ·  com.butlerai.pc.automation
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ═══════════════════════════════════════
             🎓 TUTORIAL — ALWAYS AT TOP
         ═══════════════════════════════════════ */}
         <TutorialBanner onReplay={onReplayOnboarding} />

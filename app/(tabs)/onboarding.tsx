@@ -47,6 +47,7 @@ import { POST_ONBOARDING_CHAT_FLAG } from '@/components/ui/PostOnboardingChat';
 import { haptics } from '@/services/haptics';
 import AnimatedWireDefault, { WireCorner, HorizontalWire } from '@/components/ui/AnimatedWire';
 import { TechGrid, TypewriterLine } from '@/components/ui/NexusFX';
+import Svg, { Path as SvgPath } from 'react-native-svg';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
@@ -687,6 +688,132 @@ const ci = StyleSheet.create({
 // PAGE CONTENT COMPONENTS
 // ══════════════════════════════════════════════════════════════
 
+// ─── WELCOME HERO MASCOT ─────────────────────────────────────────
+function WelcomeHeroMascot({ accent }: { accent: string }) {
+  const floatA  = useRef(new Animated.Value(0)).current;
+  const glowA   = useRef(new Animated.Value(0.4)).current;
+  const pulseA  = useRef(new Animated.Value(0.9)).current;
+  const heartA  = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const float = Animated.loop(Animated.sequence([
+      Animated.timing(floatA, { toValue: 1, duration: 2600, useNativeDriver: ND }),
+      Animated.timing(floatA, { toValue: 0, duration: 2600, useNativeDriver: ND }),
+    ]));
+    const glow = Animated.loop(Animated.sequence([
+      Animated.timing(glowA, { toValue: 1,   duration: 1400, useNativeDriver: ND }),
+      Animated.timing(glowA, { toValue: 0.2, duration: 1400, useNativeDriver: ND }),
+    ]));
+    const pulse = Animated.loop(Animated.sequence([
+      Animated.timing(pulseA, { toValue: 1.06, duration: 1100, useNativeDriver: ND }),
+      Animated.timing(pulseA, { toValue: 0.94, duration: 1100, useNativeDriver: ND }),
+    ]));
+    const heart = Animated.loop(Animated.sequence([
+      Animated.timing(heartA, { toValue: 1, duration: 2200, useNativeDriver: ND }),
+      Animated.timing(heartA, { toValue: 0, duration: 0,    useNativeDriver: ND }),
+      Animated.delay(800),
+    ]));
+    float.start(); glow.start(); pulse.start(); heart.start();
+    return () => { float.stop(); glow.stop(); pulse.stop(); heart.stop(); };
+  }, []);
+
+  const translateY = floatA.interpolate({ inputRange: [0, 1], outputRange: [0, -9] });
+  const heartX     = heartA.interpolate({ inputRange: [0, 1], outputRange: [-SW * 0.45, SW * 0.45] });
+
+  let HERO: any = null;
+  try { HERO = require('@/assets/images/butler-hero-robot-mascot.png'); } catch {
+    try { HERO = require('@/assets/images/butler-robot-3d.png'); } catch {
+      try { HERO = require('@/assets/images/mascot_shield_v2.png'); } catch {}
+    }
+  }
+
+  return (
+    <View style={whm.root}>
+      {/* Circuit grid overlay */}
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: glowA }]}>
+        {[0.2, 0.5, 0.8].map((y, i) => (
+          <View key={i} style={{ position:'absolute', left:0, right:0, top:`${y*100}%` as any, height:1, backgroundColor:accent+'18' }} />
+        ))}
+        {[0.15, 0.4, 0.65, 0.88].map((x, i) => (
+          <View key={i} style={{ position:'absolute', top:0, bottom:0, left:`${x*100}%` as any, width:1, backgroundColor:accent+'10' }} />
+        ))}
+      </Animated.View>
+
+      {/* HUD corner brackets */}
+      <HudCorners color={accent + '70'} size={14} t={2} />
+
+      {/* Heartbeat scan line */}
+      <Animated.View pointerEvents="none" style={{ position:'absolute', bottom:38, left:0, right:0, height:24, overflow:'hidden' }}>
+        <Animated.View style={{ position:'absolute', left:0, right:0, height:'100%', transform:[{ translateX: heartX }] }}>
+          <Svg width={SW} height={24}>
+            <SvgPath
+              d={`M0,12 L${SW*0.08},12 L${SW*0.16},4 L${SW*0.20},20 L${SW*0.24},12 L${SW*0.38},12 L${SW*0.42},6 L${SW*0.46},18 L${SW*0.50},12 L${SW}`}
+              stroke={accent + 'BB'}
+              strokeWidth="1.5"
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+        </Animated.View>
+      </Animated.View>
+
+      {/* Floating mascot */}
+      <Animated.View style={{ transform:[{ translateY }, { scale: pulseA }], alignItems:'center' }}>
+        <Animated.View style={[whm.mascotRing, {
+          borderColor: glowA.interpolate({ inputRange:[0.2,1], outputRange:[accent+'45', accent+'CC'] }),
+        }]}>
+          <Animated.View style={[StyleSheet.absoluteFill, { borderRadius:80, backgroundColor:accent,
+            opacity: glowA.interpolate({ inputRange:[0.2,1], outputRange:[0.04,0.12] }) }]} />
+          {HERO ? (
+            <Image source={HERO} style={{ width:140, height:140 }} contentFit="contain" />
+          ) : (
+            <View style={{ width:140, height:140, alignItems:'center', justifyContent:'center' }}>
+              <MaterialCommunityIcons name="robot-happy" size={80} color={accent} />
+            </View>
+          )}
+          {/* Live status orb */}
+          <Animated.View style={[whm.liveOrb, { backgroundColor:accent, opacity:glowA }]} />
+        </Animated.View>
+        {/* Name badge */}
+        <View style={[whm.nameBadge, { borderColor:accent+'60', backgroundColor:accent+'10' }]}>
+          <PulseDot color={accent} size={5} />
+          <Text style={{ fontFamily:MONO, fontSize:10, fontWeight:'900', color:accent, letterSpacing:1 }}>BUTLER AI  ·  SYSTEM ACTIVE</Text>
+        </View>
+        <Text style={{ fontFamily:MONO, fontSize:9, color:accent+'60', letterSpacing:1.5, marginTop:4, textAlign:'center' }}>REMOTE PC AUTOMATION SYSTEM</Text>
+      </Animated.View>
+
+      {/* Status strip */}
+      <View style={[whm.statusStrip, { borderColor:accent+'30' }]}>
+        {[
+          { icon:'shield-check',  label:'SECURE',     color:T.green  },
+          { icon:'lan-connect',   label:'LAN ONLY',   color:accent   },
+          { icon:'cpu-64-bit',    label:'LOCAL AI',   color:T.purple },
+          { icon:'cloud-off',     label:'ZERO CLOUD', color:T.amber  },
+        ].map((b, i) => (
+          <View key={i} style={{ alignItems:'center', flex:1, gap:3 }}>
+            <MaterialCommunityIcons name={b.icon as any} size={14} color={b.color} />
+            <Text style={{ fontFamily:MONO, fontSize:7.5, fontWeight:'900', color:b.color+'80', letterSpacing:0.5 }}>{b.label}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+const whm = StyleSheet.create({
+  root:       { backgroundColor:'#040C18', borderRadius:18, borderWidth:1.5, borderColor:'rgba(0,229,255,0.2)',
+    overflow:'hidden', alignItems:'center', paddingTop:22, paddingBottom:14, position:'relative', marginBottom:12,
+    ...Platform.select({ ios:{ shadowColor:'#00E5FF', shadowOffset:{width:0,height:6}, shadowOpacity:0.3, shadowRadius:20 }, android:{elevation:10} }),
+  },
+  mascotRing: { width:160, height:160, borderRadius:80, borderWidth:2.5, alignItems:'center', justifyContent:'center',
+    overflow:'hidden', position:'relative', marginBottom:12,
+    ...Platform.select({ ios:{ shadowColor:'#00E5FF', shadowOffset:{width:0,height:0}, shadowOpacity:0.8, shadowRadius:28 }, android:{elevation:14} }),
+  },
+  liveOrb:    { position:'absolute', bottom:10, right:10, width:12, height:12, borderRadius:6, borderWidth:2, borderColor:'#000' },
+  nameBadge:  { flexDirection:'row', alignItems:'center', gap:7, borderWidth:1, borderRadius:20, paddingHorizontal:13, paddingVertical:6 },
+  statusStrip:{ flexDirection:'row', width:'100%', borderTopWidth:1, marginTop:10, paddingTop:10, paddingHorizontal:8 },
+});
+
 // ─── WELCOME CIRCUIT ACCENT ──────────────────────────────────────
 // Reuses AnimatedWire (flowing dot traces) + TechGrid (HUD background grid)
 // Shown only on the WELCOME step (idx === 0). No new dependencies.
@@ -822,7 +949,9 @@ function WelcomePage({ accent }: { accent: string }) {
   const netPts = [8,12,9,15,11,18,14,20,17,22,19,25,21,18,23,20,24,22,26,20];
   return (
     <View style={{ gap: 10 }}>
-      {/* Circuit accent — WELCOME step only */}
+      {/* Hero mascot robot — WELCOME step hero element */}
+      <WelcomeHeroMascot accent={accent} />
+      {/* Circuit accent */}
       <WelcomeCircuitAccent accent={accent} />
       <Suspense fallback={null}><OnboardingHeroStep onBegin={() => {}} /></Suspense>
       <View style={{ flexDirection:'row', flexWrap:'wrap', gap:8 }}>
