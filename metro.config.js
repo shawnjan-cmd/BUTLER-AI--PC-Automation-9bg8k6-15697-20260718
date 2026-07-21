@@ -7,7 +7,7 @@ try { require('./tools/postinstall.js'); } catch (e) {}
 const config = getDefaultConfig(__dirname);
 
 // Bump cache to force full rebuild.
-config.cacheVersion = 'butler-ai-v5.0.69-crash-playstore-fix';
+config.cacheVersion = 'butler-ai-v5.0.70-startup-bulletproof';
 
 // Copyright is recorded in the APK manifest and assets/COPYRIGHT.md.
 // A custom customSerializer is intentionally NOT used here — async dynamic

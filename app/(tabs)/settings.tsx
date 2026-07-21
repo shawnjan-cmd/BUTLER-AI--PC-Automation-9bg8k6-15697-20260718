@@ -840,6 +840,19 @@ function SettingsScreenInner() {
                 </Text>
               </View>
 
+              {/* Play Store compliance notice */}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 9,
+                borderWidth: 1, borderRadius: 10, borderColor: C.green + '40',
+                backgroundColor: C.green + '07', padding: 11, marginBottom: 4 }}>
+                <MaterialCommunityIcons name="check-circle" size={14} color={C.green} style={{ flexShrink: 0, marginTop: 1 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '900', color: C.green, marginBottom: 4 }}>FILE ACCESS — SYSTEM PICKER ONLY</Text>
+                  <Text style={{ fontFamily: MONO, fontSize: 10, color: C.mid, lineHeight: 15 }}>
+                    Butler AI uses the Android system file picker (no READ_EXTERNAL_STORAGE needed). Files are selected by the user via the OS dialog — Play Store Photo & Video Permissions policy compliant.
+                  </Text>
+                </View>
+              </View>
+
               {[
                 {
                   permission: 'INTERNET',
@@ -867,24 +880,6 @@ function SettingsScreenInner() {
                   color: C.amber,
                   purpose: 'Scan QR code displayed on your PC screen to pair with butler_server.py. One-shot only.',
                   neverUsedFor: 'Recording video, taking photos, background camera access',
-                },
-                {
-                  permission: 'READ_EXTERNAL_STORAGE',
-                  group: 'Storage',
-                  required: false,
-                  icon: 'folder-outline',
-                  color: C.purple,
-                  purpose: 'Pick a file from your phone to send to your paired PC via the File Share tab.',
-                  neverUsedFor: 'Scanning media library, accessing contacts or call logs',
-                },
-                {
-                  permission: 'WRITE_EXTERNAL_STORAGE',
-                  group: 'Storage',
-                  required: false,
-                  icon: 'content-save-outline',
-                  color: C.purple,
-                  purpose: 'Save downloaded files received from your PC to device storage when explicitly requested.',
-                  neverUsedFor: 'Background writes, logging, or any automatic file creation',
                 },
                 {
                   permission: 'VIBRATE',
