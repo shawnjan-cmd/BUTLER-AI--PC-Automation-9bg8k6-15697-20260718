@@ -1388,9 +1388,24 @@ function ConnectModal({ visible, onClose, onConnected }: {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// FOOTER — with email and full contact/legal info
+// FOOTER — with email, tappable legal links, and copyright info
 // ══════════════════════════════════════════════════════════════════
+const FOOTER_LINKS = [
+  { icon: 'support-agent',  label: 'Support',        color: GREEN,  url: 'mailto:andrejsladkovic1992@gmail.com' },
+  { icon: 'bug-report',     label: 'Report Bug',     color: AMBER,  url: 'mailto:andrejsladkovic1992@gmail.com?subject=Bug%20Report%20-%20Butler%20AI' },
+  { icon: 'shield',         label: 'Privacy Policy', color: PURPLE, url: 'https://shawnjan-cmd.github.io/privacy-policy-/' },
+  { icon: 'gavel',          label: 'Terms',          color: MID,    url: 'https://shawnjan-cmd.github.io/privacy-policy-/#terms-of-service' },
+  { icon: 'delete-forever', label: 'Delete My Data', color: RED,    url: 'https://shawnjan-cmd.github.io/privacy-policy-/#data-deletion' },
+];
+
 function Footer({ isConn, addr }: { isConn: boolean; addr: string }) {
+  const openLink = useCallback((url: string) => {
+    try {
+      haptics.light();
+      import('react-native').then(({ Linking }) => Linking.openURL(url).catch(() => {}));
+    } catch {}
+  }, []);
+
   return (
     <View style={{ paddingHorizontal: PAD, paddingBottom: 28 }}>
       <View style={{ alignItems: 'center', gap: 8, paddingTop: 22, borderTopWidth: 1, borderTopColor: BORDER }}>
@@ -1418,37 +1433,41 @@ function Footer({ isConn, addr }: { isConn: boolean; addr: string }) {
         {/* Thin divider */}
         <View style={{ width: 220, height: 1, backgroundColor: BORDER }} />
 
-        {/* Contact email — prominent */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: CYAN + '0A', borderWidth: 1, borderColor: CYAN + '30', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9 }}>
+        {/* Contact email — tappable */}
+        <TouchableOpacity
+          onPress={() => openLink('mailto:andrejsladkovic1992@gmail.com')}
+          activeOpacity={0.75}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: CYAN + '0A', borderWidth: 1, borderColor: CYAN + '30', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9 }}
+        >
           <MaterialIcons name="email" size={13} color={CYAN} />
           <Text style={{ fontFamily: MONO, fontSize: 10.5, color: CYAN + 'CC', letterSpacing: 0.3, fontWeight: '700' }}>
             andrejsladkovic1992@gmail.com
           </Text>
-        </View>
+        </TouchableOpacity>
 
-        {/* Support / legal links row */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
-          {[
-            { icon: 'support-agent',    label: 'Support',        color: GREEN  },
-            { icon: 'bug-report',       label: 'Report Bug',     color: AMBER  },
-            { icon: 'shield',           label: 'Privacy Policy', color: PURPLE },
-            { icon: 'gavel',            label: 'Terms',          color: MID    },
-            { icon: 'delete-forever',   label: 'Delete My Data', color: RED    },
-          ].map((item, i) => (
-            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-              <MaterialIcons name={item.icon as any} size={9} color={item.color + '70'} />
-              <Text style={{ fontFamily: MONO, fontSize: 8, color: item.color + '55', letterSpacing: 0.3 }}>{item.label}</Text>
-            </View>
+        {/* Support / legal links row — all tappable */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+          {FOOTER_LINKS.map((item, i) => (
+            <TouchableOpacity
+              key={i}
+              onPress={() => openLink(item.url)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 5, borderColor: item.color + '35', backgroundColor: item.color + '08' }}
+            >
+              <MaterialIcons name={item.icon as any} size={10} color={item.color + '80'} />
+              <Text style={{ fontFamily: MONO, fontSize: 8.5, color: item.color + '90', letterSpacing: 0.3, fontWeight: '700' }}>{item.label}</Text>
+            </TouchableOpacity>
           ))}
         </View>
 
         {/* Tech badges */}
         <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
           {[
-            { label: 'AES-256',    col: CYAN   },
-            { label: 'HMAC-SHA256',col: GREEN  },
+            { label: 'AES-256',        col: CYAN   },
+            { label: 'HMAC-SHA256',    col: GREEN  },
             { label: 'ZERO TELEMETRY', col: PURPLE },
-            { label: 'LAN ONLY',   col: AMBER  },
+            { label: 'LAN ONLY',       col: AMBER  },
           ].map((b, i) => (
             <View key={i} style={{ borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, borderColor: b.col + '30', backgroundColor: b.col + '06' }}>
               <Text style={{ fontFamily: MONO, fontSize: 7.5, color: b.col + '70', fontWeight: '900' }}>{b.label}</Text>
@@ -1456,13 +1475,28 @@ function Footer({ isConn, addr }: { isConn: boolean; addr: string }) {
           ))}
         </View>
 
-        {/* Legal */}
-        <Text style={{ fontFamily: MONO, fontSize: 8, color: DIM, letterSpacing: 0.5, textAlign: 'center' }}>
-          © 2026 BUTLER AI · ANDREJ SLADKOVIC · ALL RIGHTS RESERVED
-        </Text>
-        <Text style={{ fontFamily: MONO, fontSize: 7.5, color: DIM + 'AA', letterSpacing: 0.3, textAlign: 'center' }}>
-          com.butlerai.pc.automation · PROPRIETARY · NOT OPEN SOURCE
-        </Text>
+        {/* Divider */}
+        <View style={{ width: '80%', height: 1, backgroundColor: BORDER }} />
+
+        {/* Trademark & IP notice */}
+        <View style={{ alignItems: 'center', gap: 5, paddingHorizontal: 8 }}>
+          <Text style={{ fontFamily: MONO, fontSize: 8, color: DIM, letterSpacing: 0.5, textAlign: 'center' }}>
+            © 2026 BUTLER AI · ANDREJ SLADKOVIC · ALL RIGHTS RESERVED
+          </Text>
+          <Text style={{ fontFamily: MONO, fontSize: 7.5, color: DIM + 'AA', letterSpacing: 0.3, textAlign: 'center' }}>
+            com.butlerai.pc.automation · PROPRIETARY · NOT OPEN SOURCE
+          </Text>
+          <Text style={{ fontFamily: MONO, fontSize: 7.5, color: DIM + 'AA', letterSpacing: 0.3, textAlign: 'center' }}>
+            Trademarks registered & managed via vitalstrademark.com
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}>
+            <MaterialCommunityIcons name="shield-lock-outline" size={9} color={RED + '50'} />
+            <Text style={{ fontFamily: MONO, fontSize: 7, color: RED + '45', letterSpacing: 0.3, textAlign: 'center', flex: 1, flexWrap: 'wrap' }}>
+              This codebase contains multiple layers of proprietary copyright traps.
+              Any unauthorized copy or redistribution is detectable and prosecutable.
+            </Text>
+          </View>
+        </View>
       </View>
     </View>
   );
