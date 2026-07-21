@@ -76,8 +76,7 @@ const ICON_MAP: Record<string, IconFn> = {
   connect:        (c, s) => <MaterialCommunityIcons name="server-network" size={s} color={c} />,
   settings:       (c, s) => <MaterialIcons name="tune" size={s} color={c} />,
   cosmetic:       (c, s) => <MaterialCommunityIcons name="palette-swatch" size={s} color={c} />,
-  terminal:       (c, s) => <MaterialIcons name="receipt-long" size={s} color={c} />,
-  support:        (c, s) => <MaterialCommunityIcons name="help-circle-outline" size={s} color={c} />,
+
 };
 
 const TAB_LABELS: Record<string, string> = {
@@ -90,8 +89,7 @@ const TAB_LABELS: Record<string, string> = {
   fileshare:      'VAULT',
   settings:       'CFG',
   cosmetic:       'SKINS',
-  terminal:       'LOGS',
-  support:        'HELP',
+
   connect:        'PAIR',
 };
 
@@ -269,10 +267,6 @@ export default function TabsLayout() {
 
       {/* ── PAIR PC — visible tab ── */}
       <Tabs.Screen name="connect"  options={{ title: TAB_LABELS.connect,  tabBarLabel: TAB_LABELS.connect  }} />
-
-      {/* ── HIDDEN UTILITY SCREENS — accessible via Settings / in-app links ── */}
-      <Tabs.Screen name="terminal" options={{ href: null }} />
-      <Tabs.Screen name="support"  options={{ href: null }} />
 
       {/* ── HIDDEN UTILITY TABS ── */}
       <Tabs.Screen name="index" options={{ href: null }} />
