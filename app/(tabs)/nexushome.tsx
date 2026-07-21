@@ -1469,6 +1469,201 @@ function Footer({ isConn, addr }: { isConn: boolean; addr: string }) {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// MASCOT SYSTEM STATUS CARD
+// ══════════════════════════════════════════════════════════════════
+function MascotSystemCard({ isConn }: { isConn: boolean }) {
+  const floatA   = useRef(new Animated.Value(0)).current;
+  const glowA    = useRef(new Animated.Value(0.3)).current;
+  const pulseA   = useRef(new Animated.Value(0.95)).current;
+  const heartA   = useRef(new Animated.Value(0)).current;
+  const statusA  = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const float  = Animated.loop(Animated.sequence([
+      Animated.timing(floatA,  { toValue: 1, duration: 2800, useNativeDriver: true }),
+      Animated.timing(floatA,  { toValue: 0, duration: 2800, useNativeDriver: true }),
+    ]));
+    const glow   = Animated.loop(Animated.sequence([
+      Animated.timing(glowA,   { toValue: 1,   duration: 1400, useNativeDriver: false }),
+      Animated.timing(glowA,   { toValue: 0.2, duration: 1400, useNativeDriver: false }),
+    ]));
+    const pulse  = Animated.loop(Animated.sequence([
+      Animated.timing(pulseA,  { toValue: 1.04, duration: 1200, useNativeDriver: true }),
+      Animated.timing(pulseA,  { toValue: 0.96, duration: 1200, useNativeDriver: true }),
+    ]));
+    const heart  = Animated.loop(Animated.sequence([
+      Animated.timing(heartA,  { toValue: 1, duration: 2400, useNativeDriver: true }),
+      Animated.timing(heartA,  { toValue: 0, duration: 0,    useNativeDriver: true }),
+      Animated.delay(600),
+    ]));
+    const status = Animated.loop(Animated.sequence([
+      Animated.timing(statusA, { toValue: 1, duration: 800, useNativeDriver: true }),
+      Animated.timing(statusA, { toValue: 0, duration: 800, useNativeDriver: true }),
+    ]));
+    float.start(); glow.start(); pulse.start(); heart.start(); status.start();
+    return () => { float.stop(); glow.stop(); pulse.stop(); heart.stop(); status.stop(); };
+  }, []);
+
+  const translateY = floatA.interpolate({ inputRange: [0, 1], outputRange: [0, -8] });
+  const heartX     = heartA.interpolate({ inputRange: [0, 1], outputRange: [-SW * 0.55, SW * 0.55] });
+  const borderGlow = glowA.interpolate({ inputRange: [0, 1], outputRange: [CYAN + '35', CYAN + 'AA'] });
+  const statusColor = isConn ? GREEN : AMBER;
+
+  let HERO: any = null;
+  try { HERO = require('@/assets/images/butler-hero-robot-mascot.png'); } catch {
+    try { HERO = require('@/assets/images/butler-robot-3d.png'); } catch {
+      try { HERO = require('@/assets/images/mascot_shield_v2.png'); } catch {}
+    }
+  }
+  const Image = require('expo-image').Image;
+
+  return (
+    <View style={{ paddingHorizontal: PAD }}>
+      <Animated.View style={[msc.root, { borderColor: borderGlow }]}>
+        {/* Top accent stripe */}
+        <View style={{ height: 3, flexDirection: 'row', overflow: 'hidden' }}>
+          {[CYAN, GREEN, CYAN, GREEN, AMBER, CYAN, GREEN, CYAN].map((c, i) => (
+            <View key={i} style={{ flex: 1, backgroundColor: c }} />
+          ))}
+        </View>
+
+        {/* Status header bar */}
+        <View style={msc.statusBar}>
+          <View style={[msc.iconBox, { backgroundColor: CYAN + '14', borderColor: CYAN + '45' }]}>
+            <MaterialCommunityIcons name="shield-half-full" size={18} color={CYAN} />
+          </View>
+          <Text style={msc.brandTxt}>
+            Butler <Text style={{ color: CYAN }}>AI</Text>
+          </Text>
+          <Text style={msc.statusLabel}>
+            System Status:{'  '}
+            <Animated.Text style={[msc.statusValue, { color: statusColor, opacity: statusA }]}>
+              {isConn ? 'ACTIVE' : 'STANDBY'}
+            </Animated.Text>
+          </Text>
+          {/* Security badges */}
+          <View style={[msc.badge, { borderColor: PURPLE + '40', backgroundColor: PURPLE + '0A' }]}>
+            <MaterialCommunityIcons name="shield-lock" size={10} color={PURPLE} />
+          </View>
+          <View style={[msc.badge, { borderColor: GREEN + '40', backgroundColor: GREEN + '0A' }]}>
+            <MaterialCommunityIcons name="check-decagram" size={10} color={GREEN} />
+          </View>
+        </View>
+
+        {/* Hero area — robot + heartbeat */}
+        <View style={msc.heroArea}>
+          {/* Circuit grid background */}
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
+            {[0.2, 0.45, 0.7].map((y, i) => (
+              <View key={i} style={{ position: 'absolute', left: 0, right: 0, top: `${y * 100}%` as any, height: 1, backgroundColor: CYAN + '12' }} />
+            ))}
+            {[0.1, 0.3, 0.5, 0.7, 0.9].map((x, i) => (
+              <View key={i} style={{ position: 'absolute', top: 0, bottom: 0, left: `${x * 100}%` as any, width: 1, backgroundColor: CYAN + '08' }} />
+            ))}
+          </View>
+
+          {/* Floating mascot robot */}
+          <Animated.View style={[msc.mascotWrap, { transform: [{ translateY }, { scale: pulseA }] }]}>
+            {HERO ? (
+              <Image source={HERO} style={{ width: 160, height: 160 }} contentFit="contain" />
+            ) : (
+              <View style={msc.mascotFallback}>
+                <MaterialCommunityIcons name="robot-happy" size={70} color={CYAN} />
+              </View>
+            )}
+            {/* Live orb indicator */}
+            <Animated.View style={[
+              msc.liveOrb,
+              { backgroundColor: statusColor, opacity: glowA },
+            ]} />
+          </Animated.View>
+
+          {/* Heartbeat scan line */}
+          <View pointerEvents="none" style={msc.heartbeatTrack}>
+            <Animated.View style={[msc.heartbeatLine, { transform: [{ translateX: heartX }] }]}>
+              <Svg width={SW * 1.2} height={28}>
+                <Path
+                  d={`M0,14 L${SW*0.06},14 L${SW*0.12},5 L${SW*0.16},22 L${SW*0.20},14 L${SW*0.32},14 L${SW*0.36},7 L${SW*0.40},21 L${SW*0.44},14 L${SW*1.2},14`}
+                  stroke={isConn ? GREEN : CYAN}
+                  strokeWidth="1.8"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeOpacity="0.75"
+                />
+              </Svg>
+            </Animated.View>
+          </View>
+
+          {/* HUD overlay icons */}
+          <View pointerEvents="none" style={msc.hudOverlay}>
+            {[
+              { icon: 'keyboard-outline', top: 14, right: 18 },
+              { icon: 'shield-check-outline', top: 14, right: 54 },
+            ].map((h, i) => (
+              <View key={i} style={[msc.hudIcon, { top: h.top, right: h.right, borderColor: CYAN + '35', backgroundColor: CYAN + '0C' }]}>
+                <MaterialCommunityIcons name={h.icon as any} size={12} color={CYAN + '70'} />
+              </View>
+            ))}
+            <MaterialCommunityIcons name="cog-outline" size={14} color={CYAN + '30'}
+              style={{ position: 'absolute', bottom: 20, right: 22 }} />
+          </View>
+        </View>
+
+        {/* Bottom label bar */}
+        <View style={msc.labelBar}>
+          <View style={msc.labelDiamond} />
+          <Text style={msc.labelTxt}>REMOTE PC AUTOMATION SYSTEM</Text>
+          <View style={msc.labelDiamond} />
+        </View>
+
+        {/* Stats strip */}
+        <View style={msc.statsStrip}>
+          {[
+            { icon: 'shield-check',    label: 'SECURE',    color: GREEN,  value: 'AES-256'   },
+            { icon: 'lan-connect',     label: 'NETWORK',   color: CYAN,   value: 'LAN ONLY'  },
+            { icon: 'cpu-64-bit',      label: 'AI ENGINE', color: PURPLE, value: 'LOCAL'     },
+            { icon: 'cloud-off',       label: 'CLOUD',     color: AMBER,  value: 'ZERO'      },
+          ].map((s, i) => (
+            <View key={i} style={msc.statCell}>
+              <MaterialCommunityIcons name={s.icon as any} size={14} color={s.color} />
+              <Text style={[msc.statVal, { color: s.color }]}>{s.value}</Text>
+              <Text style={msc.statLbl}>{s.label}</Text>
+            </View>
+          ))}
+        </View>
+      </Animated.View>
+    </View>
+  );
+}
+
+const msc = StyleSheet.create({
+  root:        { backgroundColor: SURF3, borderRadius: 20, borderWidth: 1.5, overflow: 'hidden', position: 'relative',
+    ...Platform.select({ ios: { shadowColor: CYAN, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.28, shadowRadius: 20 }, android: { elevation: 10 } }) },
+  statusBar:   { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: BORDER },
+  iconBox:     { width: 32, height: 32, borderRadius: 9, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  brandTxt:    { fontSize: 17, fontWeight: '700', color: TEXT, flex: 0 },
+  statusLabel: { fontFamily: MONO, fontSize: 12, fontWeight: '700', color: TEXT2, flex: 1 },
+  statusValue: { fontFamily: MONO, fontSize: 12, fontWeight: '900' },
+  badge:       { width: 28, height: 28, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  heroArea:    { height: 200, alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', backgroundColor: '#020C18' },
+  mascotWrap:  { zIndex: 2, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  mascotFallback: { width: 160, height: 160, alignItems: 'center', justifyContent: 'center' },
+  liveOrb:     { position: 'absolute', bottom: 14, right: 14, width: 11, height: 11, borderRadius: 6, borderWidth: 2, borderColor: '#020C18' },
+  heartbeatTrack: { position: 'absolute', bottom: 22, left: -SW * 0.1, right: -SW * 0.1, height: 28, overflow: 'hidden' },
+  heartbeatLine: { position: 'absolute', top: 0, left: 0, height: 28 },
+  hudOverlay:  { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  hudIcon:     { position: 'absolute', width: 28, height: 28, borderRadius: 7, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  labelBar:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 9, borderTopWidth: 1, borderTopColor: BORDER },
+  labelDiamond:{ width: 5, height: 5, backgroundColor: CYAN + '60', transform: [{ rotate: '45deg' }] },
+  labelTxt:    { fontFamily: MONO, fontSize: 9, fontWeight: '900', color: CYAN + '60', letterSpacing: 2.5 },
+  statsStrip:  { flexDirection: 'row', borderTopWidth: 1, borderTopColor: BORDER },
+  statCell:    { flex: 1, alignItems: 'center', paddingVertical: 11, gap: 3, borderRightWidth: 1, borderRightColor: BORDER },
+  statVal:     { fontFamily: MONO, fontSize: 10, fontWeight: '900', letterSpacing: 0.3 },
+  statLbl:     { fontFamily: MONO, fontSize: 7.5, color: MID, letterSpacing: 0.5 },
+});
+
+// ══════════════════════════════════════════════════════════════════
 // MAIN SCREEN
 // ══════════════════════════════════════════════════════════════════
 function NexusHomeInner() {
@@ -1565,6 +1760,8 @@ function NexusHomeInner() {
         }
       >
         {!isConn && <><PairPrompt onPair={() => setShowQR(true)} /><View style={{ height: 12 }} /></>}
+        <MascotSystemCard isConn={isConn} />
+        <View style={{ height: 12 }} />
         <QuickActions goToTab={goToTab} onPair={() => setShowQR(true)} />
         <View style={{ height: 12 }} />
         <TipsTicker color={isConn ? CYAN : MID} />
