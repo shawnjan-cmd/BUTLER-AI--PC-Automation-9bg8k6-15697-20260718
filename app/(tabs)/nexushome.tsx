@@ -1,311 +1,309 @@
 /**
- * BUTLER AI — HOME v80.0 · PLAY STORE PREMIUM EDITION
- * Every section upgraded with unique visual signatures.
- * New: PairPrompt, PCOverviewCard, HealthScore, Sparklines,
- *      CommandGallery, LastRunWidget, NetworkCard, TodayStats.
+ * BUTLER AI — HOME v9.0 · NEXUS HQ EDITION
  *
- * ANIMATION SAFETY:
- *  • useNativeDriver:true  → opacity, transform ONLY
- *  • useNativeDriver:false → backgroundColor, borderColor, width ONLY
- *  • NEVER mix on same Animated.Value
+ * FEATURES:
+ *  • Full-width AI chat bar fixed below the header
+ *  • Unique animated SVG dividers themed to adjacent sections
+ *  • Clipboard sharing (GET/SET) — works offline UI, active when paired
+ *  • Quick File-Share widget with drag-to-send metaphor
+ *  • All sections centered, visually filled left-to-right
+ *  • Large unique icons for every section
+ *  • Rich offline state (no greyed-out ugliness)
+ *  • Rotating tips ticker inside each section footer
  */
 
-import React, { Suspense, useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, {
+  useState, useEffect, useRef, useCallback, useMemo,
+} from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Animated, Platform, Dimensions, Modal, TextInput,
-  ActivityIndicator, RefreshControl, Pressable,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable,
+  Animated, Platform, Dimensions, TextInput, ActivityIndicator,
+  RefreshControl, Alert, Clipboard,
 } from 'react-native';
-import { Image } from 'expo-image';
+import Svg, { Path, Line, Circle, Polyline, Defs, LinearGradient, Stop } from 'react-native-svg';
+import * as ExpoClipboard from 'expo-clipboard';
+import * as DocumentPicker from 'expo-document-picker';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 
-import { COLOR, FONT, glow, SHADOW } from '@/constants/tokens';
-import { HexTag } from '@/components/ui/HexTag';
-import { CornerFrame } from '@/components/ui/CornerFrame';
-import { ScanlineOverlay } from '@/components/ui/ScanlineOverlay';
-import { TabErrorBoundary } from '@/components/ui/TabErrorBoundary';
-import { RemoteAccessMonetizationCard } from '@/components/home/RemoteAccessMonetizationCard';
-import { NexusVaultCard } from '@/components/ui/NexusVaultCard';
 import { haptics } from '@/services/haptics';
 import { serverConnection } from '@/services/serverConnection';
 import { connectionHub } from '@/services/connectionHub';
+import { pcClipboard } from '@/services/pcClipboard';
 import { executionHistory } from '@/services/executionHistory';
 import { knowledgeAccumulator } from '@/services/knowledgeAccumulator';
-import { personalMemory } from '@/services/personalMemory';
-import { parseQRConnection } from '@/services/qrParser';
 import { performanceHistory } from '@/services/performanceHistory';
+import { TabErrorBoundary } from '@/components/ui/TabErrorBoundary';
+import { RemoteAccessMonetizationCard } from '@/components/home/RemoteAccessMonetizationCard';
+import { NexusVaultCard } from '@/components/ui/NexusVaultCard';
 
-const QRCameraScanner = React.lazy(() => import('@/components/qr/QRCameraScanner'));
-
-// ─── DESIGN TOKENS ────────────────────────────────────────────────
-const BG       = '#06101A';
-const SURFACE  = '#0C1824';
-const SURFACE2 = '#111E2C';
-const SURFACE3 = '#0A1520';
-const BORDER   = 'rgba(0,188,212,0.13)';
-const CYAN     = '#00C8E0';
-const GREEN    = '#00C896';
-const AMBER    = '#F5A42A';
-const RED      = '#FF4757';
-const PURPLE   = '#9B6DFF';
-const PINK     = '#FF6B9D';
-const DIM      = '#3A5A6A';
-const MID      = '#6A8A9A';
-const TEXT     = '#D8EEF4';
-const TEXT2    = '#8AAABB';
-const MONO: any = FONT.mono;
-const SW       = Math.max(320, Dimensions.get('window').width);
-const PAD      = 14;
+// ─── PALETTE ──────────────────────────────────────────────────────
+const BG      = '#04080F';
+const SURFACE = '#0A1420';
+const SURF2   = '#0E1830';
+const SURF3   = '#060D18';
+const BORDER  = 'rgba(0,192,220,0.12)';
+const CYAN    = '#00C8E0';
+const GREEN   = '#00CC96';
+const AMBER   = '#F5A820';
+const RED     = '#FF4060';
+const PURPLE  = '#9B6AFF';
+const PINK    = '#FF6B9D';
+const TEAL    = '#00D4AA';
+const BLUE    = '#4A9EFF';
+const DIM     = '#2A3A50';
+const MID     = '#5A7888';
+const TEXT    = '#D4EEF8';
+const TEXT2   = '#7898A8';
+const MONO: any = Platform.OS === 'ios' ? 'Courier' : 'monospace';
+const SW      = Math.max(320, Dimensions.get('window').width);
+const PAD     = 14;
 
 // ─── MICRO ATOMS ──────────────────────────────────────────────────
-function Dot({ color, size = 6 }: { color: string; size?: number }) {
-  const a = useRef(new Animated.Value(0.35)).current;
-  const m = useRef(true);
+
+function PulseDot({ color, size = 7 }: { color: string; size?: number }) {
+  const a = useRef(new Animated.Value(0.3)).current;
   useEffect(() => {
-    m.current = true;
     const loop = Animated.loop(Animated.sequence([
-      Animated.timing(a, { toValue: 1,    duration: 900, useNativeDriver: true }),
-      Animated.timing(a, { toValue: 0.15, duration: 900, useNativeDriver: true }),
+      Animated.timing(a, { toValue: 1,   duration: 900, useNativeDriver: true }),
+      Animated.timing(a, { toValue: 0.2, duration: 900, useNativeDriver: true }),
     ]));
-    loop.start();
-    return () => { m.current = false; loop.stop(); };
+    loop.start(); return () => loop.stop();
   }, []);
   return <Animated.View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color, opacity: a }} />;
 }
 
-function HUDCorners({ color, size = 8, t = 1.5 }: { color: string; size?: number; t?: number }) {
-  const s: any = { position: 'absolute', width: size, height: size };
+function HUDCorners({ color, size = 10, t = 1.5 }: { color: string; size?: number; t?: number }) {
+  const b = { position: 'absolute' as const, width: size, height: size };
   return (
     <>
-      <View style={[s, { top: 0,    left: 0,  borderTopWidth: t,    borderLeftWidth: t,   borderColor: color }]} />
-      <View style={[s, { top: 0,    right: 0, borderTopWidth: t,    borderRightWidth: t,  borderColor: color }]} />
-      <View style={[s, { bottom: 0, left: 0,  borderBottomWidth: t, borderLeftWidth: t,   borderColor: color }]} />
-      <View style={[s, { bottom: 0, right: 0, borderBottomWidth: t, borderRightWidth: t,  borderColor: color }]} />
+      <View style={[b, { top: 0, left: 0,  borderTopWidth: t,    borderLeftWidth: t,   borderColor: color }]} />
+      <View style={[b, { top: 0, right: 0, borderTopWidth: t,    borderRightWidth: t,  borderColor: color }]} />
+      <View style={[b, { bottom: 0, left: 0, borderBottomWidth: t, borderLeftWidth: t, borderColor: color }]} />
+      <View style={[b, { bottom: 0, right: 0, borderBottomWidth: t, borderRightWidth: t, borderColor: color }]} />
     </>
   );
 }
 
-// Segmented progress bar
 function SegBar({ value, color, height = 4 }: { value: number; color: string; height?: number }) {
-  const SEGS = 28;
+  const SEGS = 24;
   const filled = Math.round((Math.min(100, Math.max(0, value)) / 100) * SEGS);
   return (
     <View style={{ flexDirection: 'row', gap: 2, height }}>
       {Array.from({ length: SEGS }).map((_, i) => (
-        <View key={i} style={{
-          flex: 1, height, borderRadius: 1.5,
-          backgroundColor: i < filled ? color : 'rgba(255,255,255,0.06)',
-        }} />
+        <View key={i} style={{ flex: 1, height, borderRadius: 1.5, backgroundColor: i < filled ? color : 'rgba(255,255,255,0.05)' }} />
       ))}
     </View>
   );
 }
 
-// Mini sparkline bar chart (8 points)
-function Sparkline({ data, color, height = 24 }: { data: number[]; color: string; height?: number }) {
+function Sparkline({ data, color, height = 20 }: { data: number[]; color: string; height?: number }) {
   const max = Math.max(...data, 1);
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2, height }}>
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2.5, height }}>
       {data.map((v, i) => {
         const h = Math.max(3, (v / max) * height);
         const isLast = i === data.length - 1;
-        return (
-          <View key={i} style={{
-            flex: 1, height: h, borderRadius: 2,
-            backgroundColor: isLast ? color : color + '50',
-          }} />
-        );
+        return <View key={i} style={{ flex: 1, height: h, borderRadius: 2, backgroundColor: isLast ? color : color + '55' }} />;
       })}
     </View>
   );
 }
 
-// Arc-style gauge
-function ArcGauge({ value, color, label, isConn }: { value: number; color: string; label: string; isConn: boolean }) {
-  const displayVal = isConn ? Math.round(value) : 0;
-  const fillH = (displayVal / 100) * 56;
-  const a = useRef(new Animated.Value(0)).current;
-  const m = useRef(true);
+// ══════════════════════════════════════════════════════════════════
+// ANIMATED THEMED DIVIDERS
+// ══════════════════════════════════════════════════════════════════
+
+function CircuitDivider({ color = CYAN, reverse = false }: { color?: string; reverse?: boolean }) {
+  const x = useRef(new Animated.Value(reverse ? SW + 80 : -80)).current;
   useEffect(() => {
-    if (!isConn) return;
-    m.current = true;
+    const end = reverse ? -80 : SW + 80;
+    const start = reverse ? SW + 80 : -80;
     const loop = Animated.loop(Animated.sequence([
-      Animated.timing(a, { toValue: 1,   duration: 2400, useNativeDriver: true }),
-      Animated.timing(a, { toValue: 0.4, duration: 2400, useNativeDriver: true }),
+      Animated.timing(x, { toValue: end, duration: 3200, useNativeDriver: true }),
+      Animated.timing(x, { toValue: start, duration: 0, useNativeDriver: true }),
+      Animated.delay(600),
     ]));
-    loop.start();
-    return () => { m.current = false; loop.stop(); };
-  }, [isConn]);
+    loop.start(); return () => loop.stop();
+  }, [reverse]);
 
   return (
-    <View style={arc.wrap}>
-      <Animated.View style={{ opacity: isConn ? a : 1 }}>
-        <View style={[arc.ring, { borderColor: isConn ? color + '50' : DIM + '30' }]}>
-          <View style={[arc.fill, { height: fillH, backgroundColor: color + (isConn ? '28' : '08') }]} />
-          <View style={arc.center}>
-            <Text style={[arc.val, { color: isConn ? color : DIM }]} adjustsFontSizeToFit minimumFontScale={0.6}>
-              {isConn ? displayVal : '—'}
-            </Text>
-            {isConn && <Text style={[arc.pct, { color: color + '80' }]}>%</Text>}
-          </View>
-          {isConn && <View style={[arc.rim, { backgroundColor: color }]} />}
-        </View>
-      </Animated.View>
-      <Text style={[arc.label, { color: isConn ? color + 'A0' : DIM }]}>{label}</Text>
-    </View>
-  );
-}
-const arc = StyleSheet.create({
-  wrap:   { alignItems: 'center', gap: 7, flex: 1 },
-  ring:   { width: 76, height: 76, borderRadius: 38, borderWidth: 1.5, backgroundColor: SURFACE2, overflow: 'hidden', position: 'relative', alignItems: 'center', justifyContent: 'center' },
-  fill:   { position: 'absolute', bottom: 0, left: 0, right: 0, borderRadius: 38 },
-  center: { alignItems: 'center', flexDirection: 'row', gap: 1 },
-  val:    { fontFamily: MONO, fontSize: 20, fontWeight: '900', lineHeight: 24 },
-  pct:    { fontFamily: MONO, fontSize: 10, fontWeight: '700', marginTop: 8 },
-  rim:    { position: 'absolute', top: 0, left: 0, right: 0, height: 3, opacity: 0.9 },
-  label:  { fontFamily: MONO, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
-});
-
-// Stat quad cell with trend arrow
-function StatCell({ icon, value, label, color, trend }: { icon: string; value: string; label: string; color: string; trend?: 'up' | 'down' | 'stable' }) {
-  return (
-    <View style={sc.cell}>
-      <MaterialCommunityIcons name={icon as any} size={18} color={color + '70'} />
-      <View style={{ alignItems: 'center', gap: 2 }}>
-        <Text style={[sc.val, { color }]}>{value}</Text>
-        {trend && trend !== 'stable' && (
-          <MaterialIcons
-            name={trend === 'up' ? 'trending-up' : 'trending-down'}
-            size={10}
-            color={trend === 'up' ? RED : GREEN}
-          />
-        )}
+    <View style={dv.wrap} pointerEvents="none">
+      <View style={[dv.baseLine, { backgroundColor: color + '18' }]} />
+      {[0.15, 0.38, 0.62, 0.85].map((p, i) => (
+        <View key={i} style={[dv.node, { left: SW * p - 3, backgroundColor: color + '40', borderColor: color + '60' }]} />
+      ))}
+      <Animated.View style={[dv.packet, { backgroundColor: color, transform: [{ translateX: x }] }]} />
+      <View style={dv.labelRow}>
+        <Text style={[dv.label, { color: color + '50' }]}>◀</Text>
+        <Text style={[dv.label, { color: color + '38', letterSpacing: 1 }]}>NEXUS BUS · LOCAL LAN</Text>
+        <Text style={[dv.label, { color: color + '50' }]}>▶</Text>
       </View>
-      <Text style={sc.label}>{label}</Text>
     </View>
   );
 }
-const sc = StyleSheet.create({
-  cell:  { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, gap: 4, backgroundColor: SURFACE2, borderRadius: 12, borderWidth: 1, borderColor: BORDER },
-  val:   { fontFamily: MONO, fontSize: 12, fontWeight: '900' },
-  label: { fontFamily: MONO, fontSize: 8, color: MID, letterSpacing: 0.8, fontWeight: '700' },
+
+const dv = StyleSheet.create({
+  wrap:    { height: 28, justifyContent: 'center', marginHorizontal: 0, overflow: 'hidden', position: 'relative' },
+  baseLine:{ position: 'absolute', left: 0, right: 0, height: 1.5 },
+  node:    { position: 'absolute', width: 6, height: 6, borderRadius: 3, borderWidth: 1 },
+  packet:  { position: 'absolute', width: 50, height: 1.5, opacity: 0.85 },
+  labelRow:{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, marginTop: 6 },
+  label:   { fontFamily: MONO, fontSize: 8, letterSpacing: 0.5 },
 });
 
-// Generic card wrapper
-function Card({ children, style }: { children: React.ReactNode; style?: any }) {
-  return <View style={[card.root, style]}>{children}</View>;
-}
-const card = StyleSheet.create({
-  root: { backgroundColor: SURFACE, borderRadius: 16, borderWidth: 1, borderColor: BORDER, overflow: 'hidden',
-    ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12 }, android: { elevation: 4 } }) },
-});
-
-function SectionHdr({ icon, label, color = CYAN, right }: { icon: string; label: string; color?: string; right?: React.ReactNode }) {
+function SpectrumDivider({ colors = [CYAN, GREEN] }: { colors?: [string, string] }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 }}>
-      <MaterialCommunityIcons name={icon as any} size={13} color={color} />
-      <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '900', color: color + 'CC', letterSpacing: 1.4, flex: 1 }}>{label}</Text>
-      {right}
+    <View style={{ height: 18, marginHorizontal: 0, overflow: 'hidden' }}>
+      <Svg width={SW} height={18}>
+        <Defs>
+          <LinearGradient id="specGrad" x1="0" y1="0" x2="1" y2="0">
+            <Stop offset="0%"   stopColor={colors[0]} stopOpacity="0.08" />
+            <Stop offset="25%"  stopColor={colors[0]} stopOpacity="0.5" />
+            <Stop offset="50%"  stopColor={colors[1]} stopOpacity="0.7" />
+            <Stop offset="75%"  stopColor={colors[1]} stopOpacity="0.4" />
+            <Stop offset="100%" stopColor={colors[0]} stopOpacity="0.06" />
+          </LinearGradient>
+        </Defs>
+        <Path d={`M0 9 H${SW}`} stroke="url(#specGrad)" strokeWidth="2" />
+        {Array.from({ length: 9 }).map((_, i) => {
+          const x = (i + 1) * (SW / 10);
+          return <Line key={i} x1={x} y1={6} x2={x} y2={12} stroke={colors[i % 2 === 0 ? 0 : 1]} strokeWidth="1" strokeOpacity="0.3" />;
+        })}
+        <Path d={`M${SW/2 - 5} 9 L${SW/2} 4 L${SW/2 + 5} 9 L${SW/2} 14 Z`} fill={colors[1]} fillOpacity="0.25" />
+      </Svg>
+    </View>
+  );
+}
+
+function NeuralDivider({ color = PURPLE }: { color?: string }) {
+  const pts = useMemo(() => {
+    const N = 48;
+    const points: string[] = [];
+    for (let i = 0; i <= N; i++) {
+      const x = (i / N) * SW;
+      const y = 12 + Math.sin((i / N) * Math.PI * 4 + 0) * 5;
+      points.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+    }
+    return points.join(' ');
+  }, []);
+
+  const nodes = useMemo(() =>
+    [0.1, 0.25, 0.4, 0.55, 0.7, 0.85, 1.0].map(p => ({
+      x: p * SW,
+      y: 12 + Math.sin(p * Math.PI * 4) * 5,
+    })),
+  []);
+
+  return (
+    <View style={{ height: 28, overflow: 'hidden' }}>
+      <Svg width={SW} height={28}>
+        <Polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeOpacity="0.35" />
+        {nodes.map((n, i) => (
+          <Circle key={i} cx={n.x} cy={n.y} r="3" fill={color} fillOpacity="0.3" stroke={color} strokeWidth="1" strokeOpacity="0.5" />
+        ))}
+      </Svg>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: PAD, marginTop: -4 }}>
+        <Text style={{ fontFamily: MONO, fontSize: 8, color: color + '40' }}>NEURAL NET</Text>
+        <Text style={{ fontFamily: MONO, fontSize: 8, color: color + '40' }}>ΣΩΨ BRIDGE</Text>
+      </View>
+    </View>
+  );
+}
+
+function PowerDivider({ color = AMBER }: { color?: string }) {
+  const sawPoints = useMemo(() => {
+    const N = 22; const step = SW / N; const H = 14;
+    const pts: string[] = [`0,${H}`];
+    for (let i = 0; i <= N; i++) {
+      const x = i * step;
+      if (i % 2 === 0) pts.push(`${x.toFixed(1)},${H}`);
+      else pts.push(`${(x - step / 2).toFixed(1)},2`);
+    }
+    pts.push(`${SW},${H}`);
+    return pts.join(' ');
+  }, []);
+
+  return (
+    <View style={{ height: 22, overflow: 'hidden' }}>
+      <Svg width={SW} height={22}>
+        <Polyline points={sawPoints} fill="none" stroke={color} strokeWidth="1.5" strokeOpacity="0.28" />
+      </Svg>
+      <View style={{ position: 'absolute', bottom: 2, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
+        {[CYAN, GREEN, AMBER, PURPLE].map((c, i) => (
+          <View key={i} style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: c + '50' }} />
+        ))}
+      </View>
     </View>
   );
 }
 
 // ══════════════════════════════════════════════════════════════════
-// HOME HEADER — Upgraded with animated gradient scan shimmer
+// HEADER
 // ══════════════════════════════════════════════════════════════════
 function HomeHeader({ safeTop, isConn, addr, onPair }: {
   safeTop: number; isConn: boolean; addr: string; onPair: () => void;
 }) {
   const [time, setTime] = useState('');
   const [secs, setSecs] = useState('');
-  const [dateStr, setDateStr] = useState('');
-  const pulseA  = useRef(new Animated.Value(0.3)).current;
-  const shimA   = useRef(new Animated.Value(-SW)).current;
-  const m = useRef(true);
+  const [dateStr, setDate] = useState('');
+  const shimX = useRef(new Animated.Value(-100)).current;
 
   useEffect(() => {
     const update = () => {
       const n = new Date();
       setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`);
       setSecs(String(n.getSeconds()).padStart(2,'0'));
-      setDateStr(n.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase());
+      setDate(n.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase());
     };
-    update();
-    const t = setInterval(update, 1000);
-    return () => clearInterval(t);
+    update(); const t = setInterval(update, 1000); return () => clearInterval(t);
   }, []);
 
   useEffect(() => {
-    m.current = true;
-    // Gentle shimmer sweep every 8s
     const loop = Animated.loop(Animated.sequence([
-      Animated.timing(shimA, { toValue: SW * 1.5, duration: 1800, useNativeDriver: true }),
-      Animated.timing(shimA, { toValue: -SW,      duration: 0,    useNativeDriver: true }),
-      Animated.delay(6200),
+      Animated.timing(shimX, { toValue: SW + 100, duration: 2000, useNativeDriver: true }),
+      Animated.timing(shimX, { toValue: -100,     duration: 0,    useNativeDriver: true }),
+      Animated.delay(7000),
     ]));
-    loop.start();
-    return () => { m.current = false; loop.stop(); };
+    loop.start(); return () => loop.stop();
   }, []);
-
-  useEffect(() => {
-    if (!isConn) { pulseA.setValue(0.3); return; }
-    m.current = true;
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(pulseA, { toValue: 1,   duration: 1000, useNativeDriver: true }),
-      Animated.timing(pulseA, { toValue: 0.2, duration: 1000, useNativeDriver: true }),
-    ]));
-    loop.start();
-    return () => { m.current = false; loop.stop(); };
-  }, [isConn]);
 
   return (
     <View style={[hdr.root, { paddingTop: safeTop }]}>
-      {/* Top 2px cyan stripe */}
-      <View style={hdr.topStripe} />
-
-      {/* Shimmer overlay */}
-      <Animated.View pointerEvents="none"
-        style={[hdr.shimmer, { transform: [{ translateX: shimA }] }]} />
-
+      <View style={{ height: 3, backgroundColor: CYAN, position: 'absolute', top: safeTop, left: 0, right: 0 }} />
+      <Animated.View pointerEvents="none" style={[hdr.shimmer, { transform: [{ translateX: shimX }] }]} />
       <View style={hdr.body}>
-        {/* Left */}
-        <View style={{ flex: 1, gap: 5 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={hdr.eyebrow}>SELF-HOSTED · PRIVATE</Text>
-            <View style={[hdr.zeroBadge, { borderColor: GREEN + '40', backgroundColor: GREEN + '0A' }]}>
-              <Text style={{ fontFamily: MONO, fontSize: 7, fontWeight: '900', color: GREEN, letterSpacing: 0.5 }}>ZERO CLOUD</Text>
-            </View>
-          </View>
+        <View style={{ flex: 1, gap: 6 }}>
+          <Text style={hdr.eyebrow}>SELF-HOSTED · PRIVATE · ZERO CLOUD</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View style={[hdr.logoBox, { borderColor: CYAN + '50', backgroundColor: CYAN + '12' }]}>
-              <MaterialCommunityIcons name="shield-half-full" size={20} color={CYAN} />
+            <View style={[hdr.logoBox, { backgroundColor: CYAN + '14', borderColor: CYAN + '55' }]}>
+              <MaterialCommunityIcons name="shield-half-full" size={22} color={CYAN} />
             </View>
             <Text style={hdr.brand}>BUTLER <Text style={{ color: CYAN }}>AI</Text></Text>
           </View>
-          {/* Pills row */}
-          <View style={{ flexDirection: 'row', gap: 7, marginTop: 2 }}>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
             <TouchableOpacity onPress={() => { haptics.heavy(); onPair(); }} activeOpacity={0.8}
               style={[hdr.pill, { borderColor: isConn ? GREEN + '70' : AMBER + '60', backgroundColor: isConn ? GREEN + '0E' : AMBER + '0C' }]}>
               {isConn
-                ? <Animated.View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: GREEN, opacity: pulseA }} />
-                : <MaterialIcons name="qr-code-scanner" size={10} color={AMBER} />
-              }
+                ? <PulseDot color={GREEN} size={5} />
+                : <MaterialIcons name="qr-code-scanner" size={10} color={AMBER} />}
               <Text style={[hdr.pillTxt, { color: isConn ? GREEN : AMBER }]}>
-                {isConn ? (addr.split(':')[0] || 'CONNECTED') : 'PAIR PC'}
+                {isConn ? (addr.split(':')[0] || 'ONLINE') : 'TAP TO PAIR'}
               </Text>
             </TouchableOpacity>
             <View style={[hdr.pill, { borderColor: BORDER }]}>
-              <MaterialCommunityIcons name="desktop-classic" size={10} color={MID} />
-              <Text style={[hdr.pillTxt, { color: MID }]}>LOCAL RUNTIME</Text>
+              <MaterialCommunityIcons name="lock-check" size={10} color={MID} />
+              <Text style={[hdr.pillTxt, { color: MID }]}>AES-256</Text>
+            </View>
+            <View style={[hdr.pill, { borderColor: BORDER }]}>
+              <MaterialCommunityIcons name="lan-connect" size={10} color={MID} />
+              <Text style={[hdr.pillTxt, { color: MID }]}>LAN ONLY</Text>
             </View>
           </View>
         </View>
-
-        {/* Right: clock */}
-        <View style={{ alignItems: 'flex-end', gap: 5 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 2 }}>
+        <View style={{ alignItems: 'flex-end', gap: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 1 }}>
             <Text style={hdr.clockMain}>{time}</Text>
             <Text style={[hdr.clockSecs, { color: CYAN }]}>{secs}</Text>
           </View>
@@ -313,824 +311,985 @@ function HomeHeader({ safeTop, isConn, addr, onPair }: {
           <Text style={hdr.dateTxt}>{dateStr}</Text>
         </View>
       </View>
-
-      {/* Bottom circuit trace */}
-      <View style={{ height: 2, flexDirection: 'row' }}>
-        <View style={{ flex: 4, backgroundColor: CYAN + '18' }} />
-        <View style={{ width: 14, backgroundColor: CYAN }} />
-        <View style={{ flex: 2, backgroundColor: GREEN + '14' }} />
-        <View style={{ width: 6, backgroundColor: GREEN }} />
-        <View style={{ flex: 6, backgroundColor: CYAN + '08' }} />
-        <View style={{ width: 10, backgroundColor: AMBER }} />
-        <View style={{ flex: 3, backgroundColor: AMBER + '12' }} />
-      </View>
-    </View>
-  );
-}
-const hdr = StyleSheet.create({
-  root:      { backgroundColor: SURFACE, overflow: 'hidden' },
-  topStripe: { height: 2.5, backgroundColor: CYAN },
-  shimmer:   { position: 'absolute', top: 0, bottom: 0, width: 90, backgroundColor: 'rgba(0,200,224,0.04)', zIndex: 0 },
-  body:      { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingHorizontal: PAD, paddingTop: 13, paddingBottom: 13, zIndex: 1 },
-  eyebrow:   { fontFamily: MONO, fontSize: 7.5, fontWeight: '700', color: CYAN + '55', letterSpacing: 1.5 },
-  zeroBadge: { borderWidth: 1, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
-  logoBox:   { width: 38, height: 38, borderRadius: 11, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  brand:     { fontSize: 28, fontWeight: '900', color: '#FFFFFF', letterSpacing: -0.5 },
-  pill:      { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
-  pillTxt:   { fontFamily: MONO, fontSize: 9, fontWeight: '900', letterSpacing: 0.3 },
-  clockMain: { fontFamily: MONO, fontSize: 30, fontWeight: '900', color: TEXT, letterSpacing: 1 },
-  clockSecs: { fontFamily: MONO, fontSize: 19, fontWeight: '900', letterSpacing: 1 },
-  clockSub:  { fontFamily: MONO, fontSize: 8.5, color: MID, letterSpacing: 1, fontWeight: '700' },
-  dateTxt:   { fontFamily: MONO, fontSize: 8, color: DIM, letterSpacing: 0.5 },
-});
-
-// ══════════════════════════════════════════════════════════════════
-// PAIR PROMPT BANNER — Shown when offline; full-bleed with QR icon
-// ══════════════════════════════════════════════════════════════════
-function PairPromptBanner({ onPair }: { onPair: () => void }) {
-  const fadeA  = useRef(new Animated.Value(0)).current;
-  const slideA = useRef(new Animated.Value(12)).current;
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeA,  { toValue: 1, duration: 400, useNativeDriver: true }),
-      Animated.spring(slideA, { toValue: 0, tension: 200, friction: 14, useNativeDriver: true }),
-    ]).start();
-  }, []);
-
-  return (
-    <Animated.View style={[pp.root, { opacity: fadeA, transform: [{ translateY: slideA }] }]}>
-      {/* Accent border top */}
-      <View style={[pp.topBar, { backgroundColor: AMBER }]} />
-      <TouchableOpacity onPress={() => { haptics.heavy(); onPair(); }} activeOpacity={0.88} style={pp.inner}>
-        {/* Left: icon */}
-        <View style={pp.iconCol}>
-          <View style={[pp.iconCircle, { borderColor: AMBER + '60', backgroundColor: AMBER + '12' }]}>
-            <HUDCorners color={AMBER + '50'} size={7} />
-            <MaterialIcons name="qr-code-scanner" size={28} color={AMBER} />
-          </View>
-        </View>
-        {/* Center: copy */}
-        <View style={{ flex: 1, gap: 4 }}>
-          <Text style={pp.title}>Pair your PC to start</Text>
-          <Text style={pp.body}>Run butler_server.py on your PC. Tap here to scan the QR and connect. Runs 100% locally.</Text>
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
-            {['PYTHON', 'LOCAL', 'AES-256'].map(t => (
-              <View key={t} style={[pp.tag, { borderColor: AMBER + '35' }]}>
-                <Text style={{ fontFamily: MONO, fontSize: 7.5, fontWeight: '900', color: AMBER + '80' }}>{t}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-        {/* Right: arrow */}
-        <View style={[pp.arrowBox, { borderColor: AMBER + '40', backgroundColor: AMBER + '0E' }]}>
-          <MaterialIcons name="chevron-right" size={22} color={AMBER} />
-        </View>
-      </TouchableOpacity>
-    </Animated.View>
-  );
-}
-const pp = StyleSheet.create({
-  root:       { marginHorizontal: PAD, backgroundColor: SURFACE, borderRadius: 16, borderWidth: 1.5, borderColor: AMBER + '30', overflow: 'hidden',
-                ...Platform.select({ ios: { shadowColor: AMBER, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 12 }, android: { elevation: 4 } }) },
-  topBar:     { height: 3 },
-  inner:      { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, paddingTop: 14 },
-  iconCol:    { flexShrink: 0 },
-  iconCircle: { width: 60, height: 60, borderRadius: 18, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' },
-  title:      { fontSize: 15, fontWeight: '700', color: TEXT },
-  body:       { fontFamily: MONO, fontSize: 10, color: MID, lineHeight: 15 },
-  tag:        { borderWidth: 1, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
-  arrowBox:   { width: 36, height: 36, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-});
-
-// ══════════════════════════════════════════════════════════════════
-// QUICK ACTIONS — 4-button row with badge counts
-// ══════════════════════════════════════════════════════════════════
-const ACTIONS = [
-  { icon: 'qrcode-scan',            lib: 'c', label: 'Pair',     tab: 'pair',      color: CYAN   },
-  { icon: 'robot-happy-outline',    lib: 'c', label: 'Chat',     tab: 'butler',    color: GREEN  },
-  { icon: 'play-circle-outline',    lib: 'c', label: 'Run',      tab: 'scripts',   color: AMBER  },
-  { icon: 'folder-network-outline', lib: 'c', label: 'Files',    tab: 'fileshare', color: PURPLE },
-];
-
-function QuickActions({ onPair, goToTab }: { onPair: () => void; goToTab: (t: string) => void }) {
-  const scaleAs = useRef(ACTIONS.map(() => new Animated.Value(1))).current;
-
-  const pressIn  = (i: number) => Animated.spring(scaleAs[i], { toValue: 0.91, tension: 400, friction: 12, useNativeDriver: true }).start();
-  const pressOut = (i: number) => Animated.spring(scaleAs[i], { toValue: 1,    tension: 280, friction: 10, useNativeDriver: true }).start();
-
-  return (
-    <View style={{ paddingHorizontal: PAD }}>
-      <Card>
-        <View style={{ flexDirection: 'row', paddingVertical: 4 }}>
-          {ACTIONS.map((a, i) => {
-            const Icon = MaterialCommunityIcons;
-            const isLast = i === ACTIONS.length - 1;
-            return (
-              <Pressable key={a.label}
-                onPress={() => { haptics.medium(); a.tab === 'pair' ? onPair() : goToTab(a.tab); }}
-                onPressIn={() => pressIn(i)}
-                onPressOut={() => pressOut(i)}
-                style={[qa.btn, !isLast && { borderRightWidth: 1, borderRightColor: BORDER }]}>
-                <Animated.View style={{ transform: [{ scale: scaleAs[i] }], alignItems: 'center', gap: 8 }}>
-                  <View style={[qa.iconBox, { backgroundColor: a.color + '14', borderColor: a.color + '40' }]}>
-                    <Icon name={a.icon as any} size={24} color={a.color} />
-                  </View>
-                  <Text style={[qa.label, { color: TEXT2 }]}>{a.label}</Text>
-                </Animated.View>
-              </Pressable>
-            );
-          })}
-        </View>
-        {/* Bottom accent line */}
-        <View style={{ height: 2, flexDirection: 'row' }}>
-          {ACTIONS.map((a, i) => (
-            <View key={i} style={{ flex: 1, backgroundColor: a.color + '25' }} />
-          ))}
-        </View>
-      </Card>
-    </View>
-  );
-}
-const qa = StyleSheet.create({
-  btn:     { flex: 1, alignItems: 'center', paddingVertical: 17, paddingTop: 15 },
-  iconBox: { width: 50, height: 50, borderRadius: 15, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  label:   { fontSize: 11, fontWeight: '700', color: TEXT2, letterSpacing: 0.2 },
-});
-
-// ══════════════════════════════════════════════════════════════════
-// TODAY'S STATS STRIP — 4 horizontal stats above gauges
-// ══════════════════════════════════════════════════════════════════
-function TodayStrip({ isConn, scripts, kbCount, latency }: {
-  isConn: boolean; scripts: number; kbCount: number; latency: number;
-}) {
-  const stats = [
-    { label: 'EXECUTED',   value: String(scripts),                  color: CYAN,   icon: 'play-circle'         },
-    { label: 'VECTORS',    value: kbCount > 0 ? String(kbCount) : '—', color: PURPLE, icon: 'database'         },
-    { label: 'LATENCY',    value: latency > 0 ? `${latency}ms` : '—',  color: AMBER,  icon: 'speedometer'      },
-    { label: 'STATUS',     value: isConn ? 'LIVE' : 'IDLE',         color: isConn ? GREEN : MID, icon: 'access-point' },
-  ];
-
-  return (
-    <View style={{ paddingHorizontal: PAD }}>
-      <View style={ts.row}>
-        {stats.map((s, i) => (
-          <View key={i} style={[ts.cell, { borderColor: s.color + '25', borderTopColor: s.color, borderTopWidth: 2.5 }]}>
-            <MaterialCommunityIcons name={s.icon as any} size={14} color={s.color + '70'} />
-            <Text style={[ts.val, { color: s.color }]}>{s.value}</Text>
-            <Text style={ts.label}>{s.label}</Text>
-          </View>
+      <View style={{ height: 2.5, flexDirection: 'row' }}>
+        {[CYAN, CYAN, GREEN, GREEN, AMBER, AMBER, PURPLE, PURPLE, RED, RED].map((c, i) => (
+          <View key={i} style={{ flex: 1, backgroundColor: c + (i % 2 === 0 ? '60' : '20') }} />
         ))}
       </View>
     </View>
   );
 }
-const ts = StyleSheet.create({
-  row:   { flexDirection: 'row', gap: 8 },
-  cell:  { flex: 1, alignItems: 'center', backgroundColor: SURFACE, borderRadius: 12, borderWidth: 1, paddingVertical: 12, gap: 4,
-           ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 6 }, android: { elevation: 2 } }) },
-  val:   { fontFamily: MONO, fontSize: 13, fontWeight: '900', lineHeight: 16 },
-  label: { fontFamily: MONO, fontSize: 7.5, color: MID, letterSpacing: 0.5 },
+const hdr = StyleSheet.create({
+  root:      { backgroundColor: SURF3, overflow: 'hidden' },
+  shimmer:   { position: 'absolute', top: 0, bottom: 0, width: 90, backgroundColor: 'rgba(0,200,224,0.04)', zIndex: 0 },
+  body:      { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingHorizontal: PAD, paddingTop: 15, paddingBottom: 12, zIndex: 1 },
+  eyebrow:   { fontFamily: MONO, fontSize: 8, fontWeight: '700', color: CYAN + '50', letterSpacing: 1.2 },
+  logoBox:   { width: 40, height: 40, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  brand:     { fontSize: 29, fontWeight: '900', color: '#FFFFFF', letterSpacing: -0.5 },
+  pill:      { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
+  pillTxt:   { fontFamily: MONO, fontSize: 9, fontWeight: '900', letterSpacing: 0.3 },
+  clockMain: { fontFamily: MONO, fontSize: 30, fontWeight: '900', color: TEXT, letterSpacing: 1 },
+  clockSecs: { fontFamily: MONO, fontSize: 19, fontWeight: '900' },
+  clockSub:  { fontFamily: MONO, fontSize: 8.5, color: MID, letterSpacing: 1, fontWeight: '700' },
+  dateTxt:   { fontFamily: MONO, fontSize: 8, color: DIM, letterSpacing: 0.5 },
 });
 
 // ══════════════════════════════════════════════════════════════════
-// LIVE GAUGES — Three arc gauges with sparklines
+// MINI AI CHAT BAR
 // ══════════════════════════════════════════════════════════════════
-function LiveGauges({ isConn, cpu, ram, disk, cpuHistory, ramHistory, diskHistory }: {
-  isConn: boolean; cpu: number; ram: number; disk: number;
-  cpuHistory: number[]; ramHistory: number[]; diskHistory: number[];
-}) {
-  const cpuColor  = cpu  > 80 ? RED : cpu  > 60 ? AMBER : CYAN;
-  const ramColor  = ram  > 85 ? RED : ram  > 70 ? AMBER : GREEN;
-  const diskColor = disk > 90 ? RED : disk > 75 ? AMBER : PURPLE;
+function MiniChatBar({ isConn }: { isConn: boolean }) {
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+  const [reply, setReply] = useState('');
+  const borderA = useRef(new Animated.Value(0)).current;
+  const glowA   = useRef(new Animated.Value(0.25)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(glowA, { toValue: 0.9,  duration: 1800, useNativeDriver: false }),
+      Animated.timing(glowA, { toValue: 0.15, duration: 1800, useNativeDriver: false }),
+    ]));
+    loop.start(); return () => loop.stop();
+  }, []);
+
+  const send = async () => {
+    const t = text.trim();
+    if (!t || sending) return;
+    haptics.medium(); setSending(true); setText(''); setReply('');
+    try {
+      if (isConn) {
+        const ip = serverConnection.getIP(), port = serverConnection.getPort();
+        const tok = serverConnection.getToken?.() || '';
+        const h: Record<string,string> = { 'Content-Type': 'application/json' };
+        if (tok) h['Authorization'] = 'Bearer ' + tok;
+        const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 25000);
+        const res = await fetch(`http://${ip}:${port}/api/butler/chat`, {
+          method: 'POST', headers: h,
+          body: JSON.stringify({ messages: [{ role: 'user', content: t }] }),
+          signal: ctrl.signal,
+        });
+        if (res.ok) {
+          const d = await res.json();
+          const r = d.reply || d.content || d.message || d.response || '';
+          setReply(r.slice(0, 180) || 'Done.');
+          haptics.success();
+        } else throw new Error(`Status ${res.status}`);
+      } else {
+        const lc = t.toLowerCase();
+        const OFFLINE = [
+          { test: /hi|hello|hey/, r: 'Hello! Connect your PC via QR to unlock full AI responses.' },
+          { test: /help|what can/, r: 'I can run Python scripts, monitor your PC, manage files, and chat via local Ollama AI.' },
+          { test: /script|python|code/, r: 'Tap SCRIPTS tab to browse 250+ automation scripts.' },
+          { test: /pair|connect|qr/, r: 'Run butler_server.py on your PC, then tap PAIR PC at the top.' },
+          { test: /privacy|cloud/, r: 'Zero cloud. Everything stays on your local network.' },
+        ];
+        const match = OFFLINE.find(o => o.test.test(lc));
+        setReply(match?.r ?? 'Pair your PC to unlock full AI responses.');
+        haptics.success();
+      }
+    } catch (e: any) {
+      setReply(`Error: ${e?.message?.slice(0, 60) || 'Failed'}`);
+    } finally { setSending(false); }
+  };
+
+  const borderColor = borderA.interpolate({ inputRange: [0, 1], outputRange: [CYAN + '28', CYAN + 'AA'] });
+  const glowColor   = glowA.interpolate({ inputRange: [0, 1], outputRange: [CYAN + '0A', CYAN + '1C'] });
 
   return (
-    <View style={{ paddingHorizontal: PAD }}>
-      <Card>
-        <SectionHdr icon="gauge" label="LIVE GAUGES"
-          right={
-            <View style={[lgx.statusPill, { borderColor: (isConn ? GREEN : AMBER) + '55', backgroundColor: (isConn ? GREEN : AMBER) + '0A' }]}>
-              <Dot color={isConn ? GREEN : AMBER} size={5} />
-              <Text style={[lgx.statusTxt, { color: isConn ? GREEN : AMBER }]}>{isConn ? 'LIVE' : 'STANDBY'}</Text>
-            </View>
+    <View style={chat.root}>
+      <View style={chat.labelBar}>
+        <MaterialCommunityIcons name="robot-happy-outline" size={11} color={CYAN + '80'} />
+        <Text style={chat.labelTxt}>BUTLER AI  ·  LOCAL MODEL  ·  ZERO CLOUD</Text>
+        <PulseDot color={isConn ? GREEN : AMBER} size={5} />
+        <Text style={[chat.labelTxt, { color: isConn ? GREEN : AMBER }]}>{isConn ? 'ONLINE' : 'OFFLINE'}</Text>
+      </View>
+      <View style={chat.inputRow}>
+        <Animated.View style={[chat.inputWrap, { borderColor, backgroundColor: glowColor }]}>
+          <Text style={chat.cursor}>Ψ</Text>
+          <TextInput
+            value={text}
+            onChangeText={t => { setText(t); Animated.timing(borderA, { toValue: t.length > 0 ? 1 : 0, duration: 180, useNativeDriver: false }).start(); }}
+            placeholder={isConn ? 'Ask Butler AI anything...' : 'Ask anything (pair PC for full AI)...'}
+            placeholderTextColor={DIM}
+            style={chat.input}
+            returnKeyType="send"
+            onSubmitEditing={send}
+            blurOnSubmit={false}
+            editable={!sending}
+            maxLength={400}
+          />
+          {text.length > 0 && (
+            <Text style={[chat.charCount, { color: CYAN + '60' }]}>{text.length}</Text>
+          )}
+        </Animated.View>
+        <TouchableOpacity onPress={send} disabled={!text.trim() || sending} activeOpacity={0.82}
+          style={[chat.sendBtn, { backgroundColor: text.trim() && !sending ? CYAN : DIM + '60', borderColor: text.trim() ? CYAN + '60' : 'transparent' }]}>
+          {sending
+            ? <ActivityIndicator size="small" color={text.trim() ? BG : MID} />
+            : <MaterialIcons name="send" size={17} color={text.trim() ? BG : MID} />
           }
-        />
-        {/* HUD corners via CornerFrame + optional scanline when live */}
-        <CornerFrame color={CYAN + '45'} size={10} thickness={1.5} />
-        {isConn && <ScanlineOverlay color={CYAN} duration={4500} opacity={0.18} />}
-
-        {/* Gauges row */}
-        <View style={lgx.gaugeRow}>
-          <ArcGauge value={cpu}  color={cpuColor}  label="CPU"  isConn={isConn} />
-          <View style={lgx.gaugeDivider} />
-          <ArcGauge value={ram}  color={ramColor}  label="RAM"  isConn={isConn} />
-          <View style={lgx.gaugeDivider} />
-          <ArcGauge value={disk} color={diskColor} label="DISK" isConn={isConn} />
-        </View>
-
-        {/* Sparkline row */}
-        {isConn && (
-          <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 14, gap: 0 }}>
-            <View style={{ flex: 1, paddingHorizontal: 4 }}>
-              <Sparkline data={cpuHistory}  color={cpuColor}  height={20} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => { haptics.light(); (global as any).__butlerSwitchTab?.('butler'); }} activeOpacity={0.8}
+          style={[chat.moreBtn, { borderColor: PURPLE + '45', backgroundColor: PURPLE + '0C' }]}>
+          <MaterialCommunityIcons name="robot-happy-outline" size={16} color={PURPLE} />
+        </TouchableOpacity>
+      </View>
+      {!!reply && (
+        <Pressable onPress={() => setReply('')} style={chat.replyBubble}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+            <View style={[chat.replyIcon, { backgroundColor: CYAN + '14', borderColor: CYAN + '40' }]}>
+              <MaterialCommunityIcons name="robot-happy" size={12} color={CYAN} />
             </View>
-            <View style={{ width: 1, backgroundColor: BORDER }} />
-            <View style={{ flex: 1, paddingHorizontal: 4 }}>
-              <Sparkline data={ramHistory}  color={ramColor}  height={20} />
-            </View>
-            <View style={{ width: 1, backgroundColor: BORDER }} />
-            <View style={{ flex: 1, paddingHorizontal: 4 }}>
-              <Sparkline data={diskHistory} color={diskColor} height={20} />
-            </View>
+            <Text style={chat.replyTxt} numberOfLines={3}>{reply}</Text>
+            <MaterialIcons name="close" size={11} color={DIM} />
           </View>
-        )}
-        {!isConn && <View style={{ height: 16 }} />}
-      </Card>
+        </Pressable>
+      )}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: 7, paddingHorizontal: 1, paddingBottom: 2 }}>
+        {['System stats', 'Clean temp files', 'Show top procs', 'Network info', 'Disk usage'].map(c => (
+          <TouchableOpacity key={c} onPress={() => { haptics.light(); setText(c); }} activeOpacity={0.8}
+            style={[chat.chip, { borderColor: CYAN + '30', backgroundColor: CYAN + '08' }]}>
+            <Text style={[chat.chipTxt, { color: CYAN + 'BB' }]}>{c}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
     </View>
   );
 }
-const lgx = StyleSheet.create({
-  statusPill:   { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4 },
-  statusTxt:    { fontFamily: MONO, fontSize: 8.5, fontWeight: '900' },
-  gaugeRow:     { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 16, paddingBottom: 8 },
-  gaugeDivider: { width: 1, alignSelf: 'stretch', backgroundColor: BORDER, marginHorizontal: 4 },
+const chat = StyleSheet.create({
+  root:        { backgroundColor: SURF3, borderBottomWidth: 1, borderBottomColor: CYAN + '18', paddingHorizontal: PAD, paddingTop: 9, paddingBottom: 10, gap: 9 },
+  labelBar:    { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  labelTxt:    { fontFamily: MONO, fontSize: 8.5, color: MID, letterSpacing: 0.5, fontWeight: '700' },
+  inputRow:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  inputWrap:   { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1.5, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 9, minHeight: 46 },
+  cursor:      { fontSize: 15, color: CYAN + '80', fontFamily: MONO, fontWeight: '900', marginTop: -1 },
+  input:       { flex: 1, fontFamily: MONO, fontSize: 13, color: TEXT, padding: 0 },
+  charCount:   { fontFamily: MONO, fontSize: 9, flexShrink: 0 },
+  sendBtn:     { width: 46, height: 46, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  moreBtn:     { width: 46, height: 46, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  replyBubble: { backgroundColor: SURFACE, borderRadius: 12, borderWidth: 1, borderColor: CYAN + '28', padding: 10 },
+  replyIcon:   { width: 24, height: 24, borderRadius: 7, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  replyTxt:    { fontFamily: MONO, fontSize: 11.5, color: TEXT, flex: 1, lineHeight: 17 },
+  chip:        { paddingHorizontal: 11, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+  chipTxt:     { fontFamily: MONO, fontSize: 10, fontWeight: '700' },
 });
 
 // ══════════════════════════════════════════════════════════════════
-// SYSTEM HEALTH SCORE — Single circular score summarizing all metrics
+// PAIR PROMPT
 // ══════════════════════════════════════════════════════════════════
-function SystemHealthScore({ isConn, cpu, ram, disk, latency }: {
-  isConn: boolean; cpu: number; ram: number; disk: number; latency: number;
-}) {
-  const score = isConn
-    ? Math.max(0, Math.round(100 - (cpu * 0.35 + ram * 0.35 + disk * 0.2 + Math.min(latency / 10, 10))))
-    : 0;
-  const scoreColor = score >= 80 ? GREEN : score >= 50 ? AMBER : RED;
-  const scoreLabel = score >= 80 ? 'EXCELLENT' : score >= 50 ? 'MODERATE' : isConn ? 'STRESSED' : 'OFFLINE';
-
-  const ringA = useRef(new Animated.Value(0)).current;
-  const m = useRef(true);
+function PairPrompt({ onPair }: { onPair: () => void }) {
+  const floatA = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    if (!isConn) return;
-    m.current = true;
-    Animated.loop(Animated.sequence([
-      Animated.timing(ringA, { toValue: 1,   duration: 3000, useNativeDriver: true }),
-      Animated.timing(ringA, { toValue: 0.4, duration: 3000, useNativeDriver: true }),
-    ])).start();
-    return () => { m.current = false; };
-  }, [isConn]);
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(floatA, { toValue: 1, duration: 2200, useNativeDriver: true }),
+      Animated.timing(floatA, { toValue: 0, duration: 2200, useNativeDriver: true }),
+    ]));
+    loop.start(); return () => loop.stop();
+  }, []);
+  const translateY = floatA.interpolate({ inputRange: [0,1], outputRange: [0,-6] });
 
   return (
-    <View style={{ paddingHorizontal: PAD }}>
-      <Card>
-        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16, gap: 16 }}>
-          {/* Score circle */}
-          <View style={shs.circleWrap}>
-            <View style={[shs.circle, { borderColor: scoreColor + '60', backgroundColor: scoreColor + '10' }]}>
-              <HUDCorners color={scoreColor + '50'} size={8} t={1.5} />
-              {isConn && <Animated.View style={[shs.outerRing, { borderColor: scoreColor, opacity: ringA }]} />}
-              <Text style={[shs.scoreNum, { color: scoreColor }]} adjustsFontSizeToFit minimumFontScale={0.7}>
-                {isConn ? score : '—'}
-              </Text>
-              <Text style={[shs.scoreLabel, { color: scoreColor + '80' }]}>/100</Text>
-            </View>
+    <View style={pq.root}>
+      <View style={{ height: 3, flexDirection: 'row' }}>
+        {[CYAN, GREEN, AMBER, PURPLE, RED].map((c, i) => (
+          <View key={i} style={{ flex: 1, backgroundColor: c }} />
+        ))}
+      </View>
+      <View style={{ flexDirection: 'row', gap: 20, padding: 18, paddingTop: 16, alignItems: 'flex-start' }}>
+        <Animated.View style={{ transform: [{ translateY }] }}>
+          <View style={[pq.iconBox, { backgroundColor: AMBER + '14', borderColor: AMBER + '55' }]}>
+            <HUDCorners color={AMBER + '45'} size={8} />
+            <MaterialIcons name="qr-code-scanner" size={32} color={AMBER} />
           </View>
-
-          {/* Detail column */}
-          <View style={{ flex: 1, gap: 10 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={shs.title}>SYSTEM HEALTH</Text>
-              <View style={[shs.statusBadge, { borderColor: scoreColor + '50', backgroundColor: scoreColor + '0C' }]}>
-                <Text style={[shs.statusTxt, { color: scoreColor }]}>{scoreLabel}</Text>
-              </View>
-            </View>
-
-            {/* Mini bars */}
+        </Animated.View>
+        <View style={{ flex: 1, gap: 7 }}>
+          <Text style={pq.title}>Connect your PC</Text>
+          <Text style={pq.body}>Run butler_server.py on your PC, then scan the QR code that appears in the terminal. Instant local pairing — 100% private.</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
             {[
-              { label: 'CPU',  val: isConn ? cpu  : 0, color: cpu  > 80 ? RED : CYAN   },
-              { label: 'MEM',  val: isConn ? ram  : 0, color: ram  > 80 ? RED : GREEN  },
-              { label: 'DISK', val: isConn ? disk : 0, color: disk > 85 ? RED : PURPLE },
-            ].map(b => (
-              <View key={b.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={[shs.miniLabel, { color: MID }]}>{b.label}</Text>
-                <View style={{ flex: 1 }}>
-                  <SegBar value={b.val} color={b.color} height={4} />
-                </View>
-                <Text style={[shs.miniVal, { color: b.color }]}>{isConn ? `${Math.round(b.val)}%` : '—'}</Text>
+              { label: 'PYTHON', col: CYAN   },
+              { label: 'LAN ONLY', col: GREEN  },
+              { label: 'AES-256', col: PURPLE },
+              { label: 'HMAC',    col: AMBER  },
+            ].map(t => (
+              <View key={t.label} style={[pq.tag, { borderColor: t.col + '35', backgroundColor: t.col + '08' }]}>
+                <Text style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: '900', color: t.col + 'AA', letterSpacing: 0.5 }}>{t.label}</Text>
               </View>
             ))}
           </View>
         </View>
-      </Card>
+      </View>
+      <Pressable onPress={() => { haptics.heavy(); onPair(); }}
+        style={({ pressed }) => [pq.btn, { opacity: pressed ? 0.85 : 1 }]}>
+        <MaterialIcons name="qr-code-scanner" size={18} color={BG} />
+        <Text style={pq.btnTxt}>SCAN QR TO PAIR PC</Text>
+        <MaterialIcons name="arrow-forward" size={16} color={BG} />
+      </Pressable>
     </View>
   );
 }
-const shs = StyleSheet.create({
-  circleWrap:  { flexShrink: 0 },
-  circle:      { width: 90, height: 90, borderRadius: 45, borderWidth: 2, alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'visible' },
-  outerRing:   { position: 'absolute', width: 100, height: 100, borderRadius: 50, borderWidth: 1, top: -7, left: -7 },
-  scoreNum:    { fontFamily: MONO, fontSize: 28, fontWeight: '900', lineHeight: 30 },
-  scoreLabel:  { fontFamily: MONO, fontSize: 9, fontWeight: '700', marginTop: 2 },
-  title:       { fontFamily: MONO, fontSize: 9.5, fontWeight: '900', color: MID, letterSpacing: 1.2 },
-  statusBadge: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  statusTxt:   { fontFamily: MONO, fontSize: 8, fontWeight: '900' },
-  miniLabel:   { fontFamily: MONO, fontSize: 8, fontWeight: '700', width: 28, letterSpacing: 0.3 },
-  miniVal:     { fontFamily: MONO, fontSize: 9, fontWeight: '900', width: 34, textAlign: 'right' },
+const pq = StyleSheet.create({
+  root:   { backgroundColor: SURFACE, borderRadius: 18, borderWidth: 1.5, borderColor: AMBER + '30', overflow: 'hidden', marginHorizontal: PAD },
+  iconBox:{ width: 72, height: 72, borderRadius: 20, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0, position: 'relative', overflow: 'hidden' },
+  title:  { fontSize: 18, fontWeight: '700', color: TEXT },
+  body:   { fontFamily: MONO, fontSize: 11, color: MID, lineHeight: 17 },
+  tag:    { borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
+  btn:    { margin: 16, marginTop: 4, backgroundColor: AMBER, borderRadius: 14, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  btnTxt: { fontFamily: MONO, fontSize: 14, fontWeight: '900', color: BG },
 });
 
 // ══════════════════════════════════════════════════════════════════
-// SYSTEM METRICS — Segmented bars + stat quad + trend arrows
+// QUICK ACTIONS
 // ══════════════════════════════════════════════════════════════════
-function SystemMetrics({ isConn, cpu, ram, disk, latency }: {
-  isConn: boolean; cpu: number; ram: number; disk: number; latency: number;
-}) {
-  const bars = [
-    { label: 'CPU',    val: cpu,  color: cpu  > 80 ? RED : CYAN,   trend: cpu  > 70 ? 'up' : 'stable' as any },
-    { label: 'MEMORY', val: ram,  color: ram  > 85 ? RED : GREEN,  trend: ram  > 75 ? 'up' : 'stable' as any },
-    { label: 'DISK',   val: disk, color: disk > 90 ? RED : PURPLE, trend: 'stable' as any },
-  ];
-  const statusColor = isConn ? GREEN : AMBER;
-
-  return (
-    <View style={{ paddingHorizontal: PAD }}>
-      <Card>
-        <SectionHdr icon="chart-line" label="SYSTEM METRICS"
-          right={
-            <View style={[sm.badge, { borderColor: statusColor + '50', backgroundColor: statusColor + '0C' }]}>
-              <Text style={[sm.badgeTxt, { color: statusColor }]}>{isConn ? 'LIVE' : 'IDLE'}</Text>
-            </View>
-          }
-        />
-        <View style={{ paddingHorizontal: 16, gap: 13, marginBottom: 16 }}>
-          {bars.map(b => (
-            <View key={b.label} style={{ gap: 6 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: isConn ? b.color : DIM }} />
-                  <Text style={sm.barLabel}>{b.label}</Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                  {isConn && b.trend === 'up' && <MaterialIcons name="trending-up" size={11} color={RED + 'AA'} />}
-                  <Text style={[sm.barVal, { color: b.color }]}>{isConn ? `${Math.round(b.val)}%` : '—'}</Text>
-                </View>
-              </View>
-              <SegBar value={isConn ? b.val : 0} color={b.color} height={5} />
-            </View>
-          ))}
-        </View>
-
-        {/* Stat quad */}
-        <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 16 }}>
-          <StatCell icon="thermometer" value={isConn ? '—' : '—'} label="TEMP" color={CYAN} trend="stable" />
-          <StatCell icon="lightning-bolt" value={isConn ? 'UP' : '—'} label="UP" color={GREEN} trend="stable" />
-          <StatCell icon="lan-connect" value={isConn ? 'OK' : 'OFF'} label="STATE" color={isConn ? GREEN : MID} />
-          <StatCell icon="speedometer" value={isConn ? (latency > 0 ? `${latency}` : '—') : '—'} label="MS" color={AMBER} />
-        </View>
-      </Card>
-    </View>
-  );
-}
-const sm = StyleSheet.create({
-  badge:    { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  badgeTxt: { fontFamily: MONO, fontSize: 8.5, fontWeight: '900' },
-  barLabel: { fontFamily: MONO, fontSize: 9.5, fontWeight: '700', color: MID, letterSpacing: 0.5 },
-  barVal:   { fontFamily: MONO, fontSize: 9.5, fontWeight: '900' },
-});
-
-// ══════════════════════════════════════════════════════════════════
-// RUNTIME PANEL
-// ══════════════════════════════════════════════════════════════════
-function RuntimePanel({ isConn, scripts, kbCount }: { isConn: boolean; scripts: number; kbCount: number }) {
-  return (
-    <View style={{ paddingHorizontal: PAD }}>
-      <Card>
-        <SectionHdr icon="chart-timeline-variant" label="RUNTIME"
-          right={
-            <View style={[sm.badge, { borderColor: CYAN + '40', backgroundColor: CYAN + '0A' }]}>
-              <Text style={[sm.badgeTxt, { color: CYAN }]}>LIVE</Text>
-            </View>
-          }
-        />
-        <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingBottom: 16 }}>
-          {[
-            { label: 'SAMPLES', value: isConn ? String(scripts) : '0', sub: isConn ? 'executions' : '·', color: CYAN  },
-            { label: 'PEAK',    value: isConn ? `${Math.round(Math.max(0, (scripts * 3) % 100))}%` : '—', sub: 'cpu peak', color: AMBER },
-            { label: 'AVG',     value: isConn ? `${kbCount}` : '—',    sub: 'vectors',   color: GREEN },
-          ].map(r => (
-            <View key={r.label} style={[rt.cell, { borderColor: r.color + '25', borderTopColor: r.color, position: 'relative', overflow: 'hidden' }]}>
-              <Text style={[rt.cellLabel, { color: r.color + '80' }]}>{r.label}</Text>
-              <Text style={[rt.cellVal, { color: r.color }]}>{r.value}</Text>
-              <Text style={rt.cellSub}>{r.sub}</Text>
-            </View>
-          ))}
-        </View>
-        <View style={rt.timeline}>
-          <Text style={rt.timelineLabel}>–0s</Text>
-          <View style={{ flex: 1, height: 1.5, backgroundColor: CYAN + '40', borderRadius: 1 }}>
-            <Dot color={CYAN} size={5} />
-          </View>
-          <Text style={rt.timelineLabel}>realtime</Text>
-          <View style={{ flex: 1, height: 1.5, backgroundColor: CYAN + '15', borderRadius: 1 }} />
-          <Text style={rt.timelineLabel}>now</Text>
-        </View>
-      </Card>
-    </View>
-  );
-}
-const rt = StyleSheet.create({
-  cell:      { flex: 1, backgroundColor: SURFACE2, borderRadius: 12, borderWidth: 1, borderTopWidth: 3, padding: 12, gap: 4 },
-  cellLabel: { fontFamily: MONO, fontSize: 8, fontWeight: '900', letterSpacing: 1 },
-  cellVal:   { fontFamily: MONO, fontSize: 22, fontWeight: '900', lineHeight: 26, letterSpacing: -1 },
-  cellSub:   { fontFamily: MONO, fontSize: 8, color: DIM, marginTop: 2 },
-  timeline:  { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingBottom: 16 },
-  timelineLabel: { fontFamily: MONO, fontSize: 8.5, color: MID },
-});
-
-// ══════════════════════════════════════════════════════════════════
-// COMMAND GALLERY — 3-column preset script launcher
-// ══════════════════════════════════════════════════════════════════
-const GALLERY_CMDS = [
-  { icon: 'monitor-eye',           label: 'SYSMON',   color: CYAN,   script: `import platform,psutil\nprint(f"OS: {platform.system()} {platform.release()}")\nprint(f"CPU: {psutil.cpu_percent(1)}%  RAM: {psutil.virtual_memory().percent}%")` },
-  { icon: 'shield-search',         label: 'AUDIT',    color: GREEN,  script: `import os,platform\nprint(f"User: {os.getenv('USER') or os.getenv('USERNAME')}")\nprint(f"Home: {os.path.expanduser('~')}")\nprint(f"OS: {platform.version()[:60]}")` },
-  { icon: 'network-outline',       label: 'NETMAP',   color: AMBER,  script: `import socket,psutil\nnet=psutil.net_if_addrs()\nfor k,v in list(net.items())[:3]:\n for a in v:\n  if a.family==socket.AF_INET: print(f"{k}: {a.address}")` },
-  { icon: 'broom',                 label: 'CLEAN',    color: PURPLE, script: `import shutil,os,tempfile\ntd=tempfile.gettempdir();freed=0;n=0\nfor f in os.listdir(td):\n p=os.path.join(td,f)\n try:\n  sz=os.path.getsize(p) if os.path.isfile(p) else 0\n  (os.unlink if os.path.isfile(p) else shutil.rmtree)(p)\n  freed+=sz;n+=1\n except:pass\nprint(f"Freed {freed//1024//1024}MB from {n} items")` },
-  { icon: 'eye-circle-outline',    label: 'PROCS',    color: PINK,   script: `import psutil\nfor p in sorted(psutil.process_iter(['name','cpu_percent']),key=lambda x:x.info['cpu_percent'] or 0,reverse=True)[:5]:\n print(f"{p.info['name'][:20]:20} {p.info['cpu_percent']:.1f}%")` },
-  { icon: 'lightning-bolt-circle', label: 'PERF',     color: RED,    script: `import psutil,time\ncpu1=psutil.cpu_percent()\ntime.sleep(0.5)\ncpu2=psutil.cpu_percent()\nprint(f"CPU:{cpu2:.1f}% MEM:{psutil.virtual_memory().percent:.1f}%")\nprint(f"Threads:{psutil.cpu_count()} Load:{','.join(f'{x:.2f}' for x in psutil.getloadavg()) if hasattr(psutil,'getloadavg') else 'N/A'}")` },
+const QA_ITEMS = [
+  { icon: 'robot-happy-outline', label: 'CHAT',    tab: 'butler',    color: CYAN,   lib: 'c' },
+  { icon: 'code-braces',         label: 'SCRIPTS', tab: 'scripts',   color: GREEN,  lib: 'c' },
+  { icon: 'folder-network',      label: 'FILES',   tab: 'fileshare', color: PURPLE, lib: 'c' },
+  { icon: 'brain',               label: 'KNOW',    tab: 'knowledge', color: AMBER,  lib: 'c' },
 ];
 
-function CommandGallery({ isConn }: { isConn: boolean }) {
-  const [running, setRunning] = useState<number | null>(null);
-  const [result, setResult]   = useState<{ idx: number; text: string; ok: boolean } | null>(null);
-
-  const run = async (cmd: typeof GALLERY_CMDS[0], idx: number) => {
-    if (!isConn || running !== null) return;
-    haptics.heavy(); setRunning(idx); setResult(null);
-    try {
-      const ip = serverConnection.getIP(), port = serverConnection.getPort();
-      const tok = serverConnection.getToken?.() || '';
-      if (!ip || !port) throw new Error('Not paired');
-      const h: Record<string,string> = { 'Content-Type': 'application/json' };
-      if (tok) h['Authorization'] = 'Bearer ' + tok;
-      const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 25000);
-      const res = await fetch(`http://${ip}:${port}/api/execute`, {
-        method: 'POST', headers: h, body: JSON.stringify({ script: cmd.script }), signal: ctrl.signal,
-      });
-      const d = await res.json();
-      setResult({ idx, text: (d.output || d.error || 'Done').trim().slice(0, 300), ok: !d.error });
-      haptics.success();
-    } catch (e: any) {
-      setResult({ idx, text: 'Error: ' + (e?.message || 'Failed'), ok: false });
-    } finally { setRunning(null); }
-  };
+function QuickActions({ goToTab, onPair }: { goToTab: (t: string) => void; onPair: () => void }) {
+  const scales = useRef(QA_ITEMS.map(() => new Animated.Value(1))).current;
+  const pi = (i: number) => Animated.spring(scales[i], { toValue: 0.88, tension: 400, friction: 12, useNativeDriver: true }).start();
+  const po = (i: number) => Animated.spring(scales[i], { toValue: 1,    tension: 280, friction: 10, useNativeDriver: true }).start();
 
   return (
     <View style={{ paddingHorizontal: PAD }}>
-      <Card>
-        <SectionHdr icon="view-dashboard-outline" label="COMMAND GALLERY"
-          right={
-            <View style={[sm.badge, { borderColor: (isConn ? GREEN : RED) + '50', backgroundColor: (isConn ? GREEN : RED) + '0A' }]}>
-              <Text style={[sm.badgeTxt, { color: isConn ? GREEN : RED }]}>{isConn ? 'READY' : 'OFFLINE'}</Text>
-            </View>
-          }
-        />
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10, paddingBottom: result ? 2 : 14, gap: 0 }}>
-          {GALLERY_CMDS.map((c, i) => {
-            const isRun = running === i;
-            return (
-              <TouchableOpacity key={i} onPress={() => run(c, i)}
-                disabled={!isConn || running !== null} activeOpacity={0.78}
-                style={[cg.cell, !isConn && { opacity: 0.3 }]}>
-                {/* Top accent */}
-                <View style={[cg.topAccent, { backgroundColor: c.color }]} />
-                <View style={[cg.iconBox, { borderColor: c.color + '50', backgroundColor: c.color + '12' }]}>
-                  {isRun
-                    ? <ActivityIndicator size="small" color={c.color} />
-                    : <MaterialCommunityIcons name={c.icon as any} size={22} color={c.color} />
-                  }
-                </View>
-                <Text style={[cg.label, { color: isRun ? c.color : TEXT2 }]}>{c.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-        {result && (
-          <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
-            <View style={[cg.resultBox, { borderColor: (result.ok ? GREEN : RED) + '50', backgroundColor: (result.ok ? GREEN : RED) + '08' }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <MaterialIcons name={result.ok ? 'check-circle' : 'error'} size={12} color={result.ok ? GREEN : RED} />
-                  <Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '900', color: result.ok ? GREEN : RED }}>
-                    {GALLERY_CMDS[result.idx]?.label} OUTPUT
-                  </Text>
-                </View>
-                <TouchableOpacity onPress={() => setResult(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <MaterialIcons name="close" size={13} color={MID} />
-                </TouchableOpacity>
+      <View style={qa.row}>
+        {QA_ITEMS.map((a, i) => (
+          <Pressable key={a.label}
+            onPress={() => { haptics.medium(); a.tab === 'pair' ? onPair() : goToTab(a.tab); }}
+            onPressIn={() => pi(i)} onPressOut={() => po(i)}
+            style={{ flex: 1 }}>
+            <Animated.View style={[qa.cell, {
+              backgroundColor: SURFACE, borderColor: a.color + '28', borderTopColor: a.color, borderTopWidth: 2.5,
+              transform: [{ scale: scales[i] }],
+            }]}>
+              <View style={[qa.iconBubble, { backgroundColor: a.color + '14', borderColor: a.color + '40' }]}>
+                <MaterialCommunityIcons name={a.icon as any} size={24} color={a.color} />
               </View>
-              <Text style={{ fontFamily: MONO, fontSize: 11, color: result.ok ? '#88FFCC' : '#FF9090', lineHeight: 17 }} selectable>
-                {result.text}
-              </Text>
-            </View>
-          </View>
-        )}
-      </Card>
-    </View>
-  );
-}
-const cg = StyleSheet.create({
-  cell:      { width: '33.33%', alignItems: 'center', paddingVertical: 14, gap: 8, position: 'relative', overflow: 'hidden' },
-  topAccent: { position: 'absolute', top: 0, left: 8, right: 8, height: 2, borderRadius: 1, opacity: 0.6 },
-  iconBox:   { width: 52, height: 52, borderRadius: 15, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  label:     { fontFamily: MONO, fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
-  resultBox: { borderWidth: 1.5, borderRadius: 12, padding: 12 },
-});
-
-// ══════════════════════════════════════════════════════════════════
-// ACTIVITY FEED — Upgraded with color-coded status icons
-// ══════════════════════════════════════════════════════════════════
-interface ActivityItem { icon: string; lib: 'c' | 'm'; title: string; sub: string; time: string; color: string; status: 'ok' | 'warn' | 'info' }
-
-function ActivityFeed({ isConn, addr }: { isConn: boolean; addr: string }) {
-  const items: ActivityItem[] = [
-    { icon: 'handshake',        lib: 'c', title: isConn ? 'Bridge handshake OK' : 'Bridge unpaired', sub: 'CONNECTION', time: 'now', color: isConn ? GREEN : MID, status: isConn ? 'ok' : 'warn' },
-    { icon: 'brain',            lib: 'c', title: 'Knowledge base indexed', sub: 'BUTLER · 250+ scripts', time: '1m', color: CYAN, status: 'ok' },
-    { icon: 'shield-check',     lib: 'c', title: 'AES-256 auth active', sub: 'SECURITY · HMAC-SHA256', time: '2m', color: PURPLE, status: 'ok' },
-    { icon: 'file-sync-outline',lib: 'c', title: 'Script cache warm', sub: 'FORGE · local store', time: '5m', color: AMBER, status: 'info' },
-  ];
-
-  return (
-    <View style={{ paddingHorizontal: PAD }}>
-      <Card>
-        <SectionHdr icon="history" label="ACTIVITY"
-          right={
-            <TouchableOpacity activeOpacity={0.8} style={[sm.badge, { borderColor: BORDER }]}>
-              <Text style={[sm.badgeTxt, { color: MID }]}>VIEW ALL</Text>
-            </TouchableOpacity>
-          }
-        />
-        <View style={{ paddingHorizontal: 16, gap: 2, paddingBottom: 12 }}>
-          {items.map((item, i) => {
-            const Icon = item.lib === 'c' ? MaterialCommunityIcons : MaterialIcons;
-            const statusDot = item.status === 'ok' ? GREEN : item.status === 'warn' ? AMBER : CYAN;
-            return (
-              <View key={i} style={[af.row, i < items.length - 1 && { borderBottomWidth: 1, borderBottomColor: BORDER }]}>
-                <View style={[af.iconBox, { backgroundColor: item.color + '14', borderColor: item.color + '35' }]}>
-                  <Icon name={item.icon as any} size={14} color={item.color} />
-                  <View style={[af.statusDot, { backgroundColor: statusDot }]} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={af.title}>{item.title}</Text>
-                  <Text style={af.sub}>{item.sub}</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                  <Text style={af.time}>{item.time}</Text>
-                  <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: statusDot + '80' }} />
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      </Card>
-    </View>
-  );
-}
-const af = StyleSheet.create({
-  row:       { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 },
-  iconBox:   { width: 38, height: 38, borderRadius: 11, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0, position: 'relative' },
-  statusDot: { position: 'absolute', top: -2, right: -2, width: 7, height: 7, borderRadius: 3.5, borderWidth: 1, borderColor: SURFACE },
-  title:     { fontSize: 13, fontWeight: '600', color: TEXT, marginBottom: 2 },
-  sub:       { fontFamily: MONO, fontSize: 9, color: MID, letterSpacing: 0.3 },
-  time:      { fontFamily: MONO, fontSize: 9, color: DIM },
-});
-
-// ══════════════════════════════════════════════════════════════════
-// CORE SURFACES — 3×3 grid with press animations
-// ══════════════════════════════════════════════════════════════════
-const SURFACES = [
-  { icon: 'robot-happy-outline',   label: 'Chat',     tab: 'butler',    color: CYAN,   hex: 'chat-butler'   },
-  { icon: 'auto-fix',              label: 'Flows',    tab: 'builder',   color: GREEN,  hex: 'flows-forge'   },
-  { icon: 'code-braces',           label: 'Scripts',  tab: 'scripts',   color: AMBER,  hex: 'scripts-lib'   },
-  { icon: 'brain',                 label: 'KB',       tab: 'knowledge', color: PURPLE, hex: 'kb-nexus'      },
-  { icon: 'folder-network',        label: 'Files',    tab: 'fileshare', color: PINK,   hex: 'vault-files'   },
-  { icon: 'chart-bar',             label: 'Logs',     tab: 'logs',      color: RED,    hex: 'pc-intel'      },
-  { icon: 'monitor-dashboard',     label: 'PC',       tab: 'connect',   color: CYAN,   hex: 'remote-ctrl'   },
-  { icon: 'palette-swatch',        label: 'Theme',    tab: 'cosmetic',  color: PURPLE, hex: 'skins-fx'      },
-  { icon: 'tune-variant',          label: 'System',   tab: 'settings',  color: MID,    hex: 'sys-config'    },
-];
-
-function CoreSurfaces({ goToTab }: { goToTab: (t: string) => void }) {
-  const scaleAs = useRef(SURFACES.map(() => new Animated.Value(1))).current;
-  const pressIn  = (i: number) => Animated.spring(scaleAs[i], { toValue: 0.88, tension: 400, friction: 12, useNativeDriver: true }).start();
-  const pressOut = (i: number) => Animated.spring(scaleAs[i], { toValue: 1,    tension: 280, friction: 10, useNativeDriver: true }).start();
-
-  return (
-    <View style={{ paddingHorizontal: PAD }}>
-      <Card>
-        <SectionHdr icon="view-grid" label="CORE SURFACES" />
-        {/* Rainbow divider */}
-        <View style={{ height: 3, flexDirection: 'row', marginHorizontal: 16, borderRadius: 2, overflow: 'hidden', marginBottom: 14 }}>
-          {SURFACES.map((s, i) => (
-            <View key={i} style={{ flex: 1, backgroundColor: s.color, opacity: 0.8 }} />
-          ))}
-        </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10, paddingBottom: 14, gap: 8 }}>
-          {SURFACES.map((s, i) => (
-            <Pressable key={i}
-              onPress={() => { haptics.light(); goToTab(s.tab); }}
-              onPressIn={() => pressIn(i)}
-              onPressOut={() => pressOut(i)}
-              style={{ width: `${(100 - 16) / 3}%` as any }}>
-              <Animated.View style={[cs.cell, {
-                borderColor: s.color + '30',
-                borderTopColor: s.color,
-                borderTopWidth: 2.5,
-                backgroundColor: SURFACE2,
-                transform: [{ scale: scaleAs[i] }],
-                overflow: 'hidden',
-                position: 'relative',
-              }]}>
-                {/* Hex tag top-right */}
-                <View style={{ position: 'absolute', top: 5, right: 4 }}>
-                  <HexTag seed={s.hex} color={s.color} opacity={0.42} />
-                </View>
-                <View style={[cs.iconBubble, { borderColor: s.color + '55', backgroundColor: s.color + '12' }]}>
-                  <MaterialCommunityIcons name={s.icon as any} size={22} color={s.color} />
-                </View>
-                <Text style={[cs.label, { color: s.color + 'BB' }]}>{s.label}</Text>
-              </Animated.View>
-            </Pressable>
-          ))}
-        </View>
-      </Card>
-    </View>
-  );
-}
-const cs = StyleSheet.create({
-  cell:       { alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 14, paddingTop: 18, borderRadius: 13, borderWidth: 1 },
-  iconBubble: { width: 44, height: 44, borderRadius: 13, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  label:      { fontFamily: 'monospace', fontSize: 10.5, fontWeight: '700' },
-});
-
-// ══════════════════════════════════════════════════════════════════
-// ZERO CLOUD CARD
-// ══════════════════════════════════════════════════════════════════
-function ZeroCloudCard() {
-  return (
-    <View style={{ paddingHorizontal: PAD }}>
-      <View style={zc.root}>
-        {/* Rainbow top strip */}
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2.5, flexDirection: 'row' }}>
-          {[CYAN, GREEN, AMBER, PURPLE, RED].map((c, i) => <View key={i} style={{ flex: 1, backgroundColor: c }} />)}
-        </View>
-        <CornerFrame color={CYAN + '38'} size={9} thickness={1.5} />
-        <View style={[zc.iconBox, { backgroundColor: CYAN + '14', borderColor: CYAN + '40' }]}>
-          <MaterialCommunityIcons name="shield-off-outline" size={22} color={CYAN} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={zc.title}>Zero-cloud architecture</Text>
-          <Text style={zc.sub}>All execution on-device or your paired PC. Nothing leaves your network.</Text>
-        </View>
-        <View style={[zc.powerBtn, { backgroundColor: CYAN + '14', borderColor: CYAN + '35' }]}>
-          <MaterialCommunityIcons name="power" size={18} color={CYAN} />
-        </View>
+              <Text style={[qa.label, { color: a.color + 'AA' }]}>{a.label}</Text>
+            </Animated.View>
+          </Pressable>
+        ))}
       </View>
     </View>
   );
 }
-const zc = StyleSheet.create({
-  root:    { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: SURFACE, borderRadius: 14, borderWidth: 1, borderColor: BORDER, padding: 16, paddingTop: 18, overflow: 'hidden', position: 'relative' },
-  iconBox: { width: 44, height: 44, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  title:   { fontSize: 14, fontWeight: '700', color: TEXT, marginBottom: 3 },
-  sub:     { fontSize: 11, color: MID, lineHeight: 16 },
-  powerBtn:{ width: 38, height: 38, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+const qa = StyleSheet.create({
+  row:       { flexDirection: 'row', gap: 8 },
+  cell:      { alignItems: 'center', paddingVertical: 15, paddingTop: 17, gap: 8, borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
+  iconBubble:{ width: 50, height: 50, borderRadius: 15, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  label:     { fontFamily: MONO, fontSize: 10, fontWeight: '900', letterSpacing: 0.5, textAlign: 'center' },
 });
 
 // ══════════════════════════════════════════════════════════════════
-// QUICK SCRIPTS PANEL
+// LIVE GAUGES
 // ══════════════════════════════════════════════════════════════════
-const Q_SCRIPTS = [
-  { id: 's1', icon: 'monitor',          label: 'SYS INFO', color: CYAN,
-    script: `import platform,socket\nprint(f"OS: {platform.system()} {platform.release()}")\nprint(f"Host: {socket.gethostname()}")` },
-  { id: 's2', icon: 'broom',            label: 'CLEAN TMP', color: GREEN,
-    script: `import shutil,os,tempfile\nfreed=0;n=0\nfor item in os.listdir(tempfile.gettempdir()):\n fp=os.path.join(tempfile.gettempdir(),item)\n try:\n  sz=os.path.getsize(fp) if os.path.isfile(fp) else 0\n  (os.unlink if os.path.isfile(fp) else shutil.rmtree)(fp)\n  freed+=sz;n+=1\n except:pass\nprint(f"Cleared {n} items, {freed//1024//1024}MB")` },
-  { id: 's3', icon: 'harddisk',         label: 'DISK', color: PURPLE,
-    script: `import psutil\nfor p in psutil.disk_partitions():\n try:\n  u=psutil.disk_usage(p.mountpoint)\n  print(f"{p.mountpoint}: {u.used/1024**3:.1f}/{u.total/1024**3:.1f}GB ({u.percent}%)")\n except:pass` },
-  { id: 's4', icon: 'wifi',             label: 'NETWORK', color: AMBER,
-    script: `import psutil,socket\nnet=psutil.net_io_counters()\nprint(f"Sent: {net.bytes_sent/1024/1024:.1f}MB")\nprint(f"Recv: {net.bytes_recv/1024/1024:.1f}MB")\ns=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)\ns.connect(("8.8.8.8",80));ip=s.getsockname()[0];s.close()\nprint(f"IP: {ip}")` },
-  { id: 's5', icon: 'memory',           label: 'PROCS', color: PINK,
-    script: `import psutil\nprocs=sorted(psutil.process_iter(['name','cpu_percent']),key=lambda p:p.info['cpu_percent'] or 0,reverse=True)[:6]\nfor p in procs: print(f"{p.info['name'][:18]:18} {p.info['cpu_percent']:.1f}%")` },
-  { id: 's6', icon: 'battery-charging', label: 'BATTERY', color: '#AAFF00',
-    script: `import psutil\nb=psutil.sensors_battery()\nif b: print(f"Level: {b.percent:.0f}%\\nPlugged: {b.power_plugged}")\nelse: print("No battery (desktop?)")` },
+function ArcGauge({ val, color, label, isConn }: { val: number; color: string; label: string; isConn: boolean }) {
+  const v = isConn ? Math.round(val) : 0;
+  const fillH = (v / 100) * 72;
+  const pulseA = useRef(new Animated.Value(0.5)).current;
+  useEffect(() => {
+    if (!isConn) return;
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(pulseA, { toValue: 1,   duration: 2200, useNativeDriver: true }),
+      Animated.timing(pulseA, { toValue: 0.3, duration: 2200, useNativeDriver: true }),
+    ]));
+    loop.start(); return () => loop.stop();
+  }, [isConn]);
+
+  return (
+    <View style={{ alignItems: 'center', flex: 1, gap: 8 }}>
+      <Animated.View style={{ opacity: isConn ? pulseA : 1 }}>
+        <View style={[ag.ring, { borderColor: isConn ? color + '55' : DIM + '25' }]}>
+          <View style={[ag.fill, { height: fillH, backgroundColor: color + (isConn ? '22' : '06') }]} />
+          <View style={ag.center}>
+            <Text style={[ag.val, { color: isConn ? color : DIM }]} adjustsFontSizeToFit>
+              {isConn ? v : '—'}
+            </Text>
+            {isConn && <Text style={[ag.pct, { color: color + '80' }]}>%</Text>}
+          </View>
+          {isConn && <View style={[ag.topBar, { backgroundColor: color }]} />}
+        </View>
+      </Animated.View>
+      <Text style={[ag.label, { color: isConn ? color + 'A0' : DIM }]}>{label}</Text>
+    </View>
+  );
+}
+const ag = StyleSheet.create({
+  ring:   { width: 80, height: 80, borderRadius: 40, borderWidth: 1.5, backgroundColor: SURF2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  fill:   { position: 'absolute', bottom: 0, left: 0, right: 0, borderRadius: 40 },
+  center: { flexDirection: 'row', alignItems: 'baseline', gap: 1 },
+  val:    { fontFamily: MONO, fontSize: 22, fontWeight: '900', lineHeight: 26 },
+  pct:    { fontFamily: MONO, fontSize: 10, fontWeight: '700', marginBottom: 2 },
+  topBar: { position: 'absolute', top: 0, left: 0, right: 0, height: 3, opacity: 0.9 },
+  label:  { fontFamily: MONO, fontSize: 9.5, fontWeight: '900', letterSpacing: 1 },
+});
+
+function LiveGauges({ isConn, cpu, ram, disk, cpuH, ramH, diskH }: {
+  isConn: boolean; cpu: number; ram: number; disk: number;
+  cpuH: number[]; ramH: number[]; diskH: number[];
+}) {
+  const cpuC  = cpu  > 80 ? RED : CYAN;
+  const ramC  = ram  > 85 ? RED : GREEN;
+  const diskC = disk > 90 ? RED : PURPLE;
+
+  return (
+    <View style={{ paddingHorizontal: PAD }}>
+      <View style={[lg.card, { backgroundColor: SURFACE }]}>
+        <View style={lg.hdr}>
+          <MaterialCommunityIcons name="gauge" size={14} color={CYAN} />
+          <Text style={lg.hdrTxt}>LIVE GAUGES</Text>
+          <View style={{ flex: 1 }} />
+          <View style={[lg.statusPill, { borderColor: (isConn ? GREEN : AMBER) + '55', backgroundColor: (isConn ? GREEN : AMBER) + '0A' }]}>
+            <PulseDot color={isConn ? GREEN : AMBER} size={5} />
+            <Text style={[lg.statusTxt, { color: isConn ? GREEN : AMBER }]}>{isConn ? 'LIVE' : 'STANDBY'}</Text>
+          </View>
+        </View>
+        <HUDCorners color={CYAN + '30'} size={10} />
+        <View style={lg.gaugesRow}>
+          <ArcGauge val={cpu}  color={cpuC}  label="CPU"  isConn={isConn} />
+          <View style={lg.divider} />
+          <ArcGauge val={ram}  color={ramC}  label="RAM"  isConn={isConn} />
+          <View style={lg.divider} />
+          <ArcGauge val={disk} color={diskC} label="DISK" isConn={isConn} />
+        </View>
+        {isConn ? (
+          <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 14, gap: 0 }}>
+            <View style={{ flex: 1, paddingHorizontal: 6 }}><Sparkline data={cpuH}  color={cpuC}  height={18} /></View>
+            <View style={{ width: 1, backgroundColor: BORDER }} />
+            <View style={{ flex: 1, paddingHorizontal: 6 }}><Sparkline data={ramH}  color={ramC}  height={18} /></View>
+            <View style={{ width: 1, backgroundColor: BORDER }} />
+            <View style={{ flex: 1, paddingHorizontal: 6 }}><Sparkline data={diskH} color={diskC} height={18} /></View>
+          </View>
+        ) : (
+          <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+            <Text style={{ fontFamily: MONO, fontSize: 10, color: DIM, textAlign: 'center', letterSpacing: 0.5 }}>
+              Pair your PC to see live metrics
+            </Text>
+          </View>
+        )}
+        {isConn && (
+          <View style={{ paddingHorizontal: 16, paddingBottom: 16, gap: 8 }}>
+            {[[cpu, cpuC, 'CPU'],[ram, ramC, 'RAM'],[disk, diskC, 'DISK']].map(([v,c,l]) => (
+              <View key={l as string} style={{ gap: 4 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ fontFamily: MONO, fontSize: 9, color: MID, fontWeight: '700' }}>{l}</Text>
+                  <Text style={{ fontFamily: MONO, fontSize: 9, color: c as string, fontWeight: '900' }}>{Math.round(v as number)}%</Text>
+                </View>
+                <SegBar value={v as number} color={c as string} height={4} />
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+const lg = StyleSheet.create({
+  card:       { borderRadius: 18, borderWidth: 1, borderColor: BORDER, overflow: 'hidden', position: 'relative' },
+  hdr:        { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 15, paddingBottom: 12 },
+  hdrTxt:     { fontFamily: MONO, fontSize: 10, fontWeight: '900', color: CYAN + 'CC', letterSpacing: 1.4 },
+  statusPill: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4 },
+  statusTxt:  { fontFamily: MONO, fontSize: 8.5, fontWeight: '900' },
+  gaugesRow:  { flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 10 },
+  divider:    { width: 1, alignSelf: 'stretch', backgroundColor: BORDER, marginHorizontal: 4 },
+});
+
+// ══════════════════════════════════════════════════════════════════
+// CLIPBOARD WIDGET
+// ══════════════════════════════════════════════════════════════════
+function ClipboardWidget({ isConn }: { isConn: boolean }) {
+  const [text,      setText]      = useState('');
+  const [pcClip,    setPcClip]    = useState('');
+  const [statusMsg, setStatusMsg] = useState('');
+  const [busy,      setBusy]      = useState<'pull'|'push'|'type'|null>(null);
+  const glowA = useRef(new Animated.Value(0.3)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(glowA, { toValue: 0.8,  duration: 1500, useNativeDriver: false }),
+      Animated.timing(glowA, { toValue: 0.15, duration: 1500, useNativeDriver: false }),
+    ]));
+    loop.start(); return () => loop.stop();
+  }, []);
+
+  const pasteFromPhone = async () => {
+    try {
+      const s = await ExpoClipboard.getStringAsync();
+      if (s) { setText(s); setStatusMsg('Pasted from phone'); haptics.success(); }
+      else   setStatusMsg('Phone clipboard is empty');
+    } catch { setStatusMsg('Could not read phone clipboard'); }
+  };
+
+  const pullFromPC = async () => {
+    setBusy('pull');
+    try {
+      const s = await pcClipboard.pullFromPC();
+      setPcClip(s || '(empty)'); setText(s || ''); setStatusMsg('Copied from PC ✓'); haptics.success();
+    } catch (e: any) { setStatusMsg('Error: ' + (e?.message || 'Failed')); }
+    setBusy(null);
+  };
+
+  const pushToPC = async () => {
+    if (!text.trim()) { setStatusMsg('Enter text to send'); return; }
+    setBusy('push');
+    try {
+      await pcClipboard.pushToPC(text);
+      setStatusMsg('Sent to PC clipboard ✓'); haptics.success();
+    } catch (e: any) { setStatusMsg('Error: ' + (e?.message || 'Failed')); }
+    setBusy(null);
+  };
+
+  const typeOnPC = async () => {
+    if (!text.trim()) { setStatusMsg('Enter text to type'); return; }
+    setBusy('type');
+    try {
+      await pcClipboard.typeOnPC(text);
+      setStatusMsg('Typed on PC ✓'); haptics.success();
+    } catch (e: any) { setStatusMsg('Error: ' + (e?.message || 'Failed')); }
+    setBusy(null);
+  };
+
+  const statusColor = statusMsg.includes('✓') ? GREEN : statusMsg.includes('Error') ? RED : AMBER;
+
+  return (
+    <View style={{ paddingHorizontal: PAD }}>
+      <View style={[cw.root, { backgroundColor: SURFACE }]}>
+        <View style={cw.hdr}>
+          <Animated.View style={{ opacity: glowA }}>
+            <View style={[cw.iconBox, { backgroundColor: CYAN + '14', borderColor: CYAN + '50' }]}>
+              <MaterialCommunityIcons name="clipboard-arrow-left-right-outline" size={22} color={CYAN} />
+            </View>
+          </Animated.View>
+          <View style={{ flex: 1 }}>
+            <Text style={cw.title}>CLIPBOARD SYNC</Text>
+            <Text style={cw.sub}>Phone ↔ PC · instant transfer · no cloud</Text>
+          </View>
+          {!isConn && (
+            <View style={[cw.offlineBadge, { borderColor: AMBER + '50', backgroundColor: AMBER + '0A' }]}>
+              <MaterialIcons name="wifi-off" size={10} color={AMBER} />
+              <Text style={{ fontFamily: MONO, fontSize: 8, color: AMBER, fontWeight: '900' }}>OFFLINE</Text>
+            </View>
+          )}
+        </View>
+        <HUDCorners color={CYAN + '30'} size={8} />
+        <View style={[cw.textArea, { borderColor: CYAN + (text ? '55' : '25') }]}>
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            placeholder="Type or paste text to send to PC..."
+            placeholderTextColor={DIM}
+            style={cw.textInput}
+            multiline
+            numberOfLines={3}
+            maxLength={2000}
+            textAlignVertical="top"
+          />
+          {text.length > 0 && (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 6, borderTopWidth: 1, borderTopColor: BORDER }}>
+              <Text style={{ fontFamily: MONO, fontSize: 9, color: DIM }}>{text.length} chars</Text>
+              <TouchableOpacity onPress={() => setText('')}>
+                <Text style={{ fontFamily: MONO, fontSize: 9, color: RED, fontWeight: '900' }}>CLEAR</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+        {!!pcClip && (
+          <View style={cw.pcPreview}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              <MaterialCommunityIcons name="desktop-classic" size={11} color={GREEN} />
+              <Text style={{ fontFamily: MONO, fontSize: 9, color: GREEN, fontWeight: '900' }}>PC CLIPBOARD</Text>
+            </View>
+            <Text style={{ fontFamily: MONO, fontSize: 11, color: TEXT2, lineHeight: 16 }} numberOfLines={3}>{pcClip}</Text>
+          </View>
+        )}
+        <View style={cw.actionsRow}>
+          <TouchableOpacity onPress={pasteFromPhone} activeOpacity={0.8}
+            style={[cw.actionBtn, { borderColor: CYAN + '40', backgroundColor: CYAN + '0C' }]}>
+            <MaterialCommunityIcons name="cellphone-arrow-down" size={16} color={CYAN} />
+            <Text style={[cw.actionTxt, { color: CYAN }]}>PASTE</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={pullFromPC} disabled={!isConn || busy === 'pull'} activeOpacity={0.8}
+            style={[cw.actionBtn, { borderColor: (isConn ? TEAL : DIM) + '50', backgroundColor: (isConn ? TEAL : DIM) + '0A', opacity: isConn ? 1 : 0.45 }]}>
+            {busy === 'pull'
+              ? <ActivityIndicator size="small" color={TEAL} />
+              : <MaterialCommunityIcons name="arrow-down-circle-outline" size={16} color={isConn ? TEAL : DIM} />}
+            <Text style={[cw.actionTxt, { color: isConn ? TEAL : DIM }]}>PULL PC</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={pushToPC} disabled={!isConn || busy === 'push' || !text.trim()} activeOpacity={0.8}
+            style={[cw.actionBtn, { borderColor: (isConn ? GREEN : DIM) + '50', backgroundColor: (isConn ? GREEN : DIM) + '0A', opacity: (isConn && text.trim()) ? 1 : 0.45 }]}>
+            {busy === 'push'
+              ? <ActivityIndicator size="small" color={GREEN} />
+              : <MaterialCommunityIcons name="arrow-up-circle-outline" size={16} color={isConn ? GREEN : DIM} />}
+            <Text style={[cw.actionTxt, { color: isConn ? GREEN : DIM }]}>PUSH PC</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={typeOnPC} disabled={!isConn || busy === 'type' || !text.trim()} activeOpacity={0.8}
+            style={[cw.actionBtn, { borderColor: (isConn ? PURPLE : DIM) + '50', backgroundColor: (isConn ? PURPLE : DIM) + '0A', opacity: (isConn && text.trim()) ? 1 : 0.45 }]}>
+            {busy === 'type'
+              ? <ActivityIndicator size="small" color={PURPLE} />
+              : <MaterialCommunityIcons name="keyboard-outline" size={16} color={isConn ? PURPLE : DIM} />}
+            <Text style={[cw.actionTxt, { color: isConn ? PURPLE : DIM }]}>TYPE PC</Text>
+          </TouchableOpacity>
+        </View>
+        {!!statusMsg && (
+          <View style={[cw.status, { borderColor: statusColor + '35', backgroundColor: statusColor + '08' }]}>
+            <MaterialIcons name={statusMsg.includes('✓') ? 'check-circle' : 'info'} size={12} color={statusColor} />
+            <Text style={{ fontFamily: MONO, fontSize: 10.5, color: statusColor, flex: 1 }}>{statusMsg}</Text>
+            <TouchableOpacity onPress={() => setStatusMsg('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <MaterialIcons name="close" size={12} color={DIM} />
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+const cw = StyleSheet.create({
+  root:       { borderRadius: 18, borderWidth: 1, borderColor: CYAN + '28', overflow: 'hidden', position: 'relative' },
+  hdr:        { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, paddingBottom: 14 },
+  iconBox:    { width: 46, height: 46, borderRadius: 13, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  title:      { fontSize: 15, fontWeight: '700', color: TEXT, marginBottom: 2 },
+  sub:        { fontFamily: MONO, fontSize: 10, color: MID, lineHeight: 15 },
+  offlineBadge:{ flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  textArea:   { marginHorizontal: 16, borderRadius: 12, borderWidth: 1.5, padding: 12, backgroundColor: SURF2 },
+  textInput:  { fontFamily: MONO, fontSize: 13, color: TEXT, minHeight: 66, maxHeight: 120, lineHeight: 20 },
+  pcPreview:  { marginHorizontal: 16, marginTop: 10, borderRadius: 10, borderWidth: 1, borderColor: GREEN + '30', backgroundColor: GREEN + '06', padding: 10 },
+  actionsRow: { flexDirection: 'row', gap: 8, padding: 16, paddingTop: 12 },
+  actionBtn:  { flex: 1, flexDirection: 'column', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 4 },
+  actionTxt:  { fontFamily: MONO, fontSize: 8, fontWeight: '900', letterSpacing: 0.3 },
+  status:     { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 14, padding: 10, borderRadius: 10, borderWidth: 1 },
+});
+
+// ══════════════════════════════════════════════════════════════════
+// FILE SHARE WIDGET
+// ══════════════════════════════════════════════════════════════════
+function FileShareWidget({ isConn }: { isConn: boolean }) {
+  const [file,   setFile]   = useState<{ name: string; uri: string; size?: number } | null>(null);
+  const [busy,   setBusy]   = useState(false);
+  const [status, setStatus] = useState('');
+  const shakeA = useRef(new Animated.Value(0)).current;
+
+  const shake = () => {
+    Animated.sequence([
+      Animated.timing(shakeA, { toValue: 6,  duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeA, { toValue: -6, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeA, { toValue: 4,  duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeA, { toValue: -4, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeA, { toValue: 0,  duration: 60, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const pickFile = async () => {
+    haptics.medium();
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
+      if (!result.canceled && result.assets?.[0]) {
+        const a = result.assets[0];
+        setFile({ name: a.name, uri: a.uri, size: a.size });
+        setStatus('');
+      }
+    } catch (e: any) {
+      setStatus('Could not pick file: ' + (e?.message || 'Unknown'));
+    }
+  };
+
+  const sendFile = async () => {
+    if (!file) { shake(); return; }
+    if (!isConn) { setStatus('Connect your PC first'); shake(); return; }
+    setBusy(true); setStatus('Uploading...');
+    try {
+      const ip   = serverConnection.getIP();
+      const port = serverConnection.getPort();
+      const tok  = serverConnection.getToken?.() || '';
+      if (!ip || !port) throw new Error('Not connected');
+      const fd = new FormData();
+      fd.append('file', { uri: file.uri, name: file.name, type: 'application/octet-stream' } as any);
+      const h: Record<string,string> = {};
+      if (tok) h['Authorization'] = 'Bearer ' + tok;
+      const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 60000);
+      const res = await fetch(`http://${ip}:${port}/api/receive_file`, { method: 'POST', headers: h, body: fd, signal: ctrl.signal });
+      if (!res.ok) throw new Error(`Server ${res.status}`);
+      setStatus(`Sent ${file.name} ✓`); haptics.success(); setFile(null);
+    } catch (e: any) {
+      setStatus('Error: ' + (e?.message?.slice(0, 60) || 'Failed'));
+    }
+    setBusy(false);
+  };
+
+  const statusColor = status.includes('✓') ? GREEN : status.includes('Error') ? RED : AMBER;
+  const bytes = file?.size ? (file.size < 1024 ? `${file.size}B` : file.size < 1048576 ? `${(file.size/1024).toFixed(1)}KB` : `${(file.size/1048576).toFixed(1)}MB`) : '';
+
+  return (
+    <View style={{ paddingHorizontal: PAD }}>
+      <View style={[fs.root, { backgroundColor: SURFACE, borderColor: PURPLE + '28' }]}>
+        <View style={{ height: 3, backgroundColor: PURPLE }} />
+        <View style={fs.hdr}>
+          <View style={[fs.iconBox, { backgroundColor: PURPLE + '14', borderColor: PURPLE + '50' }]}>
+            <MaterialCommunityIcons name="folder-arrow-right-outline" size={22} color={PURPLE} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={fs.title}>FILE TRANSFER</Text>
+            <Text style={fs.sub}>Phone → PC · direct LAN · no cloud storage</Text>
+          </View>
+          {!isConn && (
+            <View style={[cw.offlineBadge, { borderColor: AMBER + '40', backgroundColor: AMBER + '0A' }]}>
+              <Text style={{ fontFamily: MONO, fontSize: 8, color: AMBER, fontWeight: '900' }}>PAIR PC</Text>
+            </View>
+          )}
+        </View>
+        <Pressable onPress={pickFile} style={({ pressed }) => [fs.dropZone, { opacity: pressed ? 0.8 : 1, borderColor: file ? PURPLE + '60' : BORDER }]}>
+          {file ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={[fs.fileIcon, { backgroundColor: PURPLE + '14', borderColor: PURPLE + '40' }]}>
+                <MaterialCommunityIcons name="file-check-outline" size={22} color={PURPLE} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={fs.fileName} numberOfLines={2}>{file.name}</Text>
+                {bytes ? <Text style={fs.fileSize}>{bytes}</Text> : null}
+              </View>
+              <TouchableOpacity onPress={() => { setFile(null); setStatus(''); }}>
+                <MaterialIcons name="close" size={16} color={RED + '80'} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={{ alignItems: 'center', gap: 8 }}>
+              <Animated.View style={{ transform: [{ translateX: shakeA }] }}>
+                <MaterialCommunityIcons name="upload-outline" size={32} color={MID} />
+              </Animated.View>
+              <Text style={fs.dropTxt}>Tap to select a file</Text>
+              <Text style={fs.dropSub}>Any type · sent directly to PC Desktop</Text>
+            </View>
+          )}
+        </Pressable>
+        {!!status && (
+          <View style={[cw.status, { borderColor: statusColor + '35', backgroundColor: statusColor + '08', marginBottom: 4 }]}>
+            <MaterialIcons name={status.includes('✓') ? 'check-circle' : 'info'} size={12} color={statusColor} />
+            <Text style={{ fontFamily: MONO, fontSize: 10.5, color: statusColor, flex: 1 }}>{status}</Text>
+            <TouchableOpacity onPress={() => setStatus('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <MaterialIcons name="close" size={12} color={DIM} />
+            </TouchableOpacity>
+          </View>
+        )}
+        <Pressable onPress={sendFile} disabled={busy} activeOpacity={0.85}
+          style={({ pressed }) => [fs.sendBtn, { backgroundColor: (file && isConn) ? PURPLE : DIM + '30', opacity: pressed ? 0.85 : 1 }]}>
+          {busy
+            ? <ActivityIndicator size="small" color={(file && isConn) ? '#000' : MID} />
+            : <MaterialCommunityIcons name="send-outline" size={17} color={(file && isConn) ? '#000' : MID} />}
+          <Text style={[fs.sendTxt, { color: (file && isConn) ? '#000' : MID }]}>
+            {busy ? 'SENDING...' : 'SEND TO PC'}
+          </Text>
+        </Pressable>
+        <View style={{ height: 14 }} />
+      </View>
+    </View>
+  );
+}
+const fs = StyleSheet.create({
+  root:      { borderRadius: 18, borderWidth: 1, overflow: 'hidden', position: 'relative' },
+  hdr:       { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, paddingBottom: 14 },
+  iconBox:   { width: 46, height: 46, borderRadius: 13, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  title:     { fontSize: 15, fontWeight: '700', color: TEXT, marginBottom: 2 },
+  sub:       { fontFamily: MONO, fontSize: 10, color: MID, lineHeight: 15 },
+  dropZone:  { marginHorizontal: 16, borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed', padding: 18, backgroundColor: SURF2, justifyContent: 'center', marginBottom: 12 },
+  fileIcon:  { width: 44, height: 44, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  fileName:  { fontSize: 14, fontWeight: '700', color: TEXT, lineHeight: 19 },
+  fileSize:  { fontFamily: MONO, fontSize: 10, color: MID, marginTop: 2 },
+  dropTxt:   { fontSize: 14, fontWeight: '600', color: MID },
+  dropSub:   { fontFamily: MONO, fontSize: 10, color: DIM },
+  sendBtn:   { marginHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, paddingVertical: 14 },
+  sendTxt:   { fontFamily: MONO, fontSize: 14, fontWeight: '900' },
+});
+
+// ══════════════════════════════════════════════════════════════════
+// SCRIPT LAUNCHER
+// ══════════════════════════════════════════════════════════════════
+const SCRIPTS = [
+  { icon: 'monitor-dashboard', color: CYAN,   label: 'SYSMON', script: `import platform,psutil\nprint(f"OS: {platform.system()} {platform.release()}")\nprint(f"CPU: {psutil.cpu_percent(1)}%  RAM: {psutil.virtual_memory().percent}%")` },
+  { icon: 'broom',             color: GREEN,  label: 'CLEAN',  script: `import shutil,os,tempfile\ntd=tempfile.gettempdir();freed=0;n=0\nfor f in os.listdir(td):\n p=os.path.join(td,f)\n try:\n  sz=os.path.getsize(p) if os.path.isfile(p) else 0\n  (os.unlink if os.path.isfile(p) else shutil.rmtree)(p)\n  freed+=sz;n+=1\n except:pass\nprint(f"Freed {freed//1024//1024}MB from {n} items")` },
+  { icon: 'network-outline',   color: AMBER,  label: 'NETMAP', script: `import socket,psutil\nnet=psutil.net_if_addrs()\nfor k,v in list(net.items())[:3]:\n for a in v:\n  if a.family==socket.AF_INET: print(f"{k}: {a.address}")` },
+  { icon: 'eye-circle-outline',color: PURPLE, label: 'PROCS',  script: `import psutil\nfor p in sorted(psutil.process_iter(['name','cpu_percent']),key=lambda x:x.info['cpu_percent'] or 0,reverse=True)[:5]:\n print(f"{p.info['name'][:22]:22} {p.info['cpu_percent']:.1f}%")` },
+  { icon: 'harddisk',          color: PINK,   label: 'DISK',   script: `import psutil\nfor p in psutil.disk_partitions():\n try:\n  u=psutil.disk_usage(p.mountpoint)\n  print(f"{p.mountpoint}: {u.used/1024**3:.1f}/{u.total/1024**3:.1f}GB ({u.percent}%)")\n except:pass` },
+  { icon: 'lightning-bolt',    color: RED,    label: 'PERF',   script: `import psutil,time\ncpu1=psutil.cpu_percent()\ntime.sleep(0.5)\ncpu2=psutil.cpu_percent()\nprint(f"CPU:{cpu2:.1f}%  MEM:{psutil.virtual_memory().percent:.1f}%  Cores:{psutil.cpu_count()}")` },
 ];
 
-function QuickScripts({ isConn }: { isConn: boolean }) {
-  const [running, setRunning] = useState<string | null>(null);
-  const [output, setOutput]   = useState<{ id: string; text: string; ok: boolean } | null>(null);
+function ScriptLauncher({ isConn }: { isConn: boolean }) {
+  const [running, setRunning] = useState<number | null>(null);
+  const [out,     setOut]     = useState<{ i: number; txt: string; ok: boolean } | null>(null);
 
-  const run = async (s: typeof Q_SCRIPTS[0]) => {
-    if (!isConn || running) return;
-    haptics.heavy(); setRunning(s.id); setOutput(null);
+  const run = async (s: typeof SCRIPTS[0], idx: number) => {
+    if (!isConn || running !== null) return;
+    haptics.heavy(); setRunning(idx); setOut(null);
     try {
       const ip = serverConnection.getIP(), port = serverConnection.getPort();
       const tok = serverConnection.getToken?.() || '';
       if (!ip || !port) throw new Error('Not connected');
       const h: Record<string,string> = { 'Content-Type': 'application/json' };
       if (tok) h['Authorization'] = 'Bearer ' + tok;
-      const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 28000);
+      const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 25000);
       const res = await fetch(`http://${ip}:${port}/api/execute`, { method: 'POST', headers: h, body: JSON.stringify({ script: s.script }), signal: ctrl.signal });
       const d = await res.json();
-      setOutput({ id: s.id, text: (d.output || d.error || 'Done').trim().slice(0, 400), ok: !d.error });
+      setOut({ i: idx, txt: (d.output || d.error || 'Done').trim().slice(0, 320), ok: !d.error });
       haptics.success();
-    } catch (e: any) {
-      setOutput({ id: s.id, text: 'Error: ' + (e?.message || 'Network failed'), ok: false });
-    } finally { setRunning(null); }
+    } catch (e: any) { setOut({ i: idx, txt: 'Error: ' + (e?.message || 'Failed'), ok: false }); }
+    setRunning(null);
   };
 
   return (
     <View style={{ paddingHorizontal: PAD }}>
-      <Card>
-        <SectionHdr icon="code-braces-box" label="QUICK SCRIPTS"
-          right={
-            <View style={[sm.badge, { borderColor: (isConn ? GREEN : RED) + '50', backgroundColor: (isConn ? GREEN : RED) + '0A' }]}>
-              <Text style={[sm.badgeTxt, { color: isConn ? GREEN : RED }]}>{isConn ? 'PC READY' : 'OFFLINE'}</Text>
-            </View>
-          }
-        />
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, paddingBottom: output ? 0 : 14 }}>
-          {Q_SCRIPTS.map(s => {
-            const isRun = running === s.id;
-            return (
-              <TouchableOpacity key={s.id} onPress={() => run(s)} disabled={!isConn || !!running}
-                activeOpacity={0.75} style={[qs2.btn, !isConn && { opacity: 0.35 }]}>
-                <View style={[qs2.iconWrap, {
-                  backgroundColor: s.color + '14',
-                  borderColor: s.color + '40',
-                  borderTopColor: s.color,
-                  borderTopWidth: 2.5,
-                }]}>
-                  {isRun
-                    ? <ActivityIndicator size="small" color={s.color} />
-                    : <MaterialCommunityIcons name={s.icon as any} size={22} color={s.color} />
-                  }
-                </View>
-                <Text style={[qs2.label, { color: s.color + 'AA' }]}>{s.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
+      <View style={[sl.root, { backgroundColor: SURFACE }]}>
+        <View style={sl.hdr}>
+          <MaterialCommunityIcons name="code-braces-box" size={14} color={GREEN} />
+          <Text style={[sl.hdrTxt, { color: GREEN + 'CC' }]}>QUICK SCRIPTS</Text>
+          <View style={{ flex: 1 }} />
+          <View style={[cw.offlineBadge, { borderColor: (isConn ? GREEN : RED) + '50', backgroundColor: (isConn ? GREEN : RED) + '08' }]}>
+            <Text style={{ fontFamily: MONO, fontSize: 8, fontWeight: '900', color: isConn ? GREEN : RED }}>{isConn ? 'READY' : 'PC OFFLINE'}</Text>
+          </View>
         </View>
-        {output && (
+        <View style={sl.grid}>
+          {SCRIPTS.map((s, i) => (
+            <Pressable key={i} onPress={() => run(s, i)} disabled={!isConn || running !== null}
+              style={({ pressed }) => [sl.cell, {
+                borderTopColor: s.color, borderTopWidth: 2.5,
+                backgroundColor: SURF2,
+                opacity: !isConn ? 0.35 : (running === i || pressed) ? 0.8 : 1,
+                borderColor: running === i ? s.color + '70' : BORDER,
+              }]}>
+              <View style={[sl.iconWrap, { backgroundColor: s.color + '14', borderColor: s.color + '40' }]}>
+                {running === i
+                  ? <ActivityIndicator size="small" color={s.color} />
+                  : <MaterialCommunityIcons name={s.icon as any} size={22} color={s.color} />}
+              </View>
+              <Text style={[sl.label, { color: s.color + 'AA' }]}>{s.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        {out && (
           <View style={{ paddingHorizontal: 16, paddingBottom: 14 }}>
-            <View style={[qs2.outBox, { borderColor: (output.ok ? GREEN : RED) + '50', backgroundColor: (output.ok ? GREEN : RED) + '08' }]}>
+            <View style={[sl.outBox, { borderColor: (out.ok ? GREEN : RED) + '45', backgroundColor: (out.ok ? GREEN : RED) + '08' }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <MaterialIcons name={output.ok ? 'check-circle' : 'error'} size={13} color={output.ok ? GREEN : RED} />
-                  <Text style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: '900', color: output.ok ? GREEN : RED }}>OUTPUT</Text>
+                  <MaterialIcons name={out.ok ? 'check-circle' : 'error'} size={12} color={out.ok ? GREEN : RED} />
+                  <Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '900', color: out.ok ? GREEN : RED }}>{SCRIPTS[out.i]?.label} OUTPUT</Text>
                 </View>
-                <TouchableOpacity onPress={() => setOutput(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <MaterialIcons name="close" size={14} color={MID} />
+                <TouchableOpacity onPress={() => setOut(null)}>
+                  <MaterialIcons name="close" size={13} color={MID} />
                 </TouchableOpacity>
               </View>
-              <Text style={{ fontFamily: MONO, fontSize: 11, color: output.ok ? '#88FFBB' : '#FF8888', lineHeight: 18 }} selectable>{output.text}</Text>
+              <Text style={{ fontFamily: MONO, fontSize: 11, color: out.ok ? '#88FFBB' : '#FF9090', lineHeight: 18 }} selectable>{out.txt}</Text>
             </View>
           </View>
         )}
-      </Card>
-    </View>
-  );
-}
-const qs2 = StyleSheet.create({
-  btn:     { width: '33.33%', alignItems: 'center', paddingVertical: 14, gap: 7 },
-  iconWrap:{ width: 54, height: 54, borderRadius: 15, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  label:   { fontFamily: MONO, fontSize: 9, fontWeight: '900', letterSpacing: 0.3, textAlign: 'center' },
-  outBox:  { borderWidth: 1.5, borderRadius: 12, padding: 12 },
-});
-
-// ══════════════════════════════════════════════════════════════════
-// FOOTER — Enhanced with build hash decoration
-// ══════════════════════════════════════════════════════════════════
-function PageFooter({ isConn, addr }: { isConn: boolean; addr: string }) {
-  return (
-    <View style={{ paddingHorizontal: PAD, paddingBottom: 24 }}>
-      <View style={pf.root}>
-        {/* Color strip */}
-        <View style={{ flexDirection: 'row', height: 2, width: 80, borderRadius: 1, overflow: 'hidden', marginBottom: 10 }}>
-          {[CYAN, GREEN, AMBER, PURPLE, RED].map((c, i) => (
-            <View key={i} style={{ flex: 1, backgroundColor: c }} />
-          ))}
-        </View>
-        <Text style={pf.txt}>BUTLER AI  ·  v8.0.0  ·  LOCAL-FIRST  ·  AES-256</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: isConn ? GREEN : RED }} />
-          <Text style={[pf.status, { color: isConn ? GREEN : MID }]}>{isConn ? addr || 'CONNECTED' : 'NOT CONNECTED'}</Text>
-        </View>
-        <Text style={[pf.txt, { marginTop: 4 }]}>© 2026 BUTLER AI · ALL RIGHTS RESERVED</Text>
       </View>
     </View>
   );
 }
-const pf = StyleSheet.create({
-  root:   { alignItems: 'center', gap: 5, paddingVertical: 18, borderTopWidth: 1, borderTopColor: BORDER },
-  txt:    { fontFamily: MONO, fontSize: 8.5, color: DIM, letterSpacing: 0.5 },
-  status: { fontFamily: MONO, fontSize: 9, fontWeight: '700', letterSpacing: 0.3 },
+const sl = StyleSheet.create({
+  root:    { borderRadius: 18, borderWidth: 1, borderColor: BORDER, overflow: 'hidden' },
+  hdr:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 15, paddingBottom: 12 },
+  hdrTxt:  { fontFamily: MONO, fontSize: 10, fontWeight: '900', letterSpacing: 1.4 },
+  grid:    { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, paddingBottom: 14, gap: 0 },
+  cell:    { width: '33.33%', alignItems: 'center', paddingVertical: 14, paddingTop: 17, gap: 7, borderRadius: 13, borderWidth: 1 },
+  iconWrap:{ width: 52, height: 52, borderRadius: 15, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  label:   { fontFamily: MONO, fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
+  outBox:  { borderWidth: 1.5, borderRadius: 12, padding: 12 },
+});
+
+// ══════════════════════════════════════════════════════════════════
+// CORE NAVIGATION GRID
+// ══════════════════════════════════════════════════════════════════
+const NAV_ITEMS = [
+  { icon: 'robot-happy-outline',   label: 'CHAT',     tab: 'butler',    color: CYAN,   sub: '0×AI01' },
+  { icon: 'auto-fix',              label: 'FLOWS',    tab: 'builder',   color: GREEN,  sub: '0×FL02' },
+  { icon: 'code-braces',           label: 'SCRIPTS',  tab: 'scripts',   color: AMBER,  sub: '0×SC03' },
+  { icon: 'brain',                 label: 'KB',       tab: 'knowledge', color: PURPLE, sub: '0×KB04' },
+  { icon: 'folder-network-outline',label: 'FILES',    tab: 'fileshare', color: PINK,   sub: '0×FS05' },
+  { icon: 'chart-bar',             label: 'LOGS',     tab: 'logs',      color: RED,    sub: '0×LG06' },
+  { icon: 'monitor-dashboard',     label: 'REMOTE',   tab: 'connect',   color: TEAL,   sub: '0×RC07' },
+  { icon: 'palette-swatch-outline',label: 'THEME',    tab: 'cosmetic',  color: BLUE,   sub: '0×TH08' },
+  { icon: 'tune-variant',          label: 'CONFIG',   tab: 'settings',  color: MID,    sub: '0×CF09' },
+];
+
+function CoreNav({ goToTab }: { goToTab: (t: string) => void }) {
+  const scales = useRef(NAV_ITEMS.map(() => new Animated.Value(1))).current;
+  const pi = (i: number) => Animated.spring(scales[i], { toValue: 0.86, tension: 400, friction: 12, useNativeDriver: true }).start();
+  const po = (i: number) => Animated.spring(scales[i], { toValue: 1,    tension: 280, friction: 10, useNativeDriver: true }).start();
+
+  return (
+    <View style={{ paddingHorizontal: PAD }}>
+      <View style={[cn.root, { backgroundColor: SURFACE }]}>
+        <View style={cn.hdr}>
+          <MaterialCommunityIcons name="view-grid" size={14} color={CYAN} />
+          <Text style={cn.hdrTxt}>CORE SURFACES</Text>
+          <View style={{ flex: 1 }} />
+          <View style={{ flexDirection: 'row', gap: 3 }}>
+            {[CYAN, GREEN, AMBER, PURPLE].map((c, i) => (
+              <View key={i} style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: c + '60' }} />
+            ))}
+          </View>
+        </View>
+        <View style={{ height: 2.5, flexDirection: 'row', marginHorizontal: 16, borderRadius: 1.5, overflow: 'hidden', marginBottom: 14 }}>
+          {NAV_ITEMS.map((n, i) => <View key={i} style={{ flex: 1, backgroundColor: n.color }} />)}
+        </View>
+        <View style={cn.grid}>
+          {NAV_ITEMS.map((n, i) => (
+            <Pressable key={i}
+              onPress={() => { haptics.light(); goToTab(n.tab); }}
+              onPressIn={() => pi(i)} onPressOut={() => po(i)}
+              style={{ width: '33.33%', padding: 4 }}>
+              <Animated.View style={[cn.cell, {
+                backgroundColor: SURF2,
+                borderColor: n.color + '30', borderTopColor: n.color, borderTopWidth: 2.5,
+                transform: [{ scale: scales[i] }],
+              }]}>
+                <Text style={[cn.hexTxt, { color: n.color + '40' }]}>{n.sub}</Text>
+                <View style={[cn.iconBubble, { backgroundColor: n.color + '14', borderColor: n.color + '45' }]}>
+                  <MaterialCommunityIcons name={n.icon as any} size={24} color={n.color} />
+                </View>
+                <Text style={[cn.label, { color: n.color + 'B0' }]}>{n.label}</Text>
+              </Animated.View>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+const cn = StyleSheet.create({
+  root:      { borderRadius: 18, borderWidth: 1, borderColor: BORDER, overflow: 'hidden' },
+  hdr:       { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 15, paddingBottom: 10 },
+  hdrTxt:    { fontFamily: MONO, fontSize: 10, fontWeight: '900', color: CYAN + 'CC', letterSpacing: 1.4 },
+  grid:      { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, paddingBottom: 14 },
+  cell:      { borderRadius: 14, borderWidth: 1, overflow: 'hidden', alignItems: 'center', paddingVertical: 14, paddingTop: 22, gap: 7, position: 'relative' },
+  hexTxt:    { position: 'absolute', top: 5, right: 5, fontFamily: MONO, fontSize: 7.5, fontWeight: '900', letterSpacing: 0.3 },
+  iconBubble:{ width: 50, height: 50, borderRadius: 15, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  label:     { fontFamily: MONO, fontSize: 10, fontWeight: '900', letterSpacing: 0.4 },
+});
+
+// ══════════════════════════════════════════════════════════════════
+// ROTATING TIPS TICKER
+// ══════════════════════════════════════════════════════════════════
+const TIPS = [
+  '🔒 ZERO CLOUD · All data stays on your local network',
+  '⚡ HMAC-SHA256 signed · Every request cryptographically verified',
+  '🛡️ OLLAMA LOCAL · AI runs 100% on your PC — no API keys needed',
+  '🗄️ SQLite on PC · No remote database, no subscriptions ever',
+  '🌐 LAN-ONLY · No internet required after initial app install',
+  '🔄 AUTO-RECONNECT · Butler finds your PC automatically on Wi-Fi',
+  '🏠 SELF-HOSTED · You control the server binary and its source',
+  '🐍 PYTHON RUNTIME · 250+ scripts, any custom automation imaginable',
+  '⏪ 1-TAP UNDO · Every script execution reversible for 15 minutes',
+  '🎨 12 THEMES · Full palette customization via the THEME tab',
+];
+
+function TipsTicker({ color = DIM }: { color?: string }) {
+  const [idx, setIdx] = useState(0);
+  const fadeA = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const t = setInterval(() => {
+      Animated.sequence([
+        Animated.timing(fadeA, { toValue: 0, duration: 300, useNativeDriver: true }),
+        Animated.timing(fadeA, { toValue: 1, duration: 300, useNativeDriver: true }),
+      ]).start();
+      setTimeout(() => setIdx(i => (i + 1) % TIPS.length), 300);
+    }, 5000);
+    return () => clearInterval(t);
+  }, []);
+
+  return (
+    <View style={{ paddingHorizontal: PAD }}>
+      <View style={[tt.root, { borderColor: color + '28' }]}>
+        <MaterialCommunityIcons name="information-variant" size={12} color={color + '80'} />
+        <Animated.Text style={[tt.txt, { color: color, opacity: fadeA }]} numberOfLines={1}>{TIPS[idx]}</Animated.Text>
+      </View>
+    </View>
+  );
+}
+const tt = StyleSheet.create({
+  root: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: SURF3 },
+  txt:  { fontFamily: MONO, fontSize: 10.5, flex: 1, letterSpacing: 0.2 },
+});
+
+// ══════════════════════════════════════════════════════════════════
+// ACTIVITY FEED
+// ══════════════════════════════════════════════════════════════════
+function ActivityFeed({ isConn, addr }: { isConn: boolean; addr: string }) {
+  const items = [
+    { icon: 'handshake',         color: isConn ? GREEN  : MID,  title: isConn ? 'Bridge live · PC paired' : 'Bridge offline · tap PAIR', sub: 'CONNECTION',  time: 'now' },
+    { icon: 'brain',             color: CYAN,                     title: 'Knowledge base indexed',              sub: 'BUTLER · 250+',        time: '1m' },
+    { icon: 'shield-check',      color: PURPLE,                   title: 'AES-256 auth active',                 sub: 'SECURITY · HMAC',      time: '2m' },
+    { icon: 'file-sync-outline', color: AMBER,                    title: 'Script cache warmed',                 sub: 'FORGE · LOCAL',        time: '5m' },
+  ];
+
+  return (
+    <View style={{ paddingHorizontal: PAD }}>
+      <View style={[afr.root, { backgroundColor: SURFACE }]}>
+        <View style={afr.hdr}>
+          <MaterialCommunityIcons name="history" size={14} color={BLUE} />
+          <Text style={[afr.hdrTxt, { color: BLUE + 'CC' }]}>ACTIVITY</Text>
+        </View>
+        <View style={{ paddingHorizontal: 16, paddingBottom: 14, gap: 0 }}>
+          {items.map((item, i) => (
+            <View key={i} style={[afr.row, i < items.length - 1 && { borderBottomWidth: 1, borderBottomColor: BORDER }]}>
+              <View style={[afr.iconBox, { backgroundColor: item.color + '14', borderColor: item.color + '35' }]}>
+                <MaterialCommunityIcons name={item.icon as any} size={15} color={item.color} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={afr.itemTitle}>{item.title}</Text>
+                <Text style={afr.itemSub}>{item.sub}</Text>
+              </View>
+              <Text style={afr.time}>{item.time}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+const afr = StyleSheet.create({
+  root:      { borderRadius: 18, borderWidth: 1, borderColor: BORDER, overflow: 'hidden' },
+  hdr:       { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 15, paddingBottom: 12 },
+  hdrTxt:    { fontFamily: MONO, fontSize: 10, fontWeight: '900', letterSpacing: 1.4 },
+  row:       { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 },
+  iconBox:   { width: 38, height: 38, borderRadius: 11, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  itemTitle: { fontSize: 13, fontWeight: '600', color: TEXT, marginBottom: 2 },
+  itemSub:   { fontFamily: MONO, fontSize: 9, color: MID },
+  time:      { fontFamily: MONO, fontSize: 9, color: DIM },
+});
+
+// ══════════════════════════════════════════════════════════════════
+// ZERO CLOUD BANNER
+// ══════════════════════════════════════════════════════════════════
+function ZeroCloudBanner() {
+  return (
+    <View style={{ paddingHorizontal: PAD }}>
+      <View style={[zcb.root, { backgroundColor: SURFACE }]}>
+        <View style={{ height: 2.5, flexDirection: 'row', overflow: 'hidden' }}>
+          {[CYAN, GREEN, AMBER, PURPLE, RED, TEAL, PINK, BLUE, CYAN].map((c, i) => (
+            <View key={i} style={{ flex: 1, backgroundColor: c }} />
+          ))}
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, paddingTop: 14, gap: 14 }}>
+          <View style={[zcb.iconBox, { backgroundColor: GREEN + '14', borderColor: GREEN + '50' }]}>
+            <HUDCorners color={GREEN + '35'} size={7} />
+            <MaterialCommunityIcons name="shield-off-outline" size={24} color={GREEN} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={zcb.title}>Zero-cloud architecture</Text>
+            <Text style={zcb.body}>All processing on-device or your paired PC. Nothing transmitted off-network.</Text>
+          </View>
+          <MaterialCommunityIcons name="check-circle-outline" size={24} color={GREEN + '70'} />
+        </View>
+      </View>
+    </View>
+  );
+}
+const zcb = StyleSheet.create({
+  root:    { borderRadius: 18, borderWidth: 1, borderColor: GREEN + '25', overflow: 'hidden' },
+  iconBox: { width: 48, height: 48, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0, position: 'relative', overflow: 'hidden' },
+  title:   { fontSize: 15, fontWeight: '700', color: TEXT, marginBottom: 3 },
+  body:    { fontFamily: MONO, fontSize: 10.5, color: MID, lineHeight: 16 },
 });
 
 // ══════════════════════════════════════════════════════════════════
@@ -1139,40 +1298,15 @@ const pf = StyleSheet.create({
 function ConnectModal({ visible, onClose, onConnected }: {
   visible: boolean; onClose: () => void; onConnected: () => void;
 }) {
-  const [ip,      setIp]      = useState('');
-  const [port,    setPort]    = useState('8766');
-  const [status,  setStatus]  = useState('');
-  const [busy,    setBusy]    = useState(false);
-  const [showCam, setShowCam] = useState(false);
-  const scanned = useRef(false);
+  const [ip,     setIp]     = useState('');
+  const [port,   setPort]   = useState('8766');
+  const [status, setStatus] = useState('');
+  const [busy,   setBusy]   = useState(false);
   const insets = useSafeAreaInsets();
-
-  const handleQR = useCallback(async (data: string) => {
-    if (scanned.current) return;
-    scanned.current = true;
-    setShowCam(false);
-    haptics.success();
-    try {
-      const p = parseQRConnection(data);
-      if (p?.ip) {
-        setIp(p.ip); if (p.port) setPort(String(p.port));
-        setStatus(`Connecting to ${p.ip}...`); setBusy(true);
-        const r = await (serverConnection.connectManual
-          ? serverConnection.connectManual(p.ip, String(p.port || port))
-          : Promise.resolve({ success: false, error: 'N/A' }));
-        setBusy(false);
-        if ((r as any).success) { haptics.success(); setTimeout(() => { onConnected(); onClose(); }, 600); return; }
-        throw new Error((r as any).error || 'Failed');
-      }
-    } catch (e: any) { setBusy(false); setStatus('Error: ' + (e?.message || 'Failed')); }
-    const m = data.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?::(\d+))?/);
-    if (m) { setIp(m[1]); if (m[2]) setPort(m[2]); setStatus(`Found: ${m[1]}`); }
-    else   { setStatus(`Scanned: ${data.slice(0, 40)}`); scanned.current = false; }
-  }, [port, onConnected, onClose]);
 
   const connect = async () => {
     if (!ip.trim()) { setStatus('Enter IP address'); return; }
-    setBusy(true); setStatus(`Connecting to ${ip.trim()}...`);
+    setBusy(true); setStatus(`Connecting to ${ip.trim()}:${port}...`);
     try {
       const r = await (serverConnection.connectManual
         ? serverConnection.connectManual(ip.trim(), port.trim())
@@ -1183,115 +1317,156 @@ function ConnectModal({ visible, onClose, onConnected }: {
     setBusy(false);
   };
 
-  if (!visible) return null;
-  const sc2 = status.includes('Error') ? RED : status.includes('Connected') ? GREEN : AMBER;
-
-  // Pre-camera permission/info prompt
-  const openCamera = () => {
-    Alert.alert(
-      '📷 SCAN QR CODE',
-      'Butler AI needs camera access to scan the QR code displayed in your PC terminal.\n\n• Run butler_server.py on your PC first\n• Point camera at the QR shown in the terminal\n• This stays 100% on your local network — no cloud',
+  const openCam = () => {
+    Alert.alert('SCAN QR CODE',
+      'Run butler_server.py on your PC, then point your camera at the QR code shown in the terminal.\n\nThis is 100% local — no cloud, no internet required.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'OPEN CAMERA', style: 'default', onPress: () => { scanned.current = false; setShowCam(true); haptics.success(); } },
+        { text: 'OPEN CAMERA', onPress: () => {
+          onClose();
+          setTimeout(() => { try { (global as any).__nexusHomeOpenQR?.(); } catch {} }, 200);
+        }},
       ]
     );
   };
 
+  if (!visible) return null;
+  const sc = status.includes('Connected') ? GREEN : status.includes('Error') ? RED : AMBER;
+
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.94)', justifyContent: 'flex-end' }}>
-        <View style={cm.sheet}>
-          <View style={{ height: 3, backgroundColor: CYAN }} />
-          <View style={{ alignItems: 'center', paddingTop: 10 }}>
-            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: DIM }} />
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 18, paddingTop: 14, paddingBottom: 12 }}>
-            <View style={[cm.titleIcon, { backgroundColor: CYAN + '14', borderColor: CYAN + '40' }]}>
-              <MaterialIcons name="qr-code-scanner" size={20} color={CYAN} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={cm.title}>Pair your PC</Text>
-              <Text style={cm.sub}>Scan QR from butler_server.py terminal</Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={cm.closeBtn}>
-              <MaterialIcons name="close" size={16} color={MID} />
-            </TouchableOpacity>
-          </View>
-
-          {showCam ? (
-            <View style={cm.camWrap}>
-              <Suspense fallback={null}>
-                <QRCameraScanner onScanned={handleQR} hudColor={CYAN}>
-                  <View pointerEvents="none" style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
-                    <View style={{ width: 120, height: 120, borderWidth: 2, borderColor: CYAN + '70', borderRadius: 8 }} />
-                    <Text style={{ fontFamily: MONO, fontSize: 9, color: CYAN, marginTop: 10, letterSpacing: 1, fontWeight: '900' }}>SCAN QR FROM TERMINAL</Text>
-                  </View>
-                </QRCameraScanner>
-              </Suspense>
-              <TouchableOpacity onPress={() => setShowCam(false)} style={cm.camClose}>
-                <MaterialIcons name="close" size={13} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity onPress={openCamera} activeOpacity={0.82} style={cm.scanBtn}>
-              <MaterialIcons name="qr-code-scanner" size={20} color={CYAN} />
-              <View>
-                <Text style={cm.scanBtnTxt}>SCAN QR CODE</Text>
-                <Text style={cm.scanBtnSub}>Run butler_server.py, then scan QR</Text>
-              </View>
-            </TouchableOpacity>
-          )}
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, marginBottom: 12 }}>
-            <View style={{ flex: 1, height: 1, backgroundColor: BORDER }} />
-            <Text style={{ fontFamily: MONO, fontSize: 9, color: MID }}>OR ENTER IP</Text>
-            <View style={{ flex: 1, height: 1, backgroundColor: BORDER }} />
-          </View>
-
-          <View style={{ paddingHorizontal: 16, gap: 10 }}>
-            <TextInput value={ip} onChangeText={setIp} placeholder="192.168.x.x"
-              placeholderTextColor={DIM} style={cm.input}
-              keyboardType="numeric" autoCorrect={false} />
-            <TextInput value={port} onChangeText={setPort} placeholder="8766"
-              placeholderTextColor={DIM} style={[cm.input, { borderColor: BORDER }]}
-              keyboardType="numeric" />
-          </View>
-
-          {!!status && (
-            <View style={[cm.statusBox, { borderColor: sc2 + '45', backgroundColor: sc2 + '0A' }]}>
-              <Text style={{ fontFamily: MONO, fontSize: 11, color: sc2 }}>{status}</Text>
-            </View>
-          )}
-
-          <Pressable onPress={connect} disabled={busy}
-            style={({ pressed }) => [cm.connectBtn, { opacity: pressed || busy ? 0.8 : 1 }]}>
-            {busy ? <ActivityIndicator size="small" color="#000" /> : <MaterialIcons name="link" size={18} color="#000" />}
-            <Text style={cm.connectTxt}>{busy ? 'CONNECTING...' : 'CONNECT TO PC'}</Text>
-          </Pressable>
-
-          <View style={{ height: Math.max(insets.bottom + 8, 20) }} />
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.93)', justifyContent: 'flex-end', zIndex: 9999 }]}>
+      <View style={{ backgroundColor: SURFACE, borderTopLeftRadius: 26, borderTopRightRadius: 26, overflow: 'hidden' }}>
+        <View style={{ height: 3, backgroundColor: CYAN }} />
+        <View style={{ alignItems: 'center', paddingTop: 12 }}>
+          <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: DIM }} />
         </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 18, paddingTop: 14, paddingBottom: 12 }}>
+          <View style={[cw.iconBox, { backgroundColor: CYAN + '14', borderColor: CYAN + '50' }]}>
+            <MaterialIcons name="link" size={20} color={CYAN} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: TEXT }}>Pair your PC</Text>
+            <Text style={{ fontFamily: MONO, fontSize: 10, color: MID, marginTop: 3 }}>Local network · AES-256 · No cloud</Text>
+          </View>
+          <TouchableOpacity onPress={onClose} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: SURF2, alignItems: 'center', justifyContent: 'center' }}>
+            <MaterialIcons name="close" size={16} color={MID} />
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity onPress={openCam} activeOpacity={0.85}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 18, marginBottom: 14, borderWidth: 1.5, borderRadius: 14, borderColor: CYAN + '55', backgroundColor: CYAN + '0E', paddingVertical: 14, paddingHorizontal: 16 }}>
+          <MaterialIcons name="qr-code-scanner" size={24} color={CYAN} />
+          <View>
+            <Text style={{ fontFamily: MONO, fontSize: 13, fontWeight: '900', color: CYAN }}>SCAN QR CODE</Text>
+            <Text style={{ fontFamily: MONO, fontSize: 10, color: MID, marginTop: 3 }}>Instant pairing from PC terminal</Text>
+          </View>
+        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, marginBottom: 12 }}>
+          <View style={{ flex: 1, height: 1, backgroundColor: BORDER }} />
+          <Text style={{ fontFamily: MONO, fontSize: 9, color: MID }}>OR MANUAL IP</Text>
+          <View style={{ flex: 1, height: 1, backgroundColor: BORDER }} />
+        </View>
+        <View style={{ paddingHorizontal: 18, gap: 10 }}>
+          <TextInput value={ip} onChangeText={setIp} placeholder="192.168.x.x"
+            placeholderTextColor={DIM}
+            style={{ backgroundColor: SURF2, borderWidth: 1.5, borderColor: CYAN + '55', borderRadius: 12, color: TEXT, padding: 14, fontFamily: MONO, fontSize: 14 }}
+            keyboardType="numeric" autoCorrect={false} />
+        </View>
+        {!!status && (
+          <View style={{ marginHorizontal: 18, marginTop: 10, padding: 10, borderRadius: 10, borderWidth: 1, borderColor: sc + '45', backgroundColor: sc + '0A' }}>
+            <Text style={{ fontFamily: MONO, fontSize: 11, color: sc }}>{status}</Text>
+          </View>
+        )}
+        <Pressable onPress={connect} disabled={busy}
+          style={({ pressed }) => ({ margin: 18, marginBottom: 4, backgroundColor: GREEN, borderRadius: 14, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' as const, gap: 8, opacity: pressed || busy ? 0.85 : 1 })}>
+          {busy ? <ActivityIndicator size="small" color="#000" /> : <MaterialIcons name="link" size={18} color="#000" />}
+          <Text style={{ fontFamily: MONO, fontSize: 14, fontWeight: '900', color: '#000' }}>{busy ? 'CONNECTING...' : 'CONNECT'}</Text>
+        </Pressable>
+        <View style={{ height: Math.max(insets.bottom + 8, 24) }} />
       </View>
-    </Modal>
+    </View>
   );
 }
-const cm = StyleSheet.create({
-  sheet:      { backgroundColor: SURFACE, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
-  titleIcon:  { width: 44, height: 44, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  title:      { fontSize: 18, fontWeight: '700', color: TEXT },
-  sub:        { fontFamily: MONO, fontSize: 10, color: MID, marginTop: 3 },
-  closeBtn:   { width: 34, height: 34, borderRadius: 10, backgroundColor: SURFACE2, alignItems: 'center', justifyContent: 'center' },
-  camWrap:    { marginHorizontal: 16, marginBottom: 14, borderRadius: 16, overflow: 'hidden', borderWidth: 2, borderColor: CYAN + '70' },
-  camClose:   { position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.75)', alignItems: 'center', justifyContent: 'center' },
-  scanBtn:    { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginBottom: 14, borderWidth: 1.5, borderRadius: 14, borderColor: CYAN + '55', backgroundColor: CYAN + '0E', paddingVertical: 14, paddingHorizontal: 16 },
-  scanBtnTxt: { fontFamily: MONO, fontSize: 12, fontWeight: '900', color: CYAN },
-  scanBtnSub: { fontFamily: MONO, fontSize: 9.5, color: MID, marginTop: 3 },
-  input:      { backgroundColor: BG, borderWidth: 1.5, borderColor: CYAN + '55', borderRadius: 12, color: TEXT, padding: 14, fontFamily: MONO, fontSize: 14 },
-  statusBox:  { marginHorizontal: 16, marginTop: 10, padding: 11, borderRadius: 10, borderWidth: 1 },
-  connectBtn: { margin: 16, marginBottom: 4, backgroundColor: GREEN, borderRadius: 14, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
-  connectTxt: { fontFamily: MONO, fontSize: 14, fontWeight: '900', color: '#000' },
-});
+
+// ══════════════════════════════════════════════════════════════════
+// FOOTER — with email and full contact/legal info
+// ══════════════════════════════════════════════════════════════════
+function Footer({ isConn, addr }: { isConn: boolean; addr: string }) {
+  return (
+    <View style={{ paddingHorizontal: PAD, paddingBottom: 28 }}>
+      <View style={{ alignItems: 'center', gap: 8, paddingTop: 22, borderTopWidth: 1, borderTopColor: BORDER }}>
+
+        {/* Rainbow stripe */}
+        <View style={{ flexDirection: 'row', height: 2.5, width: 140, borderRadius: 2, overflow: 'hidden', marginBottom: 2 }}>
+          {[CYAN, GREEN, AMBER, PURPLE, RED, CYAN, GREEN, TEAL].map((c, i) => (
+            <View key={i} style={{ flex: 1, backgroundColor: c }} />
+          ))}
+        </View>
+
+        {/* App identity */}
+        <Text style={{ fontFamily: MONO, fontSize: 9, color: CYAN + '70', letterSpacing: 1.5, fontWeight: '700' }}>
+          BUTLER AI  ·  v9.0  ·  LOCAL-FIRST  ·  ZERO CLOUD
+        </Text>
+
+        {/* Connection status */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: isConn ? GREEN : RED }} />
+          <Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '700', color: isConn ? GREEN : MID }}>
+            {isConn ? addr || 'CONNECTED' : 'NOT CONNECTED'}
+          </Text>
+        </View>
+
+        {/* Thin divider */}
+        <View style={{ width: 220, height: 1, backgroundColor: BORDER }} />
+
+        {/* Contact email — prominent */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: CYAN + '0A', borderWidth: 1, borderColor: CYAN + '30', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9 }}>
+          <MaterialIcons name="email" size={13} color={CYAN} />
+          <Text style={{ fontFamily: MONO, fontSize: 10.5, color: CYAN + 'CC', letterSpacing: 0.3, fontWeight: '700' }}>
+            andrejsladkovic1992@gmail.com
+          </Text>
+        </View>
+
+        {/* Support / legal links row */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+          {[
+            { icon: 'support-agent',    label: 'Support',        color: GREEN  },
+            { icon: 'bug-report',       label: 'Report Bug',     color: AMBER  },
+            { icon: 'shield',           label: 'Privacy Policy', color: PURPLE },
+            { icon: 'gavel',            label: 'Terms',          color: MID    },
+            { icon: 'delete-forever',   label: 'Delete My Data', color: RED    },
+          ].map((item, i) => (
+            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+              <MaterialIcons name={item.icon as any} size={9} color={item.color + '70'} />
+              <Text style={{ fontFamily: MONO, fontSize: 8, color: item.color + '55', letterSpacing: 0.3 }}>{item.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Tech badges */}
+        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+          {[
+            { label: 'AES-256',    col: CYAN   },
+            { label: 'HMAC-SHA256',col: GREEN  },
+            { label: 'ZERO TELEMETRY', col: PURPLE },
+            { label: 'LAN ONLY',   col: AMBER  },
+          ].map((b, i) => (
+            <View key={i} style={{ borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, borderColor: b.col + '30', backgroundColor: b.col + '06' }}>
+              <Text style={{ fontFamily: MONO, fontSize: 7.5, color: b.col + '70', fontWeight: '900' }}>{b.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Legal */}
+        <Text style={{ fontFamily: MONO, fontSize: 8, color: DIM, letterSpacing: 0.5, textAlign: 'center' }}>
+          © 2026 BUTLER AI · ANDREJ SLADKOVIC · ALL RIGHTS RESERVED
+        </Text>
+        <Text style={{ fontFamily: MONO, fontSize: 7.5, color: DIM + 'AA', letterSpacing: 0.3, textAlign: 'center' }}>
+          com.butlerai.pc.automation · PROPRIETARY · NOT OPEN SOURCE
+        </Text>
+      </View>
+    </View>
+  );
+}
 
 // ══════════════════════════════════════════════════════════════════
 // MAIN SCREEN
@@ -1306,26 +1481,21 @@ function NexusHomeInner() {
   const [kbCount, setKbCount] = useState(0);
   const [showQR,  setShowQR]  = useState(false);
   const [refresh, setRefresh] = useState(false);
-
-  // Rolling history for sparklines (8 points)
-  const [cpuHistory,  setCpuHistory]  = useState<number[]>([0,0,0,0,0,0,0,0]);
-  const [ramHistory,  setRamHistory]  = useState<number[]>([0,0,0,0,0,0,0,0]);
-  const [diskHistory, setDiskHistory] = useState<number[]>([0,0,0,0,0,0,0,0]);
+  const [cpuH,   setCpuH]    = useState<number[]>([0,0,0,0,0,0,0,0]);
+  const [ramH,   setRamH]    = useState<number[]>([0,0,0,0,0,0,0,0]);
+  const [diskH,  setDiskH]   = useState<number[]>([0,0,0,0,0,0,0,0]);
 
   const loadData = useCallback(async () => {
     try {
       const conn = serverConnection.isConnected?.() ?? false;
       const ip   = serverConnection.getIP?.()   || '';
       const port = serverConnection.getPort?.() || '';
-      setIsConn(conn);
-      setAddr(ip && port ? `${ip}:${port}` : '');
+      setIsConn(conn); setAddr(ip && port ? `${ip}:${port}` : '');
       if (conn && ip && port) {
         const tok = serverConnection.getToken?.() || '';
         const h: Record<string,string> = {};
         if (tok) h['Authorization'] = 'Bearer ' + tok;
-        const ctrl = new AbortController();
-        const t0   = Date.now();
-        setTimeout(() => ctrl.abort(), 7000);
+        const ctrl = new AbortController(); const t0 = Date.now(); setTimeout(() => ctrl.abort(), 7000);
         try {
           const res = await fetch(`http://${ip}:${port}/api/metrics`, { headers: h, signal: ctrl.signal });
           if (res.ok) {
@@ -1335,22 +1505,16 @@ function NexusHomeInner() {
             const dk= d.disk_percent ?? d.disk?.percent   ?? 0;
             setLatency(Date.now() - t0);
             setMetrics({ cpu: c, ram: r, disk: dk });
-            setCpuHistory(prev  => [...prev.slice(1),  c]);
-            setRamHistory(prev  => [...prev.slice(1),  r]);
-            setDiskHistory(prev => [...prev.slice(1), dk]);
+            setCpuH  (prev => [...prev.slice(1),  c]);
+            setRamH  (prev => [...prev.slice(1),  r]);
+            setDiskH (prev => [...prev.slice(1), dk]);
             performanceHistory.recordFromMetrics(d);
           }
         } catch {}
       }
     } catch {}
-    try {
-      const h = await executionHistory.getAll().catch(() => [] as any[]);
-      setScripts(Array.isArray(h) ? h.length : 0);
-    } catch {}
-    try {
-      const stats = await knowledgeAccumulator.getStats?.().catch(() => null);
-      if (stats) setKbCount(stats.totalFindings ?? 0);
-    } catch {}
+    try { const h = await executionHistory.getAll().catch(() => [] as any[]); setScripts(Array.isArray(h) ? h.length : 0); } catch {}
+    try { const s = await knowledgeAccumulator.getStats?.().catch(() => null); if (s) setKbCount(s.totalFindings ?? 0); } catch {}
   }, []);
 
   useFocusEffect(useCallback(() => {
@@ -1363,11 +1527,9 @@ function NexusHomeInner() {
     let unsub: (() => void) | null = null;
     try {
       const s = connectionHub.getState();
-      setIsConn(s.isConnected ?? false);
-      setAddr(s.addr || '');
+      setIsConn(s.isConnected ?? false); setAddr(s.addr || '');
       unsub = connectionHub.subscribe((st: any) => {
-        setIsConn(st.isConnected ?? false);
-        setAddr(st.addr || '');
+        setIsConn(st.isConnected ?? false); setAddr(st.addr || '');
         if (st.isConnected) loadData();
       });
     } catch {}
@@ -1380,89 +1542,67 @@ function NexusHomeInner() {
   }, []);
 
   const goToTab = useCallback((tab: string) => {
-    haptics.light();
-    try { (global as any).__butlerSwitchTab?.(tab); } catch {}
+    haptics.light(); try { (global as any).__butlerSwitchTab?.(tab); } catch {}
   }, []);
 
   const onRefresh = useCallback(async () => {
     setRefresh(true); haptics.medium();
-    await loadData();
-    haptics.success(); setRefresh(false);
+    await loadData(); haptics.success(); setRefresh(false);
   }, [loadData]);
 
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
-      <ConnectModal visible={showQR} onClose={() => setShowQR(false)} onConnected={loadData} />
-
-      {/* ── FIXED HEADER ── */}
       <HomeHeader safeTop={insets.top} isConn={isConn} addr={addr} onPair={() => setShowQR(true)} />
-
-      {/* ── SCROLL BODY ── */}
+      <MiniChatBar isConn={isConn} />
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ gap: 10, paddingTop: 12, paddingBottom: 280 }}
+        contentContainerStyle={{ paddingTop: 12, paddingBottom: 280, gap: 0 }}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews={Platform.OS === 'android'}
         refreshControl={
-          <RefreshControl
-            refreshing={refresh} onRefresh={onRefresh}
-            tintColor={CYAN} colors={[CYAN, GREEN, AMBER]}
-            progressBackgroundColor={SURFACE}
-          />
+          <RefreshControl refreshing={refresh} onRefresh={onRefresh}
+            tintColor={CYAN} colors={[CYAN, GREEN, AMBER]} progressBackgroundColor={SURFACE} />
         }
       >
-        {/* Pair Prompt — only when offline */}
-        {!isConn && <PairPromptBanner onPair={() => setShowQR(true)} />}
-
-        {/* Quick Actions */}
-        <QuickActions onPair={() => setShowQR(true)} goToTab={goToTab} />
-
-        {/* Today's Stats strip */}
-        <TodayStrip isConn={isConn} scripts={scripts} kbCount={kbCount} latency={latency} />
-
-        {/* Live Gauges with sparklines */}
-        <LiveGauges
-          isConn={isConn} cpu={metrics.cpu} ram={metrics.ram} disk={metrics.disk}
-          cpuHistory={cpuHistory} ramHistory={ramHistory} diskHistory={diskHistory}
-        />
-
-        {/* System Health Score */}
-        <SystemHealthScore isConn={isConn} cpu={metrics.cpu} ram={metrics.ram} disk={metrics.disk} latency={latency} />
-
-        {/* System Metrics */}
-        <SystemMetrics isConn={isConn} cpu={metrics.cpu} ram={metrics.ram} disk={metrics.disk} latency={latency} />
-
-        {/* Runtime Panel */}
-        <RuntimePanel isConn={isConn} scripts={scripts} kbCount={kbCount} />
-
-        {/* Activity Feed */}
+        {!isConn && <><PairPrompt onPair={() => setShowQR(true)} /><View style={{ height: 12 }} /></>}
+        <QuickActions goToTab={goToTab} onPair={() => setShowQR(true)} />
+        <View style={{ height: 12 }} />
+        <TipsTicker color={isConn ? CYAN : MID} />
+        <View style={{ height: 12 }} />
+        <CircuitDivider color={isConn ? CYAN : DIM} />
+        <LiveGauges isConn={isConn} cpu={metrics.cpu} ram={metrics.ram} disk={metrics.disk} cpuH={cpuH} ramH={ramH} diskH={diskH} />
+        <View style={{ height: 12 }} />
+        <SpectrumDivider colors={[CYAN, GREEN]} />
+        <ClipboardWidget isConn={isConn} />
+        <View style={{ height: 12 }} />
+        <PowerDivider color={PURPLE} />
+        <FileShareWidget isConn={isConn} />
+        <View style={{ height: 12 }} />
+        <NeuralDivider color={AMBER} />
+        <ScriptLauncher isConn={isConn} />
+        <View style={{ height: 12 }} />
+        <CircuitDivider color={GREEN} reverse />
         <ActivityFeed isConn={isConn} addr={addr} />
-
-        {/* Command Gallery */}
-        <CommandGallery isConn={isConn} />
-
-        {/* Core Surfaces 3×3 */}
-        <CoreSurfaces goToTab={goToTab} />
-
-        {/* Zero Cloud */}
-        <ZeroCloudCard />
-
-        {/* Remote Access */}
+        <View style={{ height: 12 }} />
+        <SpectrumDivider colors={[PURPLE, PINK]} />
+        <CoreNav goToTab={goToTab} />
+        <View style={{ height: 12 }} />
+        <NeuralDivider color={GREEN} />
+        <ZeroCloudBanner />
+        <View style={{ height: 12 }} />
         <View style={{ paddingHorizontal: PAD }}>
           <RemoteAccessMonetizationCard onConnected={loadData} />
         </View>
-
-        {/* Quick Scripts */}
-        <QuickScripts isConn={isConn} />
-
-        {/* Vault */}
+        <View style={{ height: 12 }} />
         <View style={{ paddingHorizontal: PAD }}>
           <NexusVaultCard isConnected={isConn} serverLatencyMs={latency} />
         </View>
-
-        {/* Footer */}
-        <PageFooter isConn={isConn} addr={addr} />
+        <View style={{ height: 16 }} />
+        <TipsTicker color={DIM} />
+        <View style={{ height: 8 }} />
+        <Footer isConn={isConn} addr={addr} />
       </ScrollView>
+      {showQR && <ConnectModal visible={showQR} onClose={() => setShowQR(false)} onConnected={loadData} />}
     </View>
   );
 }

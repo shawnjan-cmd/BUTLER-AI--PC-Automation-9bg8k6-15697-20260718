@@ -131,12 +131,31 @@ export default function TabsLayout() {
       clearOnboardingCache();
       setIsDone(false);
     };
+
+    // ── GLOBAL HOOKS for onboarding.tsx ───────────────────────────
+    // Called by onboarding step 9 to reveal the tab bar preview
+    // before the user taps FINISH — gives them a glimpse of the tabs.
+    (global as any).__butlerRevealTabBar = () => {
+      if (!mountedRef.current) return;
+      // Flip isDone to true early so tab bar renders while still on step 9.
+      // The navigation guard in step 9 (LaunchPage) prevents premature exit.
+      setIsDone(true);
+    };
+    // Called by onboarding.tsx every page change so external components
+    // can observe which step is currently showing.
+    (global as any).__butlerUpdateOnboardingStep = (stepIdx: number) => {
+      // Currently informational — can be used by analytics hooks.
+      // Step -1 = onboarding complete.
+    };
+
     return () => {
       _notifyDone = null;
       _notifyReset = null;
       mountedRef.current = false;
       if (fastWatchdogRef.current) clearTimeout(fastWatchdogRef.current);
       if (hardCapRef.current) clearTimeout(hardCapRef.current);
+      delete (global as any).__butlerRevealTabBar;
+      delete (global as any).__butlerUpdateOnboardingStep;
     };
   }, []);
 
