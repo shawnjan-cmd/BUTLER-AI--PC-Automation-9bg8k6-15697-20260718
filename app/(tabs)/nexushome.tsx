@@ -594,8 +594,8 @@ function PairPrompt({ onPair }: { onPair: () => void }) {
         <View style={{ flex: 1, gap: 6 }}>
           <Text style={pq.title}>Connect your PC</Text>
           <Text style={pq.body}>Run butler_server.py, then scan QR from terminal. Instant LAN pairing — 100% private.</Text>
-          {/* ── DOWNLOAD BUTTON — hidden when PC is connected ── */}
-          {!isConn && (
+          {/* ── DOWNLOAD BUTTON — always shown inside PairPrompt (PairPrompt is only rendered when !isConn) ── */}
+          {true && (
             <TouchableOpacity
               onPress={() => {
                 haptics.medium();

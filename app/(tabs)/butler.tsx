@@ -1,26 +1,33 @@
 /**
- * BUTLER AI — AI CHAT v13.0 · PIPELINE PROGRESS EDITION
+ * BUTLER AI — AI CHAT v15.0 · SESSION HISTORY EDITION
+ * © 2026 Andrej Sladkovic — ALL RIGHTS RESERVED — PROPRIETARY
+ * Protected under Berne Convention Art.5, DMCA 17 U.S.C. §1201
+ * Trademark registered: vitalstrademark.com
+ * This codebase contains forensic watermarks, zero-width Unicode traps,
+ * and honeypot API routes. Any unauthorised copy will be traceable.
+ * NEXUS INTEGRITY SEAL: 0xNX-BA-2026-HIST-5B8C
  *
- * NEW IN v13:
- *  • Multi-stage pipeline progress bar (CONNECT → KB → CONTEXT → AI → STREAM)
- *  • Streaming text reveal with live cursor as AI generates each token
- *  • KB context panel in assistant messages (shows sources used)
- *  • Session analytics strip (turns, avg speed, KB hits, model)
- *  • Retry button on failed messages
- *  • Animated stage transitions — full visual feedback at every step
- *  • Model capability badge (tier explanation: Best / Good / Basic)
- *  • Correct wiring to /api/ollama/models, /api/butler/chat, /api/kb/search
- *  • TODO panel — tracks what each API call does and any gaps
+ * NEW IN v15:
+ *  • Full conversation session history (key: @butler_sessions_v1)
+ *  • Auto-save after every AI exchange (debounced 600 ms)
+ *  • Auto-title from first user message (first 36 chars)
+ *  • History bottom sheet: list all sessions sorted newest-first
+ *  • Restore any past session with one tap
+ *  • New Chat button — saves current → starts fresh
+ *  • Delete individual sessions (swipe-style confirm)
+ *  • Session stats: message count, model used, last active time
+ *  • Max 60 sessions persisted; oldest pruned automatically
+ *  • All sessions AES-256 encrypted at rest via encryptedStorage
  *
- * WIRING MAP (all verified against butler_server_v21_1_1_FINAL-3.py):
+ * WIRING MAP (verified against butler_server_v21_1_1_FINAL-3.py):
  *   GET  /api/ollama/models        → model list for picker
  *   GET  /api/ollama/status        → Ollama online + active model
  *   POST /api/butler/chat          → primary chat (Bearer token)
- *   GET  /api/kb/stats             → KB article count for memory badge
- *   GET  /api/metrics              → live PC stats shown in header
- *   POST /api/execute              → code block run-on-PC button
- *
- * COPYRIGHT © 2026 Andrej Sladkovic. PROPRIETARY. All rights reserved.
+ *   POST /api/ollama/pull          → start model download
+ *   GET  /api/ollama/pull_status   → poll download progress
+ *   GET  /api/kb/stats             → KB article count
+ *   GET  /api/metrics              → live PC stats
+ *   POST /api/execute              → run code block on PC
  */
 
 import React, {
@@ -29,7 +36,7 @@ import React, {
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   StyleSheet, Platform, ActivityIndicator, KeyboardAvoidingView,
-  Animated, Dimensions, Modal, Pressable, FlatList, Easing, Alert,
+  Animated, Dimensions, Modal, Pressable, FlatList, Easing,
 } from 'react-native';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -58,7 +65,9 @@ import { FONT } from '@/constants/tokens';
 const MONO: any = FONT.mono;
 const SANS: any = FONT.sans;
 const SW = Dimensions.get('window').width;
-const CONV_KEY = '@butler_conv_v13';
+const CONV_KEY     = '@butler_conv_v15';
+const SESSIONS_KEY = '@butler_sessions_v1';
+const MAX_SESSIONS = 60;
 
 // ─── ASSETS ────────────────────────────────────────────────────────
 let MASCOT: any = null;
@@ -67,38 +76,24 @@ try { MASCOT = require('@/assets/images/butler-shield-mascot.jpg'); } catch {
 }
 
 // ─── TYPES ─────────────────────────────────────────────────────────
-type Role = 'user' | 'butler' | 'system';
-type Mode = 'general' | 'code' | 'debug' | 'analyze';
-
-/** Processing pipeline stages — shown in progress bar during AI call */
-type Stage =
-  | 'idle'
-  | 'connecting'
-  | 'kb_search'
-  | 'context'
-  | 'ai'
-  | 'streaming'
-  | 'done'
-  | 'error';
+type Role  = 'user' | 'butler' | 'system';
+type Mode  = 'general' | 'code' | 'debug' | 'analyze';
+type Stage = 'idle' | 'connecting' | 'kb_search' | 'context' | 'ai' | 'streaming' | 'done' | 'error';
 
 interface KBSource { topic: string; relevance: number }
-
 interface Msg {
+  id: string; role: Role; content: string; timestamp: number;
+  failed?: boolean; failReason?: string; reaction?: string; kbSources?: KBSource[];
+  metadata?: { model?: string; responseMs?: number; kbUsed?: number };
+}
+interface Session {
   id: string;
-  role: Role;
-  content: string;
-  timestamp: number;
-  failed?: boolean;
-  failReason?: string;
-  reaction?: string;
-  kbSources?: KBSource[];
-  metadata?: {
-    model?: string;
-    responseMs?: number;
-    kbUsed?: number;
-    stage?: string;
-    streamedBytes?: number;
-  };
+  title: string;
+  messages: Msg[];
+  createdAt: number;
+  updatedAt: number;
+  msgCount: number;
+  model?: string;
 }
 
 // ─── PALETTE ────────────────────────────────────────────────────────
@@ -116,15 +111,15 @@ const MID      = '#5A4680';
 const DIM      = '#2E1E50';
 const TEXT     = '#EDE4FF';
 const TEXT2    = '#9580C8';
+
 const STAGE_COLORS: Record<Stage, string> = {
-  idle:        DIM,
-  connecting:  TEAL2,
-  kb_search:   AMBER,
-  context:     VIOLET,
-  ai:          GOLD,
-  streaming:   TEAL,
-  done:        TEAL,
-  error:       RED,
+  idle: DIM, connecting: TEAL2, kb_search: AMBER, context: VIOLET,
+  ai: GOLD, streaming: TEAL, done: TEAL, error: RED,
+};
+const STAGE_LABELS: Record<Stage, string> = {
+  idle: 'READY', connecting: 'CONNECTING', kb_search: 'KB SEARCH',
+  context: 'BUILDING CONTEXT', ai: 'AI PROCESSING', streaming: 'GENERATING',
+  done: 'COMPLETE', error: 'ERROR',
 };
 const MODE_PROMPTS: Record<Mode, string> = {
   general: '',
@@ -132,86 +127,171 @@ const MODE_PROMPTS: Record<Mode, string> = {
   debug:   'DEBUG MODE: Show root cause + traceback explanation + corrected code.',
   analyze: 'ANALYZE MODE: Step-by-step reasoning → pros/cons → recommendation.',
 };
-const STAGE_LABELS: Record<Stage, string> = {
-  idle:        'READY',
-  connecting:  'CONNECTING',
-  kb_search:   'KB SEARCH',
-  context:     'BUILDING CONTEXT',
-  ai:          'AI PROCESSING',
-  streaming:   'GENERATING',
-  done:        'COMPLETE',
-  error:       'ERROR',
-};
 
 // ─── MODEL TIER LOGIC ────────────────────────────────────────────
 const MODEL_TIERS: { match: RegExp; tier: number; reason: string; capability: string }[] = [
-  { match: /qwen2?.5.coder/i, tier: 0, reason: 'Best coder model · specialised for Python & automation',    capability: 'ELITE'  },
-  { match: /qwen2?.5/i,       tier: 1, reason: 'High-capability reasoning model · 128k context',             capability: 'ELITE'  },
-  { match: /mistral/i,        tier: 2, reason: 'Strong all-purpose LLM · fast & reliable',                   capability: 'PRO'    },
-  { match: /llama3\.2/i,      tier: 3, reason: 'Latest Llama variant · good instruction following',          capability: 'PRO'    },
-  { match: /llama3/i,         tier: 4, reason: 'Proven open-source model · broad knowledge',                 capability: 'PRO'    },
-  { match: /llama/i,          tier: 5, reason: 'Llama model detected · recommend upgrading to llama3',       capability: 'GOOD'   },
-  { match: /codellama/i,      tier: 6, reason: 'Code-specialised model · good for scripts',                  capability: 'GOOD'   },
-  { match: /phi/i,            tier: 7, reason: 'Compact & fast · limited on complex tasks',                  capability: 'LITE'   },
-  { match: /gemma/i,          tier: 8, reason: 'Google open model · reliable but limited context',           capability: 'LITE'   },
-  { match: /deepseek/i,       tier: 9, reason: 'DeepSeek coding model · good for Python',                   capability: 'GOOD'   },
+  { match: /qwen2?.5.coder/i, tier: 0, reason: 'Best coder model · specialised for Python & automation', capability: 'ELITE' },
+  { match: /qwen2?.5/i,       tier: 1, reason: 'High-capability reasoning model · 128k context',         capability: 'ELITE' },
+  { match: /mistral/i,        tier: 2, reason: 'Strong all-purpose LLM · fast & reliable',               capability: 'PRO'   },
+  { match: /llama3\.2/i,      tier: 3, reason: 'Latest Llama variant · good instruction following',      capability: 'PRO'   },
+  { match: /llama3/i,         tier: 4, reason: 'Proven open-source model · broad knowledge',             capability: 'PRO'   },
+  { match: /llama/i,          tier: 5, reason: 'Llama model · recommend upgrading to llama3',            capability: 'GOOD'  },
+  { match: /codellama/i,      tier: 6, reason: 'Code-specialised model · good for scripts',              capability: 'GOOD'  },
+  { match: /phi/i,            tier: 7, reason: 'Compact & fast · limited on complex tasks',              capability: 'LITE'  },
+  { match: /gemma/i,          tier: 8, reason: 'Google open model · reliable but limited context',       capability: 'LITE'  },
+  { match: /deepseek/i,       tier: 9, reason: 'DeepSeek coding model · good for Python',               capability: 'GOOD'  },
 ];
 
 function selectBestModel(models: string[]): { model: string; reason: string; capability: string } | null {
   if (!models.length) return null;
   let best: { model: string; tier: number; reason: string; capability: string } | null = null;
   for (const m of models) {
-    const hit = MODEL_TIERS.find(p => p.match.test(m));
+    const hit  = MODEL_TIERS.find(p => p.match.test(m));
     const tier = hit?.tier ?? 99;
     const reason = hit?.reason ?? 'Only model installed';
     const capability = hit?.capability ?? 'BASIC';
     if (!best || tier < best.tier) best = { model: m, tier, reason, capability };
   }
-  if (!best) return { model: models[0], reason: 'Only model found — consider: ollama pull qwen2.5-coder:7b', capability: 'BASIC' };
-  if (best.tier > 2) {
-    best.reason += ` · Upgrade tip: ollama pull qwen2.5-coder:7b`;
-  }
+  if (!best) return { model: models[0], reason: 'Only model found · consider: ollama pull qwen2.5-coder:7b', capability: 'BASIC' };
+  if (best.tier > 2) best.reason += ' · Upgrade: ollama pull qwen2.5-coder:7b';
   return best;
 }
 
+// ─── SERVER REQUEST HELPER ──────────────────────────────────────
+// © 2026 Andrej Sladkovic · PROPRIETARY · vitalstrademark.com
+// Forensic watermark NX-PULL-v15-0xCF83
+async function _nxRequest(
+  path: string, method: 'GET' | 'POST' = 'GET', body?: object, ms = 8000,
+): Promise<any> {
+  const _sc = serverConnection as any;
+  const _ip = _sc.getIP?.() || '';
+  const _pt = _sc.getPort?.() || '';
+  const _tk = _sc.getToken?.() || '';
+  if (!_ip || !_pt) throw new Error('NOT_CONNECTED');
+  const _h: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (_tk) _h['Authorization'] = `Bearer ${_tk}`;
+  const _ctrl = new AbortController();
+  const _t = setTimeout(() => _ctrl.abort(), ms);
+  try {
+    const _r = await fetch(`http://${_ip}:${_pt}${path}`,
+      { method, headers: _h, body: body ? JSON.stringify(body) : undefined, signal: _ctrl.signal });
+    clearTimeout(_t);
+    if (!_r.ok) throw new Error(`HTTP_${_r.status}`);
+    return await _r.json();
+  } catch (e) { clearTimeout(_t); throw e; }
+}
+
+interface _PullStatus {
+  pct: number; status: string; layers: number; totalLayers: number;
+  bytesDown: number; bytesTotal: number; done: boolean; error?: string;
+}
+
+function _parsePullStatus(raw: any): _PullStatus {
+  if (!raw || typeof raw !== 'object')
+    return { pct: 0, status: 'Waiting…', layers: 0, totalLayers: 0, bytesDown: 0, bytesTotal: 0, done: false };
+  const status      = String(raw.status || raw.state || '');
+  const done        = status === 'success' || raw.done === true || raw.complete === true;
+  const error       = raw.error || undefined;
+  const bytesDown   = raw.completed || raw.downloaded || raw.bytes_downloaded || 0;
+  const bytesTotal  = raw.total     || raw.total_size  || raw.bytes_total      || 0;
+  const layers      = raw.layers_completed || raw.layers_done  || 0;
+  const totalLayers = raw.layers_total     || raw.total_layers || 0;
+  let pct = 0;
+  if      (raw.percent  != null) pct = Math.round(Number(raw.percent));
+  else if (raw.progress != null) pct = Math.round(Number(raw.progress) * (Number(raw.progress) > 1 ? 1 : 100));
+  else if (bytesTotal > 0)       pct = Math.round((bytesDown / bytesTotal) * 100);
+  else if (totalLayers > 0)      pct = Math.round((layers / totalLayers) * 100);
+  return { pct: Math.min(100, Math.max(0, pct)), status, layers, totalLayers, bytesDown, bytesTotal, done, error };
+}
+
+function _fmtBytes(b: number): string {
+  if (b <= 0)         return '0 B';
+  if (b < 1024)       return `${b} B`;
+  if (b < 1048576)    return `${(b / 1024).toFixed(1)} KB`;
+  if (b < 1073741824) return `${(b / 1048576).toFixed(1)} MB`;
+  return `${(b / 1073741824).toFixed(2)} GB`;
+}
+
+function _fmtRelTime(ts: number): string {
+  const diff = Date.now() - ts;
+  if (diff < 60000)         return 'just now';
+  if (diff < 3600000)       return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000)      return `${Math.floor(diff / 3600000)}h ago`;
+  if (diff < 604800000)     return `${Math.floor(diff / 86400000)}d ago`;
+  return new Date(ts).toLocaleDateString();
+}
+
+function _autoTitle(messages: Msg[]): string {
+  const first = messages.find(m => m.role === 'user');
+  if (!first?.content) return `Session ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  const raw = first.content.trim().replace(/\n+/g, ' ');
+  return raw.length > 36 ? raw.slice(0, 33) + '…' : raw;
+}
+
+const _PULL_MODEL = 'qwen2.5-coder:7b' as const;
+
 async function fetchOllamaModels(): Promise<string[]> {
   try {
-    const sc = serverConnection as any;
-    const ip   = sc.getIP?.()    || '';
-    const port = sc.getPort?.()  || '';
-    const tok  = sc.getToken?.() || '';
-    if (!ip || !port) return [];
-    const h: Record<string, string> = {};
-    if (tok) h['Authorization'] = `Bearer ${tok}`;
-    const ctrl = new AbortController();
-    setTimeout(() => ctrl.abort(), 5000);
-    const res = await fetch(`http://${ip}:${port}/api/ollama/models`, { headers: h, signal: ctrl.signal });
-    if (!res.ok) return [];
-    const d = await res.json();
+    const d = await _nxRequest('/api/ollama/models', 'GET', undefined, 5000);
     const raw: any[] = Array.isArray(d) ? d : (Array.isArray(d?.models) ? d.models : []);
     return raw.map((m: any) => typeof m === 'string' ? m : (m?.name || m?.model || '')).filter(Boolean);
   } catch { return []; }
 }
 
+// ─── SESSION STORAGE HELPERS ──────────────────────────────────────
+// All sessions are AES-256 encrypted at rest via encryptedStorage
+async function _loadSessions(): Promise<Session[]> {
+  try {
+    const raw = await encryptedStorage.getItem(SESSIONS_KEY);
+    if (!raw) return [];
+    const parsed = logger.safeJSON<Session[]>(raw, [], '[Sessions]');
+    if (!Array.isArray(parsed)) return [];
+    return parsed.sort((a, b) => b.updatedAt - a.updatedAt);
+  } catch { return []; }
+}
+
+async function _saveSessions(sessions: Session[]): Promise<void> {
+  try {
+    const pruned = sessions
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .slice(0, MAX_SESSIONS);
+    await encryptedStorage.setItem(SESSIONS_KEY, JSON.stringify(pruned));
+  } catch {}
+}
+
+async function _upsertSession(session: Session, existing: Session[]): Promise<Session[]> {
+  try {
+    const idx = existing.findIndex(s => s.id === session.id);
+    let updated: Session[];
+    if (idx >= 0) {
+      updated = existing.map(s => s.id === session.id ? session : s);
+    } else {
+      updated = [session, ...existing];
+    }
+    await _saveSessions(updated);
+    return updated.sort((a, b) => b.updatedAt - a.updatedAt);
+  } catch { return existing; }
+}
+
+async function _deleteSession(id: string, existing: Session[]): Promise<Session[]> {
+  try {
+    const updated = existing.filter(s => s.id !== id);
+    await _saveSessions(updated);
+    return updated;
+  } catch { return existing; }
+}
+
 // ─── GLOW DOT ──────────────────────────────────────────────────────
 function GlowDot({ color, size = 6 }: { color: string; size?: number }) {
   const a = useRef(new Animated.Value(0.35)).current;
-  const m = useRef(true);
   useEffect(() => {
-    m.current = true;
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(a, { toValue: 1,   duration: 800, useNativeDriver: true }),
       Animated.timing(a, { toValue: 0.2, duration: 800, useNativeDriver: true }),
     ]));
-    loop.start();
-    return () => { m.current = false; loop.stop(); };
+    loop.start(); return () => loop.stop();
   }, []);
-  return (
-    <Animated.View style={{
-      width: size, height: size, borderRadius: size / 2, backgroundColor: color, opacity: a,
-      ...(Platform.OS === 'ios' ? { shadowColor: color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 5 } : {}),
-    }} />
-  );
+  return <Animated.View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color, opacity: a }} />;
 }
 
 // ─── LIVE CLOCK ─────────────────────────────────────────────────────
@@ -219,78 +299,490 @@ function useClock() {
   const [time, setTime] = useState('');
   const [secs, setSecs] = useState('');
   useEffect(() => {
-    const update = () => {
+    const u = () => {
       const n = new Date();
-      setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`);
-      setSecs(String(n.getSeconds()).padStart(2,'0'));
+      setTime(`${String(n.getHours()).padStart(2, '0')}:${String(n.getMinutes()).padStart(2, '0')}`);
+      setSecs(String(n.getSeconds()).padStart(2, '0'));
     };
-    update(); const t = setInterval(update, 1000); return () => clearInterval(t);
+    u(); const t = setInterval(u, 1000); return () => clearInterval(t);
   }, []);
   return { time, secs };
 }
 
 // ══════════════════════════════════════════════════════════════════
-// PIPELINE PROGRESS BAR — shows all 5 processing stages
+// PULL PROGRESS BAR — animated shimmer fill
+// ══════════════════════════════════════════════════════════════════
+function _PullProgressBar({ pct, color }: { pct: number; color: string }) {
+  const fillA = useRef(new Animated.Value(0)).current;
+  const shimA = useRef(new Animated.Value(-100)).current;
+  useEffect(() => {
+    Animated.timing(fillA, { toValue: pct / 100, duration: 420, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
+    const sl = Animated.loop(Animated.timing(shimA, { toValue: 240, duration: 1300, easing: Easing.linear, useNativeDriver: false }));
+    sl.start(); return () => sl.stop();
+  }, [pct]);
+  const w = fillA.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
+  return (
+    <View style={{ height: 6, borderRadius: 3, backgroundColor: color + '1A', overflow: 'hidden', marginVertical: 5 }}>
+      <Animated.View style={[{ height: '100%', borderRadius: 3, backgroundColor: color, overflow: 'hidden' }, { width: w as any },
+        Platform.OS === 'ios' ? { shadowColor: color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 6 } : {}]}>
+        <Animated.View style={{ position: 'absolute', top: 0, bottom: 0, width: 60, backgroundColor: 'rgba(255,255,255,0.28)',
+          transform: [{ translateX: shimA as any }, { skewX: '-18deg' }] }} />
+      </Animated.View>
+    </View>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MODEL BADGE v15 — PULL MODEL + live progress polling
+// ══════════════════════════════════════════════════════════════════
+type _PullPhase = 'idle' | 'starting' | 'pulling' | 'done' | 'error';
+
+function ModelBadge({ model, reason, capability, isConn, loading, onModelPulled }: {
+  model: string; reason: string; capability: string; isConn: boolean; loading: boolean;
+  onModelPulled?: (m: string) => void;
+}) {
+  const [expanded,  setExpanded]  = useState(false);
+  const [pullPhase, setPullPhase] = useState<_PullPhase>('idle');
+  const [pullSt,    setPullSt]    = useState<_PullStatus | null>(null);
+  const [pullErr,   setPullErr]   = useState<string | null>(null);
+  const fadeA    = useRef(new Animated.Value(0)).current;
+  const pulseA   = useRef(new Animated.Value(0.5)).current;
+  const pollRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mountRef = useRef(true);
+
+  useEffect(() => { Animated.timing(fadeA, { toValue: 1, duration: 340, useNativeDriver: true }).start(); }, [model]);
+  useEffect(() => {
+    mountRef.current = true;
+    if (pullPhase !== 'pulling' && pullPhase !== 'starting') return;
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(pulseA, { toValue: 1,   duration: 550, useNativeDriver: false }),
+      Animated.timing(pulseA, { toValue: 0.3, duration: 550, useNativeDriver: false }),
+    ]));
+    loop.start(); return () => loop.stop();
+  }, [pullPhase]);
+  useEffect(() => () => {
+    mountRef.current = false;
+    if (pollRef.current) clearInterval(pollRef.current);
+  }, []);
+
+  const _doStartPull = useCallback(async () => {
+    if (!isConn) return;
+    haptics.heavy();
+    setPullPhase('starting'); setPullErr(null); setPullSt(null);
+    try {
+      await _nxRequest('/api/ollama/pull', 'POST', { model: _PULL_MODEL }, 10000);
+      if (!mountRef.current) return;
+      setPullPhase('pulling');
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(async () => {
+        if (!mountRef.current) { clearInterval(pollRef.current!); return; }
+        try {
+          const raw = await _nxRequest('/api/ollama/pull_status', 'GET', undefined, 6000);
+          if (!mountRef.current) return;
+          const ps = _parsePullStatus(raw);
+          setPullSt(ps);
+          if (ps.done) {
+            clearInterval(pollRef.current!);
+            if (ps.error) { setPullPhase('error'); setPullErr(ps.error); }
+            else { setPullPhase('done'); haptics.success(); setTimeout(() => onModelPulled?.(_PULL_MODEL), 700); }
+          }
+        } catch (pe: any) {
+          if (!mountRef.current) return;
+          setPullErr(`Poll: ${String(pe?.message || 'timeout').slice(0, 50)}`);
+        }
+      }, 1500);
+    } catch (e: any) {
+      if (!mountRef.current) return;
+      setPullPhase('error'); setPullErr(String(e?.message || 'Failed to start pull'));
+    }
+  }, [isConn, onModelPulled]);
+
+  const _doCancelPull = useCallback(() => {
+    haptics.medium();
+    if (pollRef.current) clearInterval(pollRef.current);
+    setPullPhase('idle'); setPullSt(null); setPullErr(null);
+  }, []);
+
+  const capColors: Record<string, string> = { ELITE: TEAL, PRO: GOLD, GOOD: AMBER, LITE: VIOLET, BASIC: MID, NONE: RED };
+  const capColor     = capColors[capability] || MID;
+  const isSuboptimal = !['ELITE', 'PRO'].includes(capability);
+
+  if (pullPhase === 'starting' || pullPhase === 'pulling') {
+    const ps  = pullSt;
+    const pct = ps?.pct ?? 0;
+    return (
+      <Animated.View style={[mpb.wrap, { opacity: pullPhase === 'starting' ? pulseA : 1 }]}>
+        <View style={mpb.hdr}>
+          <MaterialCommunityIcons name="download-circle" size={14} color={VIOLET} />
+          <Text style={[mpb.title, { color: VIOLET }]}>PULLING {_PULL_MODEL.toUpperCase()}</Text>
+          <Text style={[mpb.pctTxt, { color: VIOLET }]}>{pct}%</Text>
+          <TouchableOpacity onPress={_doCancelPull} style={mpb.cancelBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={{ fontFamily: MONO, fontSize: 8, fontWeight: '900', color: RED }}>CANCEL</Text>
+          </TouchableOpacity>
+        </View>
+        <_PullProgressBar pct={pct} color={VIOLET} />
+        {ps ? (
+          <View style={mpb.statsRow}>
+            {[
+              { lbl: 'STATUS',     val: (ps.status || 'Initialising…').slice(0, 22) },
+              { lbl: 'LAYERS',     val: ps.totalLayers > 0 ? `${ps.layers}/${ps.totalLayers}` : '—' },
+              { lbl: 'DOWNLOADED', val: ps.bytesTotal > 0 ? `${_fmtBytes(ps.bytesDown)} / ${_fmtBytes(ps.bytesTotal)}` : _fmtBytes(ps.bytesDown) },
+            ].map(s => (
+              <View key={s.lbl} style={{ flex: 1, gap: 1 }}>
+                <Text style={{ fontFamily: MONO, fontSize: 7, color: MID, letterSpacing: 0.8 }}>{s.lbl}</Text>
+                <Text style={{ fontFamily: MONO, fontSize: 9, color: VIOLET + 'CC', fontWeight: '700' }} numberOfLines={1}>{s.val}</Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+            <ActivityIndicator size="small" color={VIOLET} style={{ transform: [{ scale: 0.65 }] }} />
+            <Text style={{ fontFamily: MONO, fontSize: 9, color: VIOLET + '70' }}>Sending pull request to PC…</Text>
+          </View>
+        )}
+        {pullErr ? <Text style={{ fontFamily: MONO, fontSize: 8, color: AMBER + '80', marginTop: 4 }} numberOfLines={2}>{pullErr}</Text> : null}
+      </Animated.View>
+    );
+  }
+
+  if (pullPhase === 'done') {
+    return (
+      <View style={[mpb.wrap, { borderColor: TEAL + '45', backgroundColor: TEAL + '09', flexDirection: 'row', alignItems: 'center', gap: 9 }]}>
+        <MaterialIcons name="check-circle" size={15} color={TEAL} />
+        <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '900', color: TEAL, flex: 1 }}>{_PULL_MODEL.toUpperCase()} INSTALLED</Text>
+        <View style={{ borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, borderColor: TEAL + '45', backgroundColor: TEAL + '0C' }}>
+          <Text style={{ fontFamily: MONO, fontSize: 8, fontWeight: '900', color: TEAL }}>READY</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (pullPhase === 'error') {
+    return (
+      <View style={[mpb.wrap, { borderColor: RED + '35', backgroundColor: RED + '07' }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+          <MaterialIcons name="error-outline" size={13} color={RED} />
+          <Text style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: '900', color: RED, flex: 1 }}>PULL FAILED</Text>
+          <TouchableOpacity onPress={_doCancelPull} style={{ borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, borderColor: AMBER + '55', backgroundColor: AMBER + '0A' }}>
+            <Text style={{ fontFamily: MONO, fontSize: 8, color: AMBER, fontWeight: '900' }}>DISMISS</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={{ fontFamily: MONO, fontSize: 9, color: RED + '80', lineHeight: 14, marginBottom: 8 }} numberOfLines={3}>
+          {pullErr || 'Unknown error — check Ollama is running on your PC.'}
+        </Text>
+        <TouchableOpacity onPress={_doStartPull} activeOpacity={0.85}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 8,
+            paddingHorizontal: 10, paddingVertical: 7, borderColor: AMBER + '55', backgroundColor: AMBER + '0C', alignSelf: 'flex-start' }}>
+          <MaterialIcons name="refresh" size={12} color={AMBER} />
+          <Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '900', color: AMBER }}>RETRY PULL</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!isConn) {
+    return (
+      <View style={[mod.wrap, { borderColor: RED + '25', backgroundColor: RED + '06' }]}>
+        <MaterialCommunityIcons name="robot-dead-outline" size={12} color={RED + '70'} />
+        <Text style={[mod.txt, { color: RED + '70' }]}>Offline — pair PC from HOME tab to unlock full AI</Text>
+      </View>
+    );
+  }
+  if (loading) {
+    return (
+      <View style={[mod.wrap, { borderColor: AMBER + '25', backgroundColor: AMBER + '06' }]}>
+        <ActivityIndicator size="small" color={AMBER} style={{ transform: [{ scale: 0.65 }] }} />
+        <Text style={[mod.txt, { color: AMBER + '80' }]}>Scanning for installed Ollama models...</Text>
+      </View>
+    );
+  }
+  if (!model) {
+    return (
+      <View style={{ borderTopWidth: 1, borderBottomWidth: 1, borderColor: AMBER + '28', backgroundColor: AMBER + '07' }}>
+        <View style={[mod.wrap, { borderTopWidth: 0, borderBottomWidth: 0 }]}>
+          <MaterialIcons name="warning" size={12} color={AMBER} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: '900', color: AMBER }}>No Ollama model found</Text>
+            <Text style={{ fontFamily: MONO, fontSize: 8, color: AMBER + '65', lineHeight: 12 }}>Download qwen2.5-coder:7b to your PC instantly</Text>
+          </View>
+          <TouchableOpacity onPress={_doStartPull} activeOpacity={0.85}
+            style={[mod.pullBtn, { borderColor: VIOLET + '80', backgroundColor: VIOLET + '15',
+              ...(Platform.OS === 'ios' ? { shadowColor: VIOLET, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.75, shadowRadius: 9 } : {}) }]}>
+            <MaterialCommunityIcons name="download-circle-outline" size={14} color={VIOLET} />
+            <Text style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: '900', color: VIOLET, letterSpacing: 0.5 }}>PULL MODEL</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={{ paddingHorizontal: 12, paddingBottom: 9, gap: 2 }}>
+          <Text style={{ fontFamily: MONO, fontSize: 8.5, color: AMBER + '70', lineHeight: 13 }}>{'qwen2.5-coder:7b · ~4 GB · Apache 2.0 · Best Python & automation model'}</Text>
+          <Text style={{ fontFamily: MONO, fontSize: 8, color: MID + '80', lineHeight: 12 }}>{'Requires Ollama running on your PC · Download runs entirely via LAN · zero cloud'}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const modelLabel = model.split(':')[0].slice(0, 20).toUpperCase();
+  return (
+    <Animated.View style={{ opacity: fadeA }}>
+      <View style={{ borderTopWidth: 1, borderBottomWidth: 1, borderColor: TEAL + '22', backgroundColor: TEAL + '06' }}>
+        <TouchableOpacity onPress={() => setExpanded(e => !e)} activeOpacity={0.85}
+          style={[mod.wrap, { borderTopWidth: 0, borderBottomWidth: 0 }]}>
+          <MaterialCommunityIcons name="chip" size={11} color={TEAL} />
+          <Text style={[mod.modelName, { color: TEAL }]}>{modelLabel}</Text>
+          <View style={[mod.capBadge, { borderColor: capColor + '50', backgroundColor: capColor + '0D' }]}>
+            <Text style={{ fontFamily: MONO, fontSize: 7.5, fontWeight: '900', color: capColor }}>{capability}</Text>
+          </View>
+          <View style={mod.dot} />
+          <Text style={[mod.txt, { color: TEAL + '90', flex: 1 }]} numberOfLines={expanded ? 4 : 1}>{reason}</Text>
+          {isSuboptimal && (
+            <TouchableOpacity onPress={_doStartPull} activeOpacity={0.85} onStartShouldSetResponder={() => true}
+              style={[mod.pullBtn, { borderColor: VIOLET + '60', backgroundColor: VIOLET + '10' }]}>
+              <MaterialCommunityIcons name="download-circle-outline" size={11} color={VIOLET} />
+              <Text style={{ fontFamily: MONO, fontSize: 8, fontWeight: '900', color: VIOLET }}>PULL</Text>
+            </TouchableOpacity>
+          )}
+          <MaterialIcons name={expanded ? 'expand-less' : 'expand-more'} size={11} color={TEAL + '55'} />
+        </TouchableOpacity>
+        {expanded && isSuboptimal && (
+          <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>
+            <View style={{ borderWidth: 1, borderRadius: 10, borderColor: VIOLET + '28', backgroundColor: VIOLET + '08', padding: 11 }}>
+              <Text style={{ fontFamily: MONO, fontSize: 9, color: VIOLET, fontWeight: '900', marginBottom: 5 }}>↑ UPGRADE: qwen2.5-coder:7b</Text>
+              <Text style={{ fontFamily: MONO, fontSize: 8.5, color: VIOLET + '80', lineHeight: 13, marginBottom: 10 }}>{'Best Python & automation model · Apache 2.0 · ~4 GB · Installs direct to your PC'}</Text>
+              <TouchableOpacity onPress={_doStartPull} activeOpacity={0.85}
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  borderWidth: 1.5, borderRadius: 10, paddingVertical: 11,
+                  borderColor: VIOLET + '80', backgroundColor: VIOLET + '16',
+                  ...(Platform.OS === 'ios' ? { shadowColor: VIOLET, shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.75, shadowRadius: 14 } : { elevation: 6 }) }}>
+                <MaterialCommunityIcons name="download-circle" size={16} color={VIOLET} />
+                <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '900', color: VIOLET, letterSpacing: 0.8 }}>PULL qwen2.5-coder:7b</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </View>
+    </Animated.View>
+  );
+}
+
+const mpb = StyleSheet.create({
+  wrap:     { paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: 1, borderBottomWidth: 1, borderColor: VIOLET + '35', backgroundColor: VIOLET + '07' },
+  hdr:      { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 4 },
+  title:    { fontFamily: MONO, fontSize: 9.5, fontWeight: '900', flex: 1, letterSpacing: 0.5 },
+  pctTxt:   { fontFamily: MONO, fontSize: 11, fontWeight: '900' },
+  cancelBtn:{ borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, borderColor: RED + '50', backgroundColor: RED + '0A' },
+  statsRow: { flexDirection: 'row', gap: 12, marginTop: 5 },
+});
+const mod = StyleSheet.create({
+  wrap:      { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 7, borderTopWidth: 1, borderBottomWidth: 1 },
+  modelName: { fontFamily: MONO, fontSize: 9, fontWeight: '900', letterSpacing: 0.5, flexShrink: 0 },
+  capBadge:  { borderWidth: 1, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 },
+  dot:       { width: 3, height: 3, borderRadius: 1.5, backgroundColor: TEAL + '50', flexShrink: 0 },
+  txt:       { fontFamily: MONO, fontSize: 9, letterSpacing: 0.2 },
+  pullBtn:   { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5, flexShrink: 0 },
+});
+
+// ══════════════════════════════════════════════════════════════════
+// SESSION HISTORY BOTTOM SHEET
+// ══════════════════════════════════════════════════════════════════
+function HistorySheet({ visible, sessions, currentId, onClose, onRestore, onDelete, onNewChat }: {
+  visible: boolean;
+  sessions: Session[];
+  currentId: string | null;
+  onClose: () => void;
+  onRestore: (s: Session) => void;
+  onDelete: (id: string) => void;
+  onNewChat: () => void;
+}) {
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const slideA = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(slideA, {
+      toValue: visible ? 1 : 0,
+      tension: 85, friction: 13,
+      useNativeDriver: true,
+    }).start();
+    if (!visible) setDeletingId(null);
+  }, [visible]);
+
+  const translateY = slideA.interpolate({ inputRange: [0, 1], outputRange: [600, 0] });
+  const opacity    = slideA.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 0.95, 1] });
+
+  const modelColor = (model?: string) => {
+    if (!model) return MID;
+    const tier = MODEL_TIERS.find(t => t.match.test(model));
+    const capColors: Record<string, string> = { ELITE: TEAL, PRO: GOLD, GOOD: AMBER, LITE: VIOLET, BASIC: MID };
+    return capColors[tier?.capability || 'BASIC'] || MID;
+  };
+
+  const renderSession = useCallback(({ item }: { item: Session }) => {
+    const isCurrent   = item.id === currentId;
+    const isDeleting  = deletingId === item.id;
+    const mColor      = modelColor(item.model);
+    return (
+      <Pressable
+        onPress={() => { if (!isDeleting) { haptics.medium(); onRestore(item); } }}
+        onLongPress={() => { haptics.heavy(); setDeletingId(isDeleting ? null : item.id); }}
+        style={({ pressed }) => [sh.row, isCurrent && { borderColor: GOLD + '40', backgroundColor: GOLD + '07' },
+          pressed && { backgroundColor: VIOLET + '12' }]}>
+        {/* Left accent */}
+        <View style={{ width: 3, alignSelf: 'stretch', borderRadius: 2, backgroundColor: isCurrent ? GOLD : mColor + '70', marginRight: 12, flexShrink: 0 }} />
+        <View style={{ flex: 1, gap: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '900', color: isCurrent ? GOLD : TEXT, flex: 1 }} numberOfLines={1}>{item.title}</Text>
+            {isCurrent && (
+              <View style={{ borderWidth: 1, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2, borderColor: GOLD + '55', backgroundColor: GOLD + '0F' }}>
+                <Text style={{ fontFamily: MONO, fontSize: 7, fontWeight: '900', color: GOLD }}>ACTIVE</Text>
+              </View>
+            )}
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <MaterialIcons name="chat-bubble-outline" size={9} color={MID} />
+              <Text style={{ fontFamily: MONO, fontSize: 8.5, color: TEXT2 }}>{item.msgCount} msg{item.msgCount !== 1 ? 's' : ''}</Text>
+            </View>
+            {item.model ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <MaterialCommunityIcons name="chip" size={9} color={mColor + '80'} />
+                <Text style={{ fontFamily: MONO, fontSize: 8, color: mColor + '80' }} numberOfLines={1}>{item.model.split(':')[0].slice(0, 14)}</Text>
+              </View>
+            ) : null}
+            <View style={{ flex: 1 }} />
+            <Text style={{ fontFamily: MONO, fontSize: 8, color: MID }}>{_fmtRelTime(item.updatedAt)}</Text>
+          </View>
+        </View>
+        {/* Delete confirm */}
+        {isDeleting && (
+          <TouchableOpacity
+            onPress={() => { haptics.heavy(); onDelete(item.id); setDeletingId(null); }}
+            style={{ marginLeft: 10, borderWidth: 1.5, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 6,
+              borderColor: RED + '70', backgroundColor: RED + '12', flexShrink: 0 }}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+            <Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '900', color: RED }}>DELETE</Text>
+          </TouchableOpacity>
+        )}
+      </Pressable>
+    );
+  }, [currentId, deletingId, onRestore, onDelete]);
+
+  if (!visible) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
+      <Animated.View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0)', opacity }}>
+        <Pressable style={{ flex: 1 }} onPress={onClose} />
+      </Animated.View>
+      <Animated.View style={[sh.sheet, { transform: [{ translateY }] }]}>
+        {/* Header */}
+        <View style={{ alignItems: 'center', paddingTop: 12, marginBottom: 4 }}>
+          <View style={{ width: 42, height: 4, borderRadius: 2, backgroundColor: GOLD + '35' }} />
+        </View>
+        <View style={sh.hdr}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+            <View style={[sh.hdrIcon, { borderColor: GOLD + '55', backgroundColor: GOLD + '0D' }]}>
+              <MaterialIcons name="history" size={18} color={GOLD} />
+            </View>
+            <View>
+              <Text style={{ fontFamily: MONO, fontSize: 15, fontWeight: '900', color: GOLD }}>CHAT HISTORY</Text>
+              <Text style={{ fontFamily: MONO, fontSize: 9, color: MID, marginTop: 2 }}>{sessions.length} SESSION{sessions.length !== 1 ? 'S' : ''} · AES-256 ENCRYPTED</Text>
+            </View>
+          </View>
+          <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={{ width: 34, height: 34, borderRadius: 10, borderWidth: 1, borderColor: MID + '40', alignItems: 'center', justifyContent: 'center' }}>
+            <MaterialIcons name="close" size={17} color={MID} />
+          </TouchableOpacity>
+        </View>
+        {/* New Chat CTA */}
+        <TouchableOpacity onPress={() => { haptics.heavy(); onNewChat(); onClose(); }} activeOpacity={0.85}
+          style={sh.newChatBtn}>
+          <MaterialIcons name="add-circle" size={18} color="#000" />
+          <Text style={{ fontFamily: MONO, fontSize: 13, fontWeight: '900', color: '#000', letterSpacing: 0.5 }}>NEW CHAT</Text>
+          <View style={{ flex: 1 }} />
+          <Text style={{ fontFamily: MONO, fontSize: 9, color: '#00000070' }}>Saves current session</Text>
+        </TouchableOpacity>
+        {/* Session list */}
+        {sessions.length === 0 ? (
+          <View style={{ alignItems: 'center', paddingVertical: 42, gap: 12 }}>
+            <MaterialCommunityIcons name="robot-confused-outline" size={46} color={DIM} />
+            <Text style={{ fontFamily: MONO, fontSize: 12, color: MID, textAlign: 'center', lineHeight: 20 }}>
+              {'No saved sessions yet.\nStart a conversation and it will\nappear here automatically.'}
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={sessions}
+            keyExtractor={s => s.id}
+            renderItem={renderSession}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 36, paddingTop: 4 }}
+            ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: DIM + '30', marginHorizontal: 16 }} />}
+          />
+        )}
+        {sessions.length > 0 && (
+          <View style={{ paddingHorizontal: 16, paddingBottom: 10 }}>
+            <Text style={{ fontFamily: MONO, fontSize: 8, color: MID + '70', textAlign: 'center', lineHeight: 13 }}>
+              {'Long-press any session to reveal the delete button · Up to 60 sessions stored'}
+            </Text>
+          </View>
+        )}
+      </Animated.View>
+    </Modal>
+  );
+}
+
+const sh = StyleSheet.create({
+  sheet:    { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: SURFACE,
+              borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 2, borderTopColor: GOLD + '50',
+              maxHeight: '82%',
+              ...Platform.select({ ios: { shadowColor: GOLD, shadowOffset: { width: 0, height: -8 }, shadowOpacity: 0.25, shadowRadius: 20 }, android: { elevation: 24 }, default: {} }) },
+  hdr:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingBottom: 14 },
+  hdrIcon:  { width: 40, height: 40, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  newChatBtn:{ flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginBottom: 12,
+               paddingVertical: 14, paddingHorizontal: 18, borderRadius: 14, backgroundColor: GOLD,
+               ...Platform.select({ ios: { shadowColor: GOLD, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.55, shadowRadius: 12 }, android: { elevation: 8 }, default: {} }) },
+  row:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14,
+               borderWidth: 1, borderColor: 'transparent', borderRadius: 12, marginHorizontal: 8, marginVertical: 2 },
+});
+
+// ══════════════════════════════════════════════════════════════════
+// PIPELINE PROGRESS BAR
 // ══════════════════════════════════════════════════════════════════
 const PIPELINE_STAGES: { id: Stage; label: string; icon: string }[] = [
-  { id: 'connecting', label: 'LINK',    icon: 'link' },
-  { id: 'kb_search',  label: 'KB',      icon: 'library-books' },
-  { id: 'context',    label: 'CTX',     icon: 'layers' },
-  { id: 'ai',         label: 'AI',      icon: 'smart-toy' },
-  { id: 'streaming',  label: 'STREAM',  icon: 'waves' },
+  { id: 'connecting', label: 'LINK',   icon: 'link'          },
+  { id: 'kb_search',  label: 'KB',     icon: 'library-books' },
+  { id: 'context',    label: 'CTX',    icon: 'layers'        },
+  { id: 'ai',         label: 'AI',     icon: 'smart-toy'     },
+  { id: 'streaming',  label: 'STREAM', icon: 'waves'         },
 ];
-
 const STAGE_ORDER = ['connecting', 'kb_search', 'context', 'ai', 'streaming'];
 
 function PipelineProgress({ stage, elapsed }: { stage: Stage; elapsed: number }) {
   const currentIdx = STAGE_ORDER.indexOf(stage);
   const pulseA = useRef(new Animated.Value(0.3)).current;
-  const m = useRef(true);
-
   useEffect(() => {
-    m.current = true;
     if (stage === 'idle' || stage === 'done' || stage === 'error') return;
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(pulseA, { toValue: 1,   duration: 450, useNativeDriver: false }),
       Animated.timing(pulseA, { toValue: 0.2, duration: 450, useNativeDriver: false }),
     ]));
-    loop.start();
-    return () => { m.current = false; loop.stop(); };
+    loop.start(); return () => loop.stop();
   }, [stage]);
-
   if (stage === 'idle' || stage === 'done') return null;
-
   const isError = stage === 'error';
   const stageColor = STAGE_COLORS[stage];
-
   return (
     <View style={pipe.root}>
-      {/* Top accent */}
       <View style={[pipe.topBar, { backgroundColor: stageColor }]} />
-
-      {/* Stage nodes */}
       <View style={pipe.stagesRow}>
         {PIPELINE_STAGES.map((s, i) => {
-          const isDone    = currentIdx > i;
-          const isActive  = currentIdx === i;
-          const isPending = currentIdx < i;
+          const isDone   = currentIdx > i;
+          const isActive = currentIdx === i;
           const c = isDone ? TEAL : isActive ? stageColor : MID + '40';
           return (
             <React.Fragment key={s.id}>
-              {i > 0 && (
-                <View style={[pipe.connector, {
-                  backgroundColor: isDone ? TEAL : MID + '30',
-                  flex: 1,
-                }]} />
-              )}
-              <View style={[pipe.node, {
-                borderColor: c,
-                backgroundColor: isActive ? stageColor + '22' : isDone ? TEAL + '18' : 'transparent',
-              }]}>
+              {i > 0 && <View style={[pipe.connector, { backgroundColor: isDone ? TEAL : MID + '30', flex: 1 }]} />}
+              <View style={[pipe.node, { borderColor: c, backgroundColor: isActive ? stageColor + '22' : isDone ? TEAL + '18' : 'transparent' }]}>
                 {isActive ? (
-                  <Animated.View style={{ opacity: pulseA }}>
-                    <MaterialIcons name={s.icon as any} size={12} color={stageColor} />
-                  </Animated.View>
+                  <Animated.View style={{ opacity: pulseA }}><MaterialIcons name={s.icon as any} size={12} color={stageColor} /></Animated.View>
                 ) : isDone ? (
                   <MaterialIcons name="check" size={10} color={TEAL} />
                 ) : (
@@ -301,25 +793,15 @@ function PipelineProgress({ stage, elapsed }: { stage: Stage; elapsed: number })
           );
         })}
       </View>
-
-      {/* Status row */}
       <View style={pipe.statusRow}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           {!isError && <GlowDot color={stageColor} size={5} />}
           {isError && <MaterialIcons name="error-outline" size={12} color={RED} />}
-          <Text style={[pipe.statusTxt, { color: stageColor }]}>
-            {STAGE_LABELS[stage]}
-          </Text>
+          <Text style={[pipe.statusTxt, { color: stageColor }]}>{STAGE_LABELS[stage]}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          {elapsed > 0 && (
-            <Text style={pipe.elapsedTxt}>
-              {elapsed < 1000 ? `${elapsed}ms` : `${(elapsed / 1000).toFixed(1)}s`}
-            </Text>
-          )}
-          {!isError && stage !== 'done' && (
-            <ActivityIndicator size="small" color={stageColor} style={{ transform: [{ scale: 0.65 }] }} />
-          )}
+          {elapsed > 0 && <Text style={pipe.elapsedTxt}>{elapsed < 1000 ? `${elapsed}ms` : `${(elapsed / 1000).toFixed(1)}s`}</Text>}
+          {!isError && stage !== 'done' && <ActivityIndicator size="small" color={stageColor} style={{ transform: [{ scale: 0.65 }] }} />}
         </View>
       </View>
     </View>
@@ -338,51 +820,40 @@ const pipe = StyleSheet.create({
 });
 
 // ══════════════════════════════════════════════════════════════════
-// STREAMING CURSOR — shows in active butler message
+// STREAMING CURSOR
 // ══════════════════════════════════════════════════════════════════
 function StreamingCursor({ color }: { color: string }) {
   const a = useRef(new Animated.Value(1)).current;
-  const m = useRef(true);
   useEffect(() => {
-    m.current = true;
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(a, { toValue: 0, duration: 450, useNativeDriver: true }),
       Animated.timing(a, { toValue: 1, duration: 450, useNativeDriver: true }),
     ]));
-    loop.start();
-    return () => { m.current = false; loop.stop(); };
+    loop.start(); return () => loop.stop();
   }, []);
-  return (
-    <Animated.View style={{
-      width: 8, height: 14, borderRadius: 2, backgroundColor: color, opacity: a,
-      marginLeft: 2, marginBottom: -2,
-    }} />
-  );
+  return <Animated.View style={{ width: 8, height: 14, borderRadius: 2, backgroundColor: color, opacity: a, marginLeft: 2, marginBottom: -2 }} />;
 }
 
 // ══════════════════════════════════════════════════════════════════
-// KB SOURCES PILL — shows in message footer when KB was used
+// KB SOURCES PILL
 // ══════════════════════════════════════════════════════════════════
 function KBSourcesPill({ sources, count }: { sources?: KBSource[]; count: number }) {
   const [open, setOpen] = useState(false);
   if (!count) return null;
-  const c = VIOLET;
   return (
     <View style={{ marginTop: 4 }}>
       <TouchableOpacity onPress={() => setOpen(o => !o)} activeOpacity={0.8}
         style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 4,
-          borderWidth: 1, borderRadius: 8, borderColor: c + '40', backgroundColor: c + '0A', alignSelf: 'flex-start' }}>
-        <MaterialIcons name="library-books" size={9} color={c} />
-        <Text style={{ fontFamily: MONO, fontSize: 8, color: c, fontWeight: '900' }}>
-          {count} KB SOURCE{count !== 1 ? 'S' : ''} USED
-        </Text>
-        <MaterialIcons name={open ? 'expand-less' : 'expand-more'} size={9} color={c + '70'} />
+          borderWidth: 1, borderRadius: 8, borderColor: VIOLET + '40', backgroundColor: VIOLET + '0A', alignSelf: 'flex-start' }}>
+        <MaterialIcons name="library-books" size={9} color={VIOLET} />
+        <Text style={{ fontFamily: MONO, fontSize: 8, color: VIOLET, fontWeight: '900' }}>{count} KB SOURCE{count !== 1 ? 'S' : ''} USED</Text>
+        <MaterialIcons name={open ? 'expand-less' : 'expand-more'} size={9} color={VIOLET + '70'} />
       </TouchableOpacity>
       {open && sources && sources.slice(0, 3).map((s, i) => (
         <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 4, paddingTop: 3 }}>
-          <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: c + '60' }} />
+          <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: VIOLET + '60' }} />
           <Text style={{ fontFamily: MONO, fontSize: 8.5, color: TEXT2, flex: 1 }} numberOfLines={1}>{s.topic}</Text>
-          <Text style={{ fontFamily: MONO, fontSize: 7.5, color: c + '60' }}>{s.relevance}%</Text>
+          <Text style={{ fontFamily: MONO, fontSize: 7.5, color: VIOLET + '60' }}>{s.relevance}%</Text>
         </View>
       ))}
     </View>
@@ -390,28 +861,23 @@ function KBSourcesPill({ sources, count }: { sources?: KBSource[]; count: number
 }
 
 // ══════════════════════════════════════════════════════════════════
-// SESSION ANALYTICS BAR
+// SESSION ANALYTICS
 // ══════════════════════════════════════════════════════════════════
-function SessionAnalytics({ messages, isConn, model }: {
-  messages: Msg[]; isConn: boolean; model: string;
-}) {
-  const turns     = messages.filter(m => m.role === 'user').length;
-  const butlerMsgs= messages.filter(m => m.role === 'butler');
-  const rTimes    = butlerMsgs.map(m => m.metadata?.responseMs).filter((v): v is number => !!v);
-  const avgMs     = rTimes.length ? Math.round(rTimes.reduce((a,b) => a+b,0)/rTimes.length) : null;
-  const kbHits    = butlerMsgs.reduce((s,m) => s + (m.metadata?.kbUsed || 0), 0);
-  const modelLbl  = model ? model.split(':')[0].slice(0,12).toUpperCase() : '—';
-
+function SessionAnalytics({ messages, isConn, model }: { messages: Msg[]; isConn: boolean; model: string }) {
+  const turns  = messages.filter(m => m.role === 'user').length;
+  const bMsgs  = messages.filter(m => m.role === 'butler');
+  const rTimes = bMsgs.map(m => m.metadata?.responseMs).filter((v): v is number => !!v);
+  const avgMs  = rTimes.length ? Math.round(rTimes.reduce((a, b) => a + b, 0) / rTimes.length) : null;
+  const kbHits = bMsgs.reduce((s, m) => s + (m.metadata?.kbUsed || 0), 0);
+  const modelLbl = model ? model.split(':')[0].slice(0, 12).toUpperCase() : '—';
   if (turns === 0) return null;
-
   const items = [
     { val: String(turns),   label: 'TURNS',  color: GOLD   },
-    { val: avgMs ? (avgMs > 1000 ? `${(avgMs/1000).toFixed(1)}s` : `${avgMs}ms`) : '—', label: 'AVG',   color: TEAL   },
+    { val: avgMs ? (avgMs > 1000 ? `${(avgMs / 1000).toFixed(1)}s` : `${avgMs}ms`) : '—', label: 'AVG', color: TEAL },
     { val: String(kbHits), label: 'KB',     color: VIOLET },
     { val: modelLbl,        label: 'MODEL',  color: AMBER  },
     { val: isConn ? 'LIVE' : 'LOCAL', label: 'STATUS', color: isConn ? TEAL : AMBER },
   ];
-
   return (
     <View style={sa.root}>
       {items.map((item, i) => (
@@ -435,103 +901,21 @@ const sa = StyleSheet.create({
 });
 
 // ══════════════════════════════════════════════════════════════════
-// MODEL BADGE — enhanced with capability tier and upgrade hint
-// ══════════════════════════════════════════════════════════════════
-function ModelBadge({ model, reason, capability, isConn, loading }: {
-  model: string; reason: string; capability: string;
-  isConn: boolean; loading: boolean;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const fadeA = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(fadeA, { toValue: 1, duration: 350, useNativeDriver: true }).start();
-  }, [model]);
-
-  const capColors: Record<string, string> = {
-    ELITE: TEAL, PRO: GOLD, GOOD: AMBER, LITE: VIOLET, BASIC: MID,
-  };
-  const capColor = capColors[capability] || MID;
-
-  if (!isConn) {
-    return (
-      <View style={[mod.wrap, { borderColor: RED + '25', backgroundColor: RED + '06' }]}>
-        <MaterialCommunityIcons name="robot-dead-outline" size={12} color={RED + '70'} />
-        <Text style={[mod.txt, { color: RED + '70' }]}>Offline — pair PC from HOME tab to unlock full AI</Text>
-      </View>
-    );
-  }
-  if (loading) {
-    return (
-      <View style={[mod.wrap, { borderColor: AMBER + '25', backgroundColor: AMBER + '06' }]}>
-        <ActivityIndicator size="small" color={AMBER} style={{ transform: [{ scale: 0.65 }] }} />
-        <Text style={[mod.txt, { color: AMBER + '80' }]}>Scanning for installed Ollama models...</Text>
-      </View>
-    );
-  }
-  if (!model) {
-    return (
-      <TouchableOpacity onPress={() => setExpanded(e => !e)} activeOpacity={0.85}
-        style={[mod.wrap, { borderColor: AMBER + '35', backgroundColor: AMBER + '08' }]}>
-        <MaterialIcons name="warning" size={12} color={AMBER} />
-        <Text style={[mod.txt, { color: AMBER, flex: 1 }]}>No Ollama model found</Text>
-        {expanded && (
-          <Text style={{ fontFamily: MONO, fontSize: 8.5, color: AMBER + '70', marginLeft: 4 }}>
-            Run: ollama pull qwen2.5-coder:7b
-          </Text>
-        )}
-        <MaterialIcons name={expanded ? 'expand-less' : 'expand-more'} size={11} color={AMBER + '60'} />
-      </TouchableOpacity>
-    );
-  }
-
-  const modelLabel = model.split(':')[0].slice(0, 20).toUpperCase();
-
-  return (
-    <Animated.View style={{ opacity: fadeA }}>
-      <TouchableOpacity onPress={() => setExpanded(e => !e)} activeOpacity={0.85}
-        style={[mod.wrap, { borderColor: TEAL + '30', backgroundColor: TEAL + '07' }]}>
-        <MaterialCommunityIcons name="chip" size={11} color={TEAL} />
-        <Text style={[mod.modelName, { color: TEAL }]}>{modelLabel}</Text>
-        <View style={[mod.capBadge, { borderColor: capColor + '50', backgroundColor: capColor + '0D' }]}>
-          <Text style={{ fontFamily: MONO, fontSize: 7.5, fontWeight: '900', color: capColor }}>{capability}</Text>
-        </View>
-        <View style={mod.dot} />
-        <Text style={[mod.txt, { color: TEAL + '90', flex: 1 }]} numberOfLines={expanded ? 4 : 1}>
-          {reason}
-        </Text>
-        <MaterialIcons name={expanded ? 'expand-less' : 'expand-more'} size={11} color={TEAL + '55'} />
-      </TouchableOpacity>
-    </Animated.View>
-  );
-}
-const mod = StyleSheet.create({
-  wrap:      { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 7,
-               borderTopWidth: 1, borderBottomWidth: 1 },
-  modelName: { fontFamily: MONO, fontSize: 9, fontWeight: '900', letterSpacing: 0.5, flexShrink: 0 },
-  capBadge:  { borderWidth: 1, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 },
-  dot:       { width: 3, height: 3, borderRadius: 1.5, backgroundColor: TEAL + '50', flexShrink: 0 },
-  txt:       { fontFamily: MONO, fontSize: 9, letterSpacing: 0.2 },
-});
-
-// ══════════════════════════════════════════════════════════════════
 // MODE BAR
 // ══════════════════════════════════════════════════════════════════
 const MODES: { id: Mode; label: string; icon: string; color: string }[] = [
-  { id: 'general', label: 'GENERAL', icon: 'chat',       color: GOLD    },
-  { id: 'code',    label: 'CODE',    icon: 'code',       color: TEAL    },
-  { id: 'debug',   label: 'DEBUG',   icon: 'bug-report', color: AMBER   },
-  { id: 'analyze', label: 'ANALYZE', icon: 'analytics',  color: VIOLET  },
+  { id: 'general', label: 'GENERAL', icon: 'chat',       color: GOLD   },
+  { id: 'code',    label: 'CODE',    icon: 'code',       color: TEAL   },
+  { id: 'debug',   label: 'DEBUG',   icon: 'bug-report', color: AMBER  },
+  { id: 'analyze', label: 'ANALYZE', icon: 'analytics',  color: VIOLET },
 ];
-
 function ModeBar({ active, onSelect }: { active: Mode; onSelect: (m: Mode) => void }) {
   return (
     <View style={mb.root}>
       {MODES.map(m => {
         const isAct = active === m.id;
         return (
-          <TouchableOpacity key={m.id} onPress={() => { haptics.selection(); onSelect(m.id); }}
-            activeOpacity={0.8}
+          <TouchableOpacity key={m.id} onPress={() => { haptics.selection(); onSelect(m.id); }} activeOpacity={0.8}
             style={[mb.tab, isAct && { borderBottomColor: m.color, borderBottomWidth: 2.5, backgroundColor: m.color + '0C' }]}>
             <MaterialIcons name={m.icon as any} size={isAct ? 13 : 11} color={isAct ? m.color : MID} />
             <Text style={[mb.txt, isAct && { color: m.color, fontWeight: '900' }]}>{m.label}</Text>
@@ -543,63 +927,43 @@ function ModeBar({ active, onSelect }: { active: Mode; onSelect: (m: Mode) => vo
 }
 const mb = StyleSheet.create({
   root: { flexDirection: 'row', backgroundColor: BG, borderBottomWidth: 1, borderBottomColor: GOLD + '18' },
-  tab:  { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
-          paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tab:  { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   txt:  { fontFamily: MONO, fontSize: 9, fontWeight: '600', color: MID },
 });
 
 // ══════════════════════════════════════════════════════════════════
-// HOLOGRAPHIC HEADER
+// HOLOGRAPHIC HEADER — now with History button
 // ══════════════════════════════════════════════════════════════════
-function HoloHeader({ safeTop, isConn, model, msgCount, onClear, onBuilder }: {
-  safeTop: number; isConn: boolean; model: string; msgCount: number;
-  onClear: () => void; onBuilder: () => void;
+function HoloHeader({ safeTop, isConn, model, msgCount, sessionCount, onClear, onBuilder, onHistory }: {
+  safeTop: number; isConn: boolean; model: string; msgCount: number; sessionCount: number;
+  onClear: () => void; onBuilder: () => void; onHistory: () => void;
 }) {
   const { time, secs } = useClock();
-  const cc = isConn ? TEAL : AMBER;
+  const cc   = isConn ? TEAL : AMBER;
   const shimA = useRef(new Animated.Value(-SW)).current;
-  const m = useRef(true);
-
   useEffect(() => {
-    m.current = true;
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(shimA, { toValue: SW * 1.8, duration: 2600, useNativeDriver: true }),
-      Animated.timing(shimA, { toValue: -SW, duration: 0, useNativeDriver: true }),
+      Animated.timing(shimA, { toValue: -SW,      duration: 0,    useNativeDriver: true }),
       Animated.delay(11000),
     ]));
-    loop.start();
-    return () => { m.current = false; loop.stop(); };
+    loop.start(); return () => loop.stop();
   }, []);
-
   const modelLbl = model ? model.split(':')[0].slice(0, 14).toUpperCase() : isConn ? 'DETECTING' : 'OFFLINE';
-
   return (
     <View style={[hh.root, { paddingTop: safeTop }]}>
-      {/* Multi-color top stripe */}
       <View style={{ height: 2.5, flexDirection: 'row' }}>
         {[GOLD, AMBER, VIOLET, TEAL, RED].map((c, i) => <View key={i} style={{ flex: 1, backgroundColor: c }} />)}
       </View>
-
-      {/* Shimmer */}
-      <Animated.View pointerEvents="none"
-        style={[hh.shimmer, { transform: [{ translateX: shimA }] }]} />
-
+      <Animated.View pointerEvents="none" style={[hh.shimmer, { transform: [{ translateX: shimA }] }]} />
       <View style={hh.body}>
-        {/* Mascot */}
         <View style={[hh.mascotBox, { borderColor: GOLD + '60', backgroundColor: GOLD + '0A' }]}>
-          {MASCOT
-            ? <Image source={MASCOT} style={{ width: 34, height: 34 }} contentFit="cover" />
-            : <MaterialCommunityIcons name="robot-happy" size={20} color={GOLD} />}
+          {MASCOT ? <Image source={MASCOT} style={{ width: 34, height: 34 }} contentFit="cover" /> : <MaterialCommunityIcons name="robot-happy" size={20} color={GOLD} />}
           <GlowDot color={cc} size={5} />
         </View>
-
-        {/* Title + pills */}
         <View style={{ flex: 1, gap: 5 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={hh.brand}>
-              <Text style={{ color: GOLD }}>AI </Text>
-              <Text style={{ color: TEXT }}>BUTLER</Text>
-            </Text>
+            <Text style={hh.brand}><Text style={{ color: GOLD }}>AI </Text><Text style={{ color: TEXT }}>BUTLER</Text></Text>
             <Text style={hh.brandSub}>NEXUS CONSOLE</Text>
           </View>
           <View style={{ flexDirection: 'row', gap: 5, flexWrap: 'wrap' }}>
@@ -613,48 +977,51 @@ function HoloHeader({ safeTop, isConn, model, msgCount, onClear, onBuilder }: {
                 <Text style={[hh.pillTxt, { color: VIOLET }]}>{modelLbl}</Text>
               </View>
             ) : null}
-            <View style={[hh.pill, { borderColor: TEAL + '35' }]}>
-              <MaterialCommunityIcons name="shield-lock" size={9} color={TEAL + '80'} />
-              <Text style={[hh.pillTxt, { color: TEAL + '80' }]}>AES-256</Text>
-            </View>
-            <View style={[hh.pill, { borderColor: GOLD + '30' }]}>
-              <MaterialCommunityIcons name="wifi-off" size={9} color={GOLD + '70'} />
-              <Text style={[hh.pillTxt, { color: GOLD + '70' }]}>LAN ONLY</Text>
-            </View>
+            {[
+              { c: TEAL, icon: 'shield-lock', l: 'AES-256'  },
+              { c: GOLD, icon: 'wifi-off',    l: 'LAN ONLY' },
+            ].map(p => (
+              <View key={p.l} style={[hh.pill, { borderColor: p.c + '35' }]}>
+                <MaterialCommunityIcons name={p.icon as any} size={9} color={p.c + '80'} />
+                <Text style={[hh.pillTxt, { color: p.c + '80' }]}>{p.l}</Text>
+              </View>
+            ))}
           </View>
         </View>
-
-        {/* Clock + actions */}
         <View style={{ alignItems: 'flex-end', gap: 5 }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 2 }}>
             <Text style={hh.clockMain}>{time}</Text>
             <Text style={[hh.clockSecs, { color: GOLD }]}>{secs}</Text>
           </View>
           <View style={{ flexDirection: 'row', gap: 5 }}>
+            {/* History button */}
+            <TouchableOpacity onPress={onHistory} style={[hh.iconBtn, { borderColor: VIOLET + '55', backgroundColor: VIOLET + '0C' }]}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <MaterialIcons name="history" size={13} color={VIOLET} />
+              {sessionCount > 0 && (
+                <View style={{ position: 'absolute', top: -3, right: -3, minWidth: 14, height: 14, borderRadius: 7,
+                  backgroundColor: GOLD, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
+                  <Text style={{ fontFamily: MONO, fontSize: 7, fontWeight: '900', color: '#000' }}>{sessionCount > 99 ? '99' : sessionCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
             {msgCount > 0 && (
-              <TouchableOpacity onPress={onClear}
-                style={[hh.iconBtn, { borderColor: RED + '40', backgroundColor: RED + '08' }]}
+              <TouchableOpacity onPress={onClear} style={[hh.iconBtn, { borderColor: RED + '40', backgroundColor: RED + '08' }]}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <MaterialIcons name="delete-sweep" size={13} color={RED + '70'} />
               </TouchableOpacity>
             )}
-            <TouchableOpacity onPress={onBuilder}
-              style={[hh.iconBtn, { borderColor: GOLD + '50', backgroundColor: GOLD + '0C' }]}
+            <TouchableOpacity onPress={onBuilder} style={[hh.iconBtn, { borderColor: GOLD + '50', backgroundColor: GOLD + '0C' }]}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <MaterialIcons name="code" size={13} color={GOLD} />
             </TouchableOpacity>
           </View>
         </View>
       </View>
-
-      {/* Segmented bottom border */}
       <View style={{ height: 2.5, flexDirection: 'row' }}>
-        <View style={{ flex: 5, backgroundColor: GOLD + '1A' }} />
-        <View style={{ width: 18, backgroundColor: GOLD }} />
-        <View style={{ flex: 3, backgroundColor: AMBER + '15' }} />
-        <View style={{ width: 8, backgroundColor: AMBER }} />
-        <View style={{ flex: 8, backgroundColor: VIOLET + '0C' }} />
-        <View style={{ width: 10, backgroundColor: VIOLET }} />
+        <View style={{ flex: 5, backgroundColor: GOLD + '1A' }} /><View style={{ width: 18, backgroundColor: GOLD }} />
+        <View style={{ flex: 3, backgroundColor: AMBER + '15' }} /><View style={{ width: 8,  backgroundColor: AMBER }} />
+        <View style={{ flex: 8, backgroundColor: VIOLET + '0C' }} /><View style={{ width: 10, backgroundColor: VIOLET }} />
         <View style={{ flex: 4, backgroundColor: VIOLET + '08' }} />
       </View>
     </View>
@@ -664,46 +1031,32 @@ const hh = StyleSheet.create({
   root:      { backgroundColor: SURFACE, overflow: 'hidden' },
   shimmer:   { position: 'absolute', top: 0, bottom: 0, width: 100, backgroundColor: 'rgba(255,209,102,0.03)', zIndex: 0 },
   body:      { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 11, zIndex: 1 },
-  mascotBox: { width: 40, height: 40, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center',
-               flexShrink: 0, overflow: 'hidden', position: 'relative', gap: 0 },
+  mascotBox: { width: 40, height: 40, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' },
   brand:     { fontFamily: MONO, fontSize: 20, fontWeight: '900', letterSpacing: 0.5, lineHeight: 24 },
   brandSub:  { fontFamily: MONO, fontSize: 7, color: MID, letterSpacing: 1.5, fontWeight: '700' },
   pill:      { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 20, paddingHorizontal: 7, paddingVertical: 3 },
   pillTxt:   { fontFamily: MONO, fontSize: 7.5, fontWeight: '900', letterSpacing: 0.3 },
   clockMain: { fontFamily: MONO, fontSize: 22, fontWeight: '900', color: TEXT, letterSpacing: 0.5 },
   clockSecs: { fontFamily: MONO, fontSize: 13, fontWeight: '900' },
-  iconBtn:   { width: 30, height: 30, borderRadius: 9, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  iconBtn:   { width: 30, height: 30, borderRadius: 9, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', position: 'relative' },
 });
 
 // ══════════════════════════════════════════════════════════════════
-// TYPING INDICATOR (simplified — full progress is PipelineProgress)
+// TYPING INDICATOR
 // ══════════════════════════════════════════════════════════════════
-const THINK_PHRASES = ['Processing request...', 'Consulting AI...', 'Thinking...', 'Analyzing...', 'Almost done...'];
-
 function SimpleTypingDots({ color }: { color: string }) {
-  const dots = useRef([
-    new Animated.Value(0.3),
-    new Animated.Value(0.3),
-    new Animated.Value(0.3),
-  ]).current;
-  const m = useRef(true);
+  const dots = useRef([new Animated.Value(0.3), new Animated.Value(0.3), new Animated.Value(0.3)]).current;
   useEffect(() => {
-    m.current = true;
-    const loops = dots.map((a, i) =>
-      Animated.loop(Animated.sequence([
-        Animated.delay(i * 160),
-        Animated.timing(a, { toValue: 1,   duration: 340, useNativeDriver: true }),
-        Animated.timing(a, { toValue: 0.2, duration: 340, useNativeDriver: true }),
-      ]))
-    );
-    loops.forEach(l => l.start());
-    return () => { m.current = false; loops.forEach(l => l.stop()); };
+    const loops = dots.map((a, i) => Animated.loop(Animated.sequence([
+      Animated.delay(i * 160),
+      Animated.timing(a, { toValue: 1,   duration: 340, useNativeDriver: true }),
+      Animated.timing(a, { toValue: 0.2, duration: 340, useNativeDriver: true }),
+    ])));
+    loops.forEach(l => l.start()); return () => loops.forEach(l => l.stop());
   }, []);
   return (
     <View style={{ flexDirection: 'row', gap: 5, alignItems: 'center', paddingLeft: 4, paddingVertical: 8 }}>
-      {dots.map((a, i) => (
-        <Animated.View key={i} style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: color, opacity: a }} />
-      ))}
+      {dots.map((a, i) => <Animated.View key={i} style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: color, opacity: a }} />)}
     </View>
   );
 }
@@ -712,65 +1065,46 @@ function SimpleTypingDots({ color }: { color: string }) {
 // WELCOME PANEL
 // ══════════════════════════════════════════════════════════════════
 const QUICK_ACTIONS = [
-  { icon: 'monitor',           color: TEAL,   label: 'System Stats',   prompt: 'Show my CPU usage, RAM, disk, and top processes'     },
-  { icon: 'cleaning-services', color: GOLD,   label: 'Clean Temp',     prompt: 'Write Python to clean all temp files and show freed MB' },
-  { icon: 'speed',             color: AMBER,  label: 'Top Processes',  prompt: 'List top 8 CPU-consuming processes on my PC now'      },
-  { icon: 'wifi',              color: VIOLET, label: 'Network Info',   prompt: 'Scan LAN and show all connected devices and my IP'     },
-  { icon: 'storage',           color: '#FF6EB4', label: 'Disk Map',    prompt: 'Show disk usage breakdown by folder and drive'        },
-  { icon: 'security',          color: RED,    label: 'Security Audit', prompt: 'Run security audit: open ports, suspicious processes'  },
+  { icon: 'monitor',           color: TEAL,      label: 'System Stats',   prompt: 'Show my CPU usage, RAM, disk, and top processes'       },
+  { icon: 'cleaning-services', color: GOLD,      label: 'Clean Temp',     prompt: 'Write Python to clean all temp files and show freed MB' },
+  { icon: 'speed',             color: AMBER,     label: 'Top Processes',  prompt: 'List top 8 CPU-consuming processes on my PC now'        },
+  { icon: 'wifi',              color: VIOLET,    label: 'Network Info',   prompt: 'Scan LAN and show all connected devices and my IP'       },
+  { icon: 'storage',           color: '#FF6EB4', label: 'Disk Map',       prompt: 'Show disk usage breakdown by folder and drive'          },
+  { icon: 'security',          color: RED,       label: 'Security Audit', prompt: 'Run security audit: open ports, suspicious processes'   },
 ];
 
 function WelcomePanel({ isConn, onSend }: { isConn: boolean; onSend: (p: string) => void }) {
   const floatA = useRef(new Animated.Value(0)).current;
-  const m = useRef(true);
   useEffect(() => {
-    m.current = true;
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(floatA, { toValue: 1, duration: 3200, useNativeDriver: true }),
       Animated.timing(floatA, { toValue: 0, duration: 3200, useNativeDriver: true }),
     ]));
-    loop.start();
-    return () => { m.current = false; loop.stop(); };
+    loop.start(); return () => loop.stop();
   }, []);
   const floatY = floatA.interpolate({ inputRange: [0, 1], outputRange: [0, -7] });
-
   return (
     <View style={{ paddingHorizontal: 10, paddingTop: 14 }}>
-      {/* Hero card */}
       <View style={wp.hero}>
         <View pointerEvents="none" style={wp.heroDiag1} />
         <View pointerEvents="none" style={wp.heroDiag2} />
-
         <View style={{ flexDirection: 'row', padding: 18, gap: 14, alignItems: 'center' }}>
           <Animated.View style={{ transform: [{ translateY: floatY }], alignItems: 'center', gap: 8 }}>
-            {MASCOT
-              ? <Image source={MASCOT} style={{ width: 84, height: 100 }} contentFit="contain" />
-              : <MaterialCommunityIcons name="robot-happy" size={72} color={GOLD} />}
+            {MASCOT ? <Image source={MASCOT} style={{ width: 84, height: 100 }} contentFit="contain" /> : <MaterialCommunityIcons name="robot-happy" size={72} color={GOLD} />}
             <View style={[wp.connPill, { borderColor: (isConn ? TEAL : RED) + '55', backgroundColor: (isConn ? TEAL : RED) + '0E' }]}>
               <GlowDot color={isConn ? TEAL : RED} size={4} />
-              <Text style={{ fontFamily: MONO, fontSize: 8, color: isConn ? TEAL : RED, fontWeight: '900' }}>
-                {isConn ? 'PC LIVE' : 'PAIR PC'}
-              </Text>
+              <Text style={{ fontFamily: MONO, fontSize: 8, color: isConn ? TEAL : RED, fontWeight: '900' }}>{isConn ? 'PC LIVE' : 'PAIR PC'}</Text>
             </View>
           </Animated.View>
-
           <View style={{ flex: 1, gap: 9 }}>
             <Text style={{ fontFamily: MONO, fontSize: 8, color: GOLD + '44', letterSpacing: 3, fontWeight: '700' }}>HOLOGRAPHIC AI</Text>
             <Text style={{ fontFamily: MONO, fontSize: 23, fontWeight: '900', lineHeight: 27 }}>
-              <Text style={{ color: GOLD }}>AI </Text>
-              <Text style={{ color: TEXT }}>BUTLER</Text>
+              <Text style={{ color: GOLD }}>AI </Text><Text style={{ color: TEXT }}>BUTLER</Text>
               <Text style={{ color: VIOLET, fontSize: 13 }}>{'\n'}NEXUS CONSOLE</Text>
             </Text>
-            <Text style={{ fontFamily: SANS, fontSize: 12.5, color: TEXT2, lineHeight: 19 }}>
-              {'Ollama on your PC.\n100% local · AES-256 · zero telemetry.'}
-            </Text>
+            <Text style={{ fontFamily: SANS, fontSize: 12.5, color: TEXT2, lineHeight: 19 }}>{'Ollama on your PC.\n100% local · AES-256 · zero telemetry.'}</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
-              {[
-                { l: 'ZERO CLOUD', c: TEAL   },
-                { l: 'LAN ONLY',   c: GOLD   },
-                { l: 'HMAC-SHA256',c: VIOLET },
-                { l: 'AES-256',    c: AMBER  },
-              ].map(b => (
+              {[{ l: 'ZERO CLOUD', c: TEAL }, { l: 'LAN ONLY', c: GOLD }, { l: 'HMAC-SHA256', c: VIOLET }, { l: 'AES-256', c: AMBER }].map(b => (
                 <View key={b.l} style={{ borderWidth: 1, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2.5, borderColor: b.c + '40', backgroundColor: b.c + '0C' }}>
                   <Text style={{ fontFamily: MONO, fontSize: 7.5, color: b.c, fontWeight: '900' }}>{b.l}</Text>
                 </View>
@@ -778,48 +1112,16 @@ function WelcomePanel({ isConn, onSend }: { isConn: boolean; onSend: (p: string)
             </View>
           </View>
         </View>
-
         {!isConn && (
           <View style={[wp.guide, { borderColor: AMBER + '35', backgroundColor: AMBER + '07' }]}>
             <MaterialIcons name="info-outline" size={13} color={AMBER} style={{ marginTop: 1, flexShrink: 0 }} />
             <View style={{ flex: 1 }}>
               <Text style={{ fontFamily: MONO, fontSize: 10, color: AMBER, fontWeight: '900', marginBottom: 4 }}>CONNECT YOUR PC</Text>
-              <Text style={{ fontFamily: MONO, fontSize: 10, color: AMBER + '90', lineHeight: 16 }}>
-                {'1. Run butler_server.py on your PC\n2. HOME tab → tap PAIR PC\n3. Scan QR shown in terminal'}
-              </Text>
+              <Text style={{ fontFamily: MONO, fontSize: 10, color: AMBER + '90', lineHeight: 16 }}>{'1. Run butler_server.py on your PC\n2. HOME tab → tap PAIR PC\n3. Scan QR shown in terminal'}</Text>
             </View>
           </View>
         )}
       </View>
-
-      {/* TODO: What this API supports — visible to developer/user */}
-      <View style={{ marginTop: 14, borderWidth: 1, borderRadius: 12, borderColor: DIM + '40', backgroundColor: DIM + '15', padding: 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-          <MaterialCommunityIcons name="format-list-checks" size={12} color={GOLD + '60'} />
-          <Text style={{ fontFamily: MONO, fontSize: 8.5, color: GOLD + '55', fontWeight: '900', letterSpacing: 1.5 }}>API CAPABILITIES</Text>
-        </View>
-        {[
-          { done: true,  label: '/api/butler/chat → primary chat with Ollama' },
-          { done: true,  label: '/api/ollama/models → model detection & ranking' },
-          { done: true,  label: '/api/ollama/status → online check + active model' },
-          { done: true,  label: '/api/execute → run Python from CODE blocks' },
-          { done: true,  label: '/api/kb/search → knowledge base context injection' },
-          { done: true,  label: '/api/metrics → live PC stats in header' },
-          { done: false, label: '/api/execute/stream → streaming execution output' },
-          { done: false, label: '/api/ollama/pull → install new model from phone' },
-          { done: false, label: '/api/sessions → multi-session conversation history' },
-        ].map((item, i) => (
-          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 3 }}>
-            <MaterialIcons
-              name={item.done ? 'check-circle' : 'radio-button-unchecked'}
-              size={10}
-              color={item.done ? TEAL : MID}
-            />
-            <Text style={{ fontFamily: MONO, fontSize: 9, color: item.done ? TEXT2 : DIM, flex: 1 }}>{item.label}</Text>
-          </View>
-        ))}
-      </View>
-
       {/* Quick actions */}
       <View style={{ marginTop: 16, gap: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -830,17 +1132,13 @@ function WelcomePanel({ isConn, onSend }: { isConn: boolean; onSend: (p: string)
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {QUICK_ACTIONS.map((a, i) => (
             <Pressable key={i} onPress={() => { haptics.medium(); onSend(a.prompt); }}
-              style={({ pressed }) => [wp.action, {
-                borderColor: a.color + (pressed ? 'AA' : '35'),
-                backgroundColor: pressed ? a.color + '18' : a.color + '09',
-              }]}>
+              style={({ pressed }) => [wp.action, { borderColor: a.color + (pressed ? 'AA' : '35'), backgroundColor: pressed ? a.color + '18' : a.color + '09' }]}>
               <MaterialIcons name={a.icon as any} size={13} color={a.color} />
               <Text style={{ fontFamily: MONO, fontSize: 10, color: a.color, fontWeight: '700' }}>{a.label}</Text>
             </Pressable>
           ))}
         </View>
       </View>
-
       <View style={{ height: 16 }} />
     </View>
   );
@@ -851,31 +1149,21 @@ const wp = StyleSheet.create({
   heroDiag1: { position: 'absolute', top: -20, right: -20, width: 100, height: 100, borderWidth: 1, borderColor: GOLD + '0D', transform: [{ rotate: '45deg' }] },
   heroDiag2: { position: 'absolute', bottom: -30, left: 30, width: 80, height: 80, borderWidth: 1, borderColor: VIOLET + '0D', transform: [{ rotate: '30deg' }] },
   connPill:  { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  guide:     { flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderTopWidth: 1, borderLeftWidth: 0, borderRightWidth: 0, borderBottomWidth: 0, borderWidth: 0, padding: 14, borderTopColor: AMBER + '25' },
+  guide:     { flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderTopWidth: 1, borderWidth: 0, padding: 14, borderTopColor: AMBER + '25' },
   action:    { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderRadius: 22, paddingHorizontal: 12, paddingVertical: 9 },
 });
 
 // ══════════════════════════════════════════════════════════════════
-// MESSAGE BUBBLE — with streaming cursor, KB pill, retry
+// MESSAGE BUBBLE
 // ══════════════════════════════════════════════════════════════════
 function MessageBubble({ msg, onCopy, onSave, onReact, onRetry, isStreaming }: {
-  msg: Msg;
-  onCopy: (t: string) => void;
-  onSave: (code: string) => void;
-  onReact: (id: string, emoji: string) => void;
-  onRetry?: (id: string) => void;
-  isStreaming?: boolean;
+  msg: Msg; onCopy: (t: string) => void; onSave: (code: string) => void;
+  onReact: (id: string, emoji: string) => void; onRetry?: (id: string) => void; isStreaming?: boolean;
 }) {
   const isButler = msg.role === 'butler';
   const isFailed = !!msg.failed;
   const mountA   = useRef(new Animated.Value(0)).current;
-  const m        = useRef(true);
-
-  useEffect(() => {
-    m.current = true;
-    Animated.spring(mountA, { toValue: 1, tension: 110, friction: 12, useNativeDriver: false }).start();
-    return () => { m.current = false; };
-  }, []);
+  useEffect(() => { Animated.spring(mountA, { toValue: 1, tension: 110, friction: 12, useNativeDriver: false }).start(); }, []);
 
   if (msg.role === 'system') {
     return (
@@ -889,138 +1177,84 @@ function MessageBubble({ msg, onCopy, onSave, onReact, onRetry, isStreaming }: {
     );
   }
 
-  // Extract code blocks
   const codeBlocks: { code: string; lang: string }[] = [];
   const re = /```(python|py|bash|sh|javascript|js)?\s*\n([\s\S]*?)```/g;
   let match: RegExpExecArray | null;
   let displayText = msg.content;
-  while ((match = re.exec(msg.content)) !== null) {
-    codeBlocks.push({ code: match[2].trim(), lang: match[1] || 'python' });
-  }
-  if (codeBlocks.length > 0) {
-    displayText = msg.content.replace(/```(python|py|bash|sh|javascript|js)?\s*\n[\s\S]*?```/g, '').trim();
-  }
+  while ((match = re.exec(msg.content)) !== null) { codeBlocks.push({ code: match[2].trim(), lang: match[1] || 'python' }); }
+  if (codeBlocks.length > 0) { displayText = msg.content.replace(/```(python|py|bash|sh|javascript|js)?\s*\n[\s\S]*?```/g, '').trim(); }
 
-  const slideX = mountA.interpolate({ inputRange: [0,1], outputRange: [isButler ? -18 : 18, 0] });
-  const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const slideX = mountA.interpolate({ inputRange: [0, 1], outputRange: [isButler ? -18 : 18, 0] });
+  const time   = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const bubbleColor = isFailed ? RED : isButler ? GOLD : VIOLET;
 
   return (
     <Pressable onLongPress={() => { haptics.medium(); onCopy(msg.content); }}>
-      <Animated.View style={[bub.row, isButler ? bub.left : bub.right,
-        { transform: [{ translateX: slideX }], opacity: mountA }]}>
-        <View style={[bub.bubble, {
-          borderColor: bubbleColor + (isFailed ? '55' : '30'),
-          borderLeftWidth: isButler ? 3.5 : 1.5,
-          borderLeftColor: isButler ? bubbleColor : bubbleColor + '35',
-          backgroundColor: isFailed ? RED + '06' : isButler ? SURFACE : SURFACE2,
-        }]}>
-          {/* Top stripe */}
+      <Animated.View style={[bub.row, isButler ? bub.left : bub.right, { transform: [{ translateX: slideX }], opacity: mountA }]}>
+        <View style={[bub.bubble, { borderColor: bubbleColor + (isFailed ? '55' : '30'), borderLeftWidth: isButler ? 3.5 : 1.5,
+          borderLeftColor: isButler ? bubbleColor : bubbleColor + '35', backgroundColor: isFailed ? RED + '06' : isButler ? SURFACE : SURFACE2 }]}>
           <View style={{ height: 2.5, backgroundColor: isFailed ? RED : bubbleColor, opacity: isButler ? 0.9 : 0.5 }} />
-
-          {/* Header row */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingTop: 10, marginBottom: 7 }}>
             <View style={[bub.avatar, { borderColor: bubbleColor + '55', backgroundColor: bubbleColor + '0E' }]}>
-              <MaterialIcons
-                name={isFailed ? 'error-outline' : isButler ? 'smart-toy' : 'person'}
-                size={13}
-                color={bubbleColor}
-              />
+              <MaterialIcons name={isFailed ? 'error-outline' : isButler ? 'smart-toy' : 'person'} size={13} color={bubbleColor} />
             </View>
-            <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '900', color: bubbleColor + 'BB' }}>
-              {isButler ? 'Butler AI' : 'You'}
-            </Text>
+            <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '900', color: bubbleColor + 'BB' }}>{isButler ? 'Butler AI' : 'You'}</Text>
             <Text style={{ fontFamily: MONO, fontSize: 8, color: MID }}>{time}</Text>
             {msg.metadata?.responseMs ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 1, borderRadius: 5,
-                paddingHorizontal: 5, paddingVertical: 2, borderColor: TEAL + '28', backgroundColor: TEAL + '06' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 1, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2, borderColor: TEAL + '28', backgroundColor: TEAL + '06' }}>
                 <MaterialIcons name="bolt" size={8} color={TEAL} />
-                <Text style={{ fontFamily: MONO, fontSize: 7, color: TEAL }}>
-                  {msg.metadata.responseMs > 1000 ? `${(msg.metadata.responseMs/1000).toFixed(1)}s` : `${msg.metadata.responseMs}ms`}
-                </Text>
+                <Text style={{ fontFamily: MONO, fontSize: 7, color: TEAL }}>{msg.metadata.responseMs > 1000 ? `${(msg.metadata.responseMs / 1000).toFixed(1)}s` : `${msg.metadata.responseMs}ms`}</Text>
               </View>
             ) : null}
             {msg.reaction ? <Text style={{ fontSize: 14, marginLeft: 'auto' as any }}>{msg.reaction}</Text> : null}
           </View>
-
-          {/* Text content */}
           {displayText ? (
             <View style={{ paddingHorizontal: 12, paddingBottom: isButler ? 4 : 12 }}>
-              <Text style={[bub.content, { color: isFailed ? RED + 'CC' : isButler ? TEXT : '#FFF' }]}>
-                {displayText}
-              </Text>
-              {isStreaming && isButler && (
-                <View style={{ marginTop: 4 }}>
-                  <StreamingCursor color={GOLD} />
-                </View>
-              )}
+              <Text style={[bub.content, { color: isFailed ? RED + 'CC' : isButler ? TEXT : '#FFF' }]}>{displayText}</Text>
+              {isStreaming && isButler && <View style={{ marginTop: 4 }}><StreamingCursor color={GOLD} /></View>}
             </View>
           ) : null}
-
-          {/* Streaming cursor when no text yet */}
-          {isStreaming && isButler && !displayText && (
-            <View style={{ paddingHorizontal: 12, paddingBottom: 4 }}>
-              <SimpleTypingDots color={GOLD} />
-            </View>
-          )}
-
-          {/* Code blocks */}
+          {isStreaming && isButler && !displayText && <View style={{ paddingHorizontal: 12, paddingBottom: 4 }}><SimpleTypingDots color={GOLD} /></View>}
           {codeBlocks.map((cb, i) => (
             <View key={i} style={[bub.codeBlock, { borderColor: TEAL + '25' }]}>
               <View style={bub.codeHdr}>
                 <MaterialCommunityIcons name="code-braces" size={10} color={TEAL + '70'} />
                 <Text style={{ fontFamily: MONO, fontSize: 8, color: TEAL + '70', flex: 1 }}>{cb.lang.toUpperCase()}</Text>
-                <Pressable onPress={() => { haptics.light(); onCopy(cb.code); }} style={bub.codeBtn}>
-                  <Text style={{ fontFamily: MONO, fontSize: 8, color: GOLD + '80' }}>COPY</Text>
-                </Pressable>
-                <Pressable onPress={() => { haptics.medium(); onSave(cb.code); }}
-                  style={[bub.codeBtn, { borderColor: TEAL + '50', backgroundColor: TEAL + '0A' }]}>
-                  <Text style={{ fontFamily: MONO, fontSize: 8, color: TEAL }}>SAVE</Text>
-                </Pressable>
+                <Pressable onPress={() => { haptics.light(); onCopy(cb.code); }} style={bub.codeBtn}><Text style={{ fontFamily: MONO, fontSize: 8, color: GOLD + '80' }}>COPY</Text></Pressable>
+                <Pressable onPress={() => { haptics.medium(); onSave(cb.code); }} style={[bub.codeBtn, { borderColor: TEAL + '50', backgroundColor: TEAL + '0A' }]}><Text style={{ fontFamily: MONO, fontSize: 8, color: TEAL }}>SAVE</Text></Pressable>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <Text style={{ fontFamily: MONO, fontSize: 12, color: '#7EC8E3', padding: 12, lineHeight: 18 }}>{cb.code}</Text>
               </ScrollView>
             </View>
           ))}
-
-          {/* KB sources pill */}
           {isButler && (msg.metadata?.kbUsed ?? 0) > 0 && (
             <View style={{ paddingHorizontal: 12, paddingBottom: 8 }}>
               <KBSourcesPill sources={msg.kbSources} count={msg.metadata?.kbUsed ?? 0} />
             </View>
           )}
-
-          {/* Failed message retry */}
           {isFailed && (
             <View style={{ paddingHorizontal: 12, paddingBottom: 10 }}>
-              <Text style={{ fontFamily: MONO, fontSize: 9.5, color: RED + '80', marginBottom: 8, lineHeight: 14 }}>
-                {msg.failReason || 'Request failed — tap to retry'}
-              </Text>
+              <Text style={{ fontFamily: MONO, fontSize: 9.5, color: RED + '80', marginBottom: 8, lineHeight: 14 }}>{msg.failReason || 'Request failed — tap to retry'}</Text>
               {onRetry && (
                 <TouchableOpacity onPress={() => { haptics.medium(); onRetry(msg.id); }} activeOpacity={0.85}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 9,
-                    paddingHorizontal: 12, paddingVertical: 8, borderColor: AMBER + '55', backgroundColor: AMBER + '0E', alignSelf: 'flex-start' }}>
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 8, borderColor: AMBER + '55', backgroundColor: AMBER + '0E', alignSelf: 'flex-start' }}>
                   <MaterialIcons name="refresh" size={13} color={AMBER} />
                   <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '900', color: AMBER }}>RETRY</Text>
                 </TouchableOpacity>
               )}
             </View>
           )}
-
-          {/* Footer reactions */}
           {isButler && !isFailed && (
             <View style={bub.footer}>
               {['\uD83D\uDC4D', '\uD83D\uDC4E', '\u2B50'].map(e => (
                 <Pressable key={e} onPress={() => { haptics.light(); onReact(msg.id, e); }}
-                  style={{ width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
-                    backgroundColor: msg.reaction === e ? GOLD + '22' : 'transparent' }}>
+                  style={{ width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: msg.reaction === e ? GOLD + '22' : 'transparent' }}>
                   <Text style={{ fontSize: 14 }}>{e}</Text>
                 </Pressable>
               ))}
               <View style={{ flex: 1 }} />
-              <Pressable onPress={() => { haptics.light(); onCopy(msg.content); }}
-                style={{ width: 28, height: 28, borderRadius: 7, alignItems: 'center', justifyContent: 'center' }}>
+              <Pressable onPress={() => { haptics.light(); onCopy(msg.content); }} style={{ width: 28, height: 28, borderRadius: 7, alignItems: 'center', justifyContent: 'center' }}>
                 <MaterialIcons name="content-copy" size={13} color={MID} />
               </Pressable>
             </View>
@@ -1038,11 +1272,9 @@ const bub = StyleSheet.create({
   avatar:    { width: 24, height: 24, borderRadius: 7, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   content:   { fontFamily: SANS, fontSize: 15, lineHeight: 23 },
   codeBlock: { borderTopWidth: 1, marginTop: 6 },
-  codeHdr:   { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 11, paddingVertical: 7,
-               backgroundColor: 'rgba(6,214,160,0.04)', borderBottomWidth: 1, borderBottomColor: 'rgba(6,214,160,0.12)' },
+  codeHdr:   { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 11, paddingVertical: 7, backgroundColor: 'rgba(6,214,160,0.04)', borderBottomWidth: 1, borderBottomColor: 'rgba(6,214,160,0.12)' },
   codeBtn:   { borderWidth: 1, borderRadius: 5, paddingHorizontal: 7, paddingVertical: 3, borderColor: GOLD + '28' },
-  footer:    { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 11, paddingVertical: 8,
-               borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.04)' },
+  footer:    { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 11, paddingVertical: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.04)' },
 });
 
 // ══════════════════════════════════════════════════════════════════
@@ -1056,9 +1288,7 @@ const BUILD_TEMPLATES = [
   'Backup Desktop as timestamped ZIP',
 ];
 
-function BuilderModal({ visible, onClose, onBuild }: {
-  visible: boolean; onClose: () => void; onBuild: (p: string) => void;
-}) {
+function BuilderModal({ visible, onClose, onBuild }: { visible: boolean; onClose: () => void; onBuild: (p: string) => void }) {
   const [prompt, setPrompt] = useState('');
   return (
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
@@ -1073,19 +1303,15 @@ function BuilderModal({ visible, onClose, onBuild }: {
             </View>
             <View>
               <Text style={[bl.title, { color: GOLD }]}>SCRIPT BUILDER</Text>
-              <Text style={{ fontFamily: SANS, fontSize: 12, color: TEXT2, lineHeight: 18, marginTop: 2 }}>
-                Describe it — Butler AI writes the Python
-              </Text>
+              <Text style={{ fontFamily: SANS, fontSize: 12, color: TEXT2, lineHeight: 18, marginTop: 2 }}>Describe it — Butler AI writes the Python</Text>
             </View>
           </View>
           <View style={[bl.inputWrap, { borderColor: GOLD + '45' }]}>
             <TextInput style={bl.input} value={prompt} onChangeText={setPrompt}
               placeholder="e.g. find all duplicate files..." placeholderTextColor={MID}
-              multiline numberOfLines={3} autoFocus autoCapitalize="none"
-              keyboardAppearance="dark" />
+              multiline numberOfLines={3} autoFocus autoCapitalize="none" keyboardAppearance="dark" />
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 8, marginBottom: 16 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 16 }}>
             {BUILD_TEMPLATES.map((t, i) => (
               <TouchableOpacity key={i} onPress={() => setPrompt(t)} activeOpacity={0.8}
                 style={{ borderWidth: 1, borderColor: GOLD + '35', backgroundColor: GOLD + '09', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9 }}>
@@ -1097,10 +1323,8 @@ function BuilderModal({ visible, onClose, onBuild }: {
             <TouchableOpacity onPress={onClose} style={bl.cancelBtn}>
               <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '900', color: MID }}>CANCEL</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => { if (prompt.trim()) { haptics.heavy(); onBuild(prompt.trim()); onClose(); setPrompt(''); } }}
-              style={[bl.buildBtn, { backgroundColor: GOLD, opacity: prompt.trim() ? 1 : 0.4 }]}
-              disabled={!prompt.trim()} activeOpacity={0.85}>
+            <TouchableOpacity onPress={() => { if (prompt.trim()) { haptics.heavy(); onBuild(prompt.trim()); onClose(); setPrompt(''); } }}
+              style={[bl.buildBtn, { backgroundColor: GOLD, opacity: prompt.trim() ? 1 : 0.4 }]} disabled={!prompt.trim()} activeOpacity={0.85}>
               <MaterialIcons name="bolt" size={18} color="#000" />
               <Text style={{ fontFamily: MONO, fontSize: 13, fontWeight: '900', color: '#000' }}>BUILD SCRIPT</Text>
             </TouchableOpacity>
@@ -1122,32 +1346,29 @@ const bl = StyleSheet.create({
 });
 
 // ══════════════════════════════════════════════════════════════════
-// QUICK STRIP — shown above input when messages exist
+// QUICK STRIP
 // ══════════════════════════════════════════════════════════════════
 const STRIP_CMDS = [
-  { l: 'CPU%',   p: 'Show current CPU usage and top 5 processes',      c: TEAL   },
-  { l: 'CLEAN',  p: 'Write Python to delete temp files and free space', c: GOLD   },
-  { l: 'DISK',   p: 'Show disk usage by drive and top folders',         c: AMBER  },
-  { l: 'PROCS',  p: 'List all running processes sorted by CPU usage',   c: VIOLET },
-  { l: 'NET',    p: 'Show network: IP, DNS, gateway, open ports',       c: TEAL2  },
-  { l: 'RAM',    p: 'Show RAM usage details and swap info',             c: '#FF6EB4' },
+  { l: 'CPU%',  p: 'Show current CPU usage and top 5 processes',      c: TEAL   },
+  { l: 'CLEAN', p: 'Write Python to delete temp files and free space', c: GOLD   },
+  { l: 'DISK',  p: 'Show disk usage by drive and top folders',         c: AMBER  },
+  { l: 'PROCS', p: 'List all running processes sorted by CPU usage',   c: VIOLET },
+  { l: 'NET',   p: 'Show network: IP, DNS, gateway, open ports',       c: TEAL2  },
+  { l: 'RAM',   p: 'Show RAM usage details and swap info',             c: '#FF6EB4' },
 ];
 
 function QuickStrip({ onCmd, onDrawer }: { onCmd: (p: string) => void; onDrawer: () => void }) {
   return (
-    <View style={{ flexDirection: 'row', gap: 5, paddingHorizontal: 10, paddingVertical: 6,
-      borderTopWidth: 1, borderTopColor: GOLD + '10', backgroundColor: BG }}>
+    <View style={{ flexDirection: 'row', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderTopWidth: 1, borderTopColor: GOLD + '10', backgroundColor: BG }}>
       <TouchableOpacity onPress={() => { haptics.light(); onDrawer(); }} activeOpacity={0.8}
-        style={{ flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1.5, borderRadius: 8,
-          paddingHorizontal: 8, paddingVertical: 5, borderColor: GOLD + '50', backgroundColor: GOLD + '09' }}>
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5, borderColor: GOLD + '50', backgroundColor: GOLD + '09' }}>
         <MaterialIcons name="code" size={10} color={GOLD} />
         <Text style={{ fontFamily: MONO, fontSize: 8, fontWeight: '900', color: GOLD }}>BUILD</Text>
       </TouchableOpacity>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 5 }}>
         {STRIP_CMDS.map((s, i) => (
           <TouchableOpacity key={i} onPress={() => { haptics.light(); onCmd(s.p); }} activeOpacity={0.8}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 7,
-              paddingHorizontal: 8, paddingVertical: 5, borderColor: s.c + '40', backgroundColor: s.c + '07' }}>
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 5, borderColor: s.c + '40', backgroundColor: s.c + '07' }}>
             <Text style={{ fontFamily: MONO, fontSize: 8.5, color: s.c }}>{s.l}</Text>
           </TouchableOpacity>
         ))}
@@ -1159,94 +1380,50 @@ function QuickStrip({ onCmd, onDrawer }: { onCmd: (p: string) => void; onDrawer:
 // ══════════════════════════════════════════════════════════════════
 // INPUT BAR
 // ══════════════════════════════════════════════════════════════════
-function InputBar({ onSend, isConn, disabled }: {
-  onSend: (t: string) => void; isConn: boolean; disabled: boolean;
-}) {
-  const [text, setText]       = useState('');
+function InputBar({ onSend, isConn, disabled }: { onSend: (t: string) => void; isConn: boolean; disabled: boolean }) {
+  const [text, setText] = useState('');
   const [focused, setFocused] = useState(false);
-  const sendScA = useRef(new Animated.Value(1)).current;
-  const borderA = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(borderA, {
-      toValue: focused ? 1 : text.length > 0 ? 0.5 : 0,
-      duration: 180, useNativeDriver: false,
-    }).start();
-  }, [focused, text.length]);
-
+  const sendScA  = useRef(new Animated.Value(1)).current;
+  const borderA  = useRef(new Animated.Value(0)).current;
+  useEffect(() => { Animated.timing(borderA, { toValue: focused ? 1 : text.length > 0 ? 0.5 : 0, duration: 180, useNativeDriver: false }).start(); }, [focused, text.length]);
   const handleSend = () => {
-    const t = text.trim();
-    if (!t || disabled) return;
+    const t = text.trim(); if (!t || disabled) return;
     haptics.heavy();
     Animated.sequence([
       Animated.spring(sendScA, { toValue: 0.72, useNativeDriver: true, speed: 50, bounciness: 0 }),
       Animated.spring(sendScA, { toValue: 1.12, useNativeDriver: true, speed: 30, bounciness: 18 }),
       Animated.spring(sendScA, { toValue: 1,    useNativeDriver: true, speed: 28, bounciness: 8  }),
     ]).start();
-    onSend(t);
-    setText('');
+    onSend(t); setText('');
   };
-
   const borderColor = borderA.interpolate({ inputRange: [0, 0.5, 1], outputRange: [GOLD + '18', GOLD + '55', GOLD + 'DD'] });
   const hasText = text.trim().length > 0;
   const cc = isConn ? TEAL : RED;
-
   return (
     <View style={ib.root}>
-      {/* Rainbow stripe */}
       <View style={{ height: 2, flexDirection: 'row' }}>
-        {[GOLD, AMBER, VIOLET, TEAL, RED].map((c, i) => (
-          <View key={i} style={{ flex: 1, backgroundColor: c, opacity: focused ? 1 : 0.22 }} />
-        ))}
+        {[GOLD, AMBER, VIOLET, TEAL, RED].map((c, i) => <View key={i} style={{ flex: 1, backgroundColor: c, opacity: focused ? 1 : 0.22 }} />)}
       </View>
       <View style={ib.row}>
-        {/* Connection pill */}
         <View style={[ib.connPill, { borderColor: cc + '45', backgroundColor: cc + '0A' }]}>
           <GlowDot color={cc} size={4} />
-          <Text style={{ fontFamily: MONO, fontSize: 8, color: cc, fontWeight: '900' }}>
-            {isConn ? 'ON' : 'OFF'}
-          </Text>
+          <Text style={{ fontFamily: MONO, fontSize: 8, color: cc, fontWeight: '900' }}>{isConn ? 'ON' : 'OFF'}</Text>
         </View>
-
-        {/* Input */}
         <Animated.View style={[ib.inputWrap, { borderColor }]}>
-          <TextInput
-            style={ib.input}
-            value={text}
-            onChangeText={v => { setText(v); autoResearch.notifyTyping(v); }}
+          <TextInput style={ib.input} value={text} onChangeText={v => { setText(v); autoResearch.notifyTyping(v); }}
             placeholder={isConn ? 'Type a command or question...' : 'Pair your PC first from HOME tab...'}
-            placeholderTextColor={MID}
-            returnKeyType="send"
-            onSubmitEditing={handleSend}
-            blurOnSubmit={false}
-            editable={!disabled}
-            multiline
-            maxLength={2000}
-            keyboardAppearance="dark"
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-          />
+            placeholderTextColor={MID} returnKeyType="send" onSubmitEditing={handleSend} blurOnSubmit={false}
+            editable={!disabled} multiline maxLength={2000} keyboardAppearance="dark"
+            onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} />
         </Animated.View>
-
-        {/* Send button */}
         <Animated.View style={{ transform: [{ scale: sendScA }] }}>
           <TouchableOpacity onPress={handleSend} disabled={disabled || !hasText} activeOpacity={0.88}
-            style={[ib.sendBtn, {
-              backgroundColor: hasText && !disabled ? GOLD : SURFACE2,
-              borderColor: GOLD + (hasText && !disabled ? 'CC' : '28'),
-              ...Platform.select({
-                ios: { shadowColor: GOLD, shadowOffset: { width: 0, height: hasText ? 7 : 2 }, shadowOpacity: hasText && !disabled ? 0.9 : 0.1, shadowRadius: hasText ? 14 : 4 },
-                android: { elevation: hasText && !disabled ? 10 : 2 },
-                default: {},
-              }),
-            }]}>
-            {disabled
-              ? <ActivityIndicator size="small" color={GOLD} />
-              : <MaterialIcons name={hasText ? 'send' : 'chevron-right'} size={20} color={hasText && !disabled ? '#000' : GOLD + '44'} />}
+            style={[ib.sendBtn, { backgroundColor: hasText && !disabled ? GOLD : SURFACE2, borderColor: GOLD + (hasText && !disabled ? 'CC' : '28'),
+              ...Platform.select({ ios: { shadowColor: GOLD, shadowOffset: { width: 0, height: hasText ? 7 : 2 }, shadowOpacity: hasText && !disabled ? 0.9 : 0.1, shadowRadius: hasText ? 14 : 4 }, android: { elevation: hasText && !disabled ? 10 : 2 }, default: {} }) }]}>
+            {disabled ? <ActivityIndicator size="small" color={GOLD} /> : <MaterialIcons name={hasText ? 'send' : 'chevron-right'} size={20} color={hasText && !disabled ? '#000' : GOLD + '44'} />}
           </TouchableOpacity>
         </Animated.View>
       </View>
-
       <View style={ib.statusLine}>
         <GlowDot color={isConn ? TEAL : RED} size={4} />
         <Text style={{ fontFamily: MONO, fontSize: 7, color: isConn ? TEAL + '55' : RED + '55', letterSpacing: 0.8 }}>
@@ -1259,29 +1436,21 @@ function InputBar({ onSend, isConn, disabled }: {
 const ib = StyleSheet.create({
   root:      { backgroundColor: BG, borderTopWidth: 1, borderTopColor: GOLD + '12' },
   row:       { flexDirection: 'row', alignItems: 'flex-end', gap: 7, paddingHorizontal: 10, paddingVertical: 8 },
-  connPill:  { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1.5, borderRadius: 9,
-               paddingHorizontal: 7, paddingVertical: 6, flexShrink: 0, alignSelf: 'flex-end', marginBottom: 1 },
-  inputWrap: { flex: 1, borderWidth: 1.5, borderRadius: 13, paddingHorizontal: 12, paddingTop: 9, paddingBottom: 9,
-               minHeight: 48, maxHeight: 130, backgroundColor: SURFACE },
+  connPill:  { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1.5, borderRadius: 9, paddingHorizontal: 7, paddingVertical: 6, flexShrink: 0, alignSelf: 'flex-end', marginBottom: 1 },
+  inputWrap: { flex: 1, borderWidth: 1.5, borderRadius: 13, paddingHorizontal: 12, paddingTop: 9, paddingBottom: 9, minHeight: 48, maxHeight: 130, backgroundColor: SURFACE },
   input:     { fontFamily: SANS, fontSize: 15, color: TEXT, lineHeight: 21, minHeight: 24, padding: 0 },
   sendBtn:   { width: 48, height: 48, borderRadius: 14, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   statusLine:{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 4 },
 });
 
 // ══════════════════════════════════════════════════════════════════
-// OFFLINE REPLY HELPER
+// OFFLINE REPLY
 // ══════════════════════════════════════════════════════════════════
 function getOfflineReply(text: string, noConn: boolean): string {
   const lc = text.toLowerCase();
-  if (/^(hi|hello|hey)[!?.\s]*$/.test(lc)) {
-    return "Hello! I'm Butler AI — your self-hosted PC automation assistant.\n\nConnect your PC to unlock:\n• Ollama local AI (LLaMA, Mistral, Qwen, etc.)\n• Run Python scripts remotely\n• Live system monitoring\n• Automated file management\n\nGo to HOME tab → PAIR PC to connect.";
-  }
-  if (/what can you do|capabilities|help/.test(lc)) {
-    return "Butler AI capabilities:\n\n• Run any Python script on your PC remotely\n• Monitor CPU, RAM, Disk live\n• Clean temp files, manage processes\n• Network diagnostics & WiFi scan\n• Chat with local Ollama AI (zero cloud)\n• Build automation workflows\n• 250+ pre-built automation scripts\n\nAll 100% local — no cloud, no accounts.";
-  }
-  if (noConn) {
-    return "Your PC is not connected.\n\nTo connect:\n1. Run butler_server.py on your PC\n2. HOME tab → tap PAIR PC\n3. Scan QR code shown in terminal\n\nOnce paired, full Ollama AI becomes available — no internet needed.";
-  }
+  if (/^(hi|hello|hey)[!?.\s]*$/.test(lc)) return "Hello! I'm Butler AI — your self-hosted PC automation assistant.\n\nConnect your PC to unlock:\n• Ollama local AI (LLaMA, Mistral, Qwen, etc.)\n• Run Python scripts remotely\n• Live system monitoring\n\nGo to HOME tab → PAIR PC to connect.";
+  if (/what can you do|capabilities|help/.test(lc)) return "Butler AI capabilities:\n\n• Run any Python script on your PC remotely\n• Monitor CPU, RAM, Disk live\n• Clean temp files, manage processes\n• Network diagnostics\n• Chat with local Ollama AI (zero cloud)\n\nAll 100% local — no cloud, no accounts.";
+  if (noConn) return "Your PC is not connected.\n\nTo connect:\n1. Run butler_server.py on your PC\n2. HOME tab → tap PAIR PC\n3. Scan QR code shown in terminal";
   return "Could not reach the AI engine.\n\nCheck:\n1. butler_server.py is running\n2. Ollama is installed (run: ollama list)\n3. Phone & PC are on same WiFi\n\nTap PAIR PC on HOME tab to reconnect.";
 }
 
@@ -1289,283 +1458,283 @@ function getOfflineReply(text: string, noConn: boolean): string {
 // MAIN BUTLER SCREEN
 // ══════════════════════════════════════════════════════════════════
 function ButlerInner() {
-  const insets = useSafeAreaInsets();
-  const { T }  = useCosmetic();
+  const insets       = useSafeAreaInsets();
   const { isConnected } = useConnectionStatus();
 
   const [messages,      setMessages]      = useState<Msg[]>([]);
   const [isLoading,     setIsLoading]     = useState(false);
   const [chatMode,      setChatMode]      = useState<Mode>('general');
   const [showBuilder,   setShowBuilder]   = useState(false);
+  const [showHistory,   setShowHistory]   = useState(false);
   const [activeModel,   setActiveModel]   = useState('');
   const [modelReason,   setModelReason]   = useState('');
   const [modelCap,      setModelCap]      = useState('');
   const [modelLoading,  setModelLoading]  = useState(false);
-
-  // Pipeline stage tracking
   const [currentStage,  setCurrentStage]  = useState<Stage>('idle');
   const [stageElapsed,  setStageElapsed]  = useState(0);
   const [streamingId,   setStreamingId]   = useState<string | null>(null);
-  const stageStart = useRef(0);
+  // Session history state
+  const [sessions,      setSessions]      = useState<Session[]>([]);
+  const [currentSessId, setCurrentSessId] = useState<string | null>(null);
+
+  const stageStart   = useRef(0);
   const elapsedTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const listRef    = useRef<FlatList<Msg>>(null);
+  const saveTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listRef      = useRef<FlatList<Msg>>(null);
   const { addEntry } = useChatHistory();
+  const mountRef     = useRef(true);
 
-  // Elapsed timer for stage progress
+  // ── Stage helpers ──────────────────────────────────────────────
   const startStage = useCallback((stage: Stage) => {
-    stageStart.current = Date.now();
-    setCurrentStage(stage);
-    setStageElapsed(0);
+    stageStart.current = Date.now(); setCurrentStage(stage); setStageElapsed(0);
     if (elapsedTimer.current) clearInterval(elapsedTimer.current);
-    elapsedTimer.current = setInterval(() => {
-      setStageElapsed(Date.now() - stageStart.current);
-    }, 80);
+    elapsedTimer.current = setInterval(() => setStageElapsed(Date.now() - stageStart.current), 80);
   }, []);
 
   const endStage = useCallback((stage: Stage = 'done') => {
     if (elapsedTimer.current) { clearInterval(elapsedTimer.current); elapsedTimer.current = null; }
-    setCurrentStage(stage);
-    setStageElapsed(Date.now() - stageStart.current);
-    if (stage === 'done' || stage === 'error') {
-      setTimeout(() => setCurrentStage('idle'), stage === 'done' ? 1800 : 3000);
-    }
+    setCurrentStage(stage); setStageElapsed(Date.now() - stageStart.current);
+    if (stage === 'done' || stage === 'error') setTimeout(() => setCurrentStage('idle'), stage === 'done' ? 1800 : 3000);
   }, []);
 
-  // Load persisted chat
+  // ── Session save helper ──────────────────────────────────────────
+  const _persistSession = useCallback(async (msgs: Msg[], sessId: string | null, allSessions: Session[], model: string) => {
+    if (!msgs.length) return;
+    const userMsgs = msgs.filter(m => m.role === 'user');
+    if (!userMsgs.length) return;
+    try {
+      const id       = sessId || `sess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const existing = allSessions.find(s => s.id === id);
+      const session: Session = {
+        id,
+        title:     existing?.title || _autoTitle(msgs),
+        messages:  msgs.slice(-120), // keep last 120 messages per session
+        createdAt: existing?.createdAt || Date.now(),
+        updatedAt: Date.now(),
+        msgCount:  msgs.filter(m => m.role !== 'system').length,
+        model:     model || existing?.model || '',
+      };
+      const updated = await _upsertSession(session, allSessions);
+      if (mountRef.current) {
+        setSessions(updated);
+        if (!sessId) setCurrentSessId(id);
+      }
+    } catch {}
+  }, []);
+
+  // ── Boot: load sessions + current conversation ─────────────────
   useEffect(() => {
+    mountRef.current = true;
     (async () => {
       try {
+        // Load all sessions
+        const loadedSessions = await _loadSessions();
+        if (mountRef.current) setSessions(loadedSessions);
+        // Load current unsaved draft
         const raw = await encryptedStorage.getItem(CONV_KEY);
-        if (raw) {
-          const parsed = logger.safeJSON<Msg[]>(raw, [], '[ButlerV13]');
-          if (Array.isArray(parsed) && parsed.length) setMessages(parsed);
+        if (raw && mountRef.current) {
+          const p = logger.safeJSON<Msg[]>(raw, [], '[ButlerV15]');
+          if (Array.isArray(p) && p.length) setMessages(p);
         }
       } catch {}
     })();
-    return () => { if (elapsedTimer.current) clearInterval(elapsedTimer.current); };
+    return () => {
+      mountRef.current = false;
+      if (elapsedTimer.current) clearInterval(elapsedTimer.current);
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
   }, []);
 
-  // Persist chat (throttled)
+  // ── Auto-save current draft (debounced 600ms) ──────────────────
   useEffect(() => {
     if (!messages.length) return;
-    const t = setTimeout(() => {
-      encryptedStorage.setItem(CONV_KEY, JSON.stringify(messages.slice(-80))).catch(() => {});
-    }, 400);
-    return () => clearTimeout(t);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      try {
+        await encryptedStorage.setItem(CONV_KEY, JSON.stringify(messages.slice(-80)));
+        // Auto-save as session after first real exchange
+        const hasExchange = messages.some(m => m.role === 'butler' && m.content.length > 10);
+        if (hasExchange) {
+          await _persistSession(messages, currentSessId, sessions, activeModel);
+        }
+      } catch {}
+    }, 600);
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [messages]);
 
-  // Model detection — fetch /api/ollama/models, rank by tier
+  // ── Model detection ────────────────────────────────────────────
   useEffect(() => {
-    if (!isConnected) {
-      setActiveModel(''); setModelReason(''); setModelCap('');
-      setModelLoading(false);
-      return;
-    }
+    if (!isConnected) { setActiveModel(''); setModelReason(''); setModelCap(''); setModelLoading(false); return; }
     let cancelled = false;
     setModelLoading(true);
-
     (async () => {
       try {
         const models = await fetchOllamaModels();
         if (cancelled) return;
-
         if (models.length === 0) {
-          setActiveModel('');
-          setModelReason('No Ollama models installed · run: ollama pull qwen2.5-coder:7b');
-          setModelCap('NONE');
+          setActiveModel(''); setModelReason('No Ollama models installed · tap PULL MODEL to install qwen2.5-coder:7b'); setModelCap('NONE');
         } else {
           const picked = selectBestModel(models);
-          if (picked) {
-            setActiveModel(picked.model);
-            setModelReason(picked.reason);
-            setModelCap(picked.capability);
-          }
+          if (picked) { setActiveModel(picked.model); setModelReason(picked.reason); setModelCap(picked.capability); }
         }
       } catch {
-        // Fallback: try nexusBridge.pickBestModel
         if (!cancelled) {
           try {
             if (typeof nexusBridge.pickBestModel === 'function') {
               const m = await nexusBridge.pickBestModel(true);
               if (!cancelled && m) {
-                setActiveModel(m);
                 const tier = MODEL_TIERS.find(p => p.match.test(m));
-                setModelReason(tier?.reason ?? 'Auto-selected');
-                setModelCap(tier?.capability ?? 'BASIC');
+                setActiveModel(m); setModelReason(tier?.reason ?? 'Auto-selected'); setModelCap(tier?.capability ?? 'BASIC');
               }
             }
           } catch {}
         }
-      } finally {
-        if (!cancelled) setModelLoading(false);
-      }
+      } finally { if (!cancelled) setModelLoading(false); }
     })();
-
     return () => { cancelled = true; };
   }, [isConnected]);
 
+  // ── Clear chat (saves current session first) ───────────────────
   const clearChat = useCallback(async () => {
     haptics.medium();
-    setMessages([]);
-    setCurrentStage('idle');
-    setStreamingId(null);
+    // Persist current session before clearing
+    if (messages.filter(m => m.role !== 'system').length > 0) {
+      await _persistSession(messages, currentSessId, sessions, activeModel);
+    }
+    setMessages([]); setCurrentStage('idle'); setStreamingId(null); setCurrentSessId(null);
     await encryptedStorage.removeItem(CONV_KEY).catch(() => {});
     autoResearch.clearCache();
-  }, []);
+  }, [messages, currentSessId, sessions, activeModel, _persistSession]);
 
+  // ── New chat (same as clearChat but always saves) ──────────────
+  const startNewChat = useCallback(async () => {
+    haptics.heavy();
+    if (messages.filter(m => m.role !== 'system').length > 0) {
+      await _persistSession(messages, currentSessId, sessions, activeModel);
+    }
+    setMessages([]); setCurrentStage('idle'); setStreamingId(null); setCurrentSessId(null);
+    await encryptedStorage.removeItem(CONV_KEY).catch(() => {});
+    autoResearch.clearCache();
+  }, [messages, currentSessId, sessions, activeModel, _persistSession]);
+
+  // ── Restore session ────────────────────────────────────────────
+  const restoreSession = useCallback(async (session: Session) => {
+    haptics.heavy();
+    setShowHistory(false);
+    // Save current before restoring
+    if (messages.filter(m => m.role !== 'system').length > 0) {
+      await _persistSession(messages, currentSessId, sessions, activeModel);
+    }
+    setMessages(session.messages);
+    setCurrentSessId(session.id);
+    setCurrentStage('idle'); setStreamingId(null);
+    await encryptedStorage.setItem(CONV_KEY, JSON.stringify(session.messages)).catch(() => {});
+    setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 300);
+  }, [messages, currentSessId, sessions, activeModel, _persistSession]);
+
+  // ── Delete session ─────────────────────────────────────────────
+  const deleteSession = useCallback(async (id: string) => {
+    haptics.heavy();
+    const updated = await _deleteSession(id, sessions);
+    setSessions(updated);
+    if (id === currentSessId) {
+      setCurrentSessId(null);
+      setMessages([]);
+      await encryptedStorage.removeItem(CONV_KEY).catch(() => {});
+    }
+  }, [sessions, currentSessId]);
+
+  // ── Global hooks ───────────────────────────────────────────────
   useEffect(() => {
-    (global as any).__butlerClearChat = clearChat;
-    return () => { delete (global as any).__butlerClearChat; };
-  }, [clearChat]);
+    (global as any).__butlerClearChat      = clearChat;
+    (global as any).__butlerNewChat        = startNewChat;
+    (global as any).__butlerOpenHistory    = () => setShowHistory(true);
+    return () => {
+      delete (global as any).__butlerClearChat;
+      delete (global as any).__butlerNewChat;
+      delete (global as any).__butlerOpenHistory;
+    };
+  }, [clearChat, startNewChat]);
 
+  // ── Send message ───────────────────────────────────────────────
   const sendMessage = useCallback(async (text: string, retryMsgId?: string) => {
     if (!text.trim() || isLoading) return;
     const t0 = Date.now();
     const userMsg: Msg = retryMsgId
       ? messages.find(m => m.id === retryMsgId) ?? { id: `u-${Date.now()}`, role: 'user', content: text.trim(), timestamp: Date.now() }
       : { id: `u-${Date.now()}`, role: 'user', content: text.trim(), timestamp: Date.now() };
-
-    // Remove old failed message if retrying
-    if (retryMsgId) {
-      setMessages(prev => prev.filter(m => m.id !== retryMsgId && !(m.role === 'butler' && m.failed)));
-    } else {
-      setMessages(prev => [...prev, userMsg]);
-    }
-
-    setIsLoading(true);
-    startStage('connecting');
+    if (retryMsgId) setMessages(prev => prev.filter(m => m.id !== retryMsgId && !(m.role === 'butler' && m.failed)));
+    else setMessages(prev => [...prev, userMsg]);
+    setIsLoading(true); startStage('connecting');
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-
-    // Create placeholder streaming message
     const placeholderId = `b-${Date.now()}`;
-    const placeholderMsg: Msg = {
-      id: placeholderId,
-      role: 'butler',
-      content: '',
-      timestamp: Date.now(),
-    };
-    setMessages(prev => [...prev, placeholderMsg]);
+    setMessages(prev => [...prev, { id: placeholderId, role: 'butler', content: '', timestamp: Date.now() }]);
     setStreamingId(placeholderId);
-
     try {
-      // STAGE 1: Connecting check
       if (!serverConnection.isConnected()) throw new Error('PC_NOT_CONNECTED');
-      await new Promise(r => setTimeout(r, 120)); // brief pause to show stage
-
-      // STAGE 2: KB search
+      await new Promise(r => setTimeout(r, 120));
       startStage('kb_search');
       const [nexusCtx, metricsCtx] = await Promise.all([
-        nexusBridge?.buildNexusContext?.(text, {
-          maxLocal: 5, maxRelay: 3, timeoutMs: 3500,
-          relayEnabled: isConnected, growthEnabled: false,
-        }).catch(() => null),
+        nexusBridge?.buildNexusContext?.(text, { maxLocal: 5, maxRelay: 3, timeoutMs: 3500, relayEnabled: isConnected, growthEnabled: false }).catch(() => null),
         serverMetrics.getContextString().catch(() => ''),
       ]);
       const prewarmed = autoResearch.getCached(text);
-      const kbCtx = nexusCtx?.fusedBlock || prewarmed?.kbCtx
-        || await knowledgeAccumulator.buildContext(text).catch(() => '');
-
-      // STAGE 3: Building context
+      const kbCtx = nexusCtx?.fusedBlock || prewarmed?.kbCtx || await knowledgeAccumulator.buildContext(text).catch(() => '');
       startStage('context');
-      const modePrompt   = MODE_PROMPTS[chatMode] || '';
-      const personalCtx  = await personalMemory.buildPersonalContext().catch(() => '');
-      const histCtx      = buildHistoryOnly(messages.filter(m => m.role !== 'system').slice(-10));
-      const sysPrompt    = [
+      const modePrompt  = MODE_PROMPTS[chatMode] || '';
+      const personalCtx = await personalMemory.buildPersonalContext().catch(() => '');
+      const histCtx     = buildHistoryOnly(messages.filter(m => m.role !== 'system').slice(-10));
+      const sysPrompt   = [
         BUTLER_KNOWLEDGE_COMPACT,
         typeof BUTLER_STYLE_GUIDE === 'string' ? BUTLER_STYLE_GUIDE : '',
-        modePrompt ? `BEHAVIOR MODE:\n${modePrompt}` : '',
-        metricsCtx ? `LIVE PC METRICS:\n${metricsCtx}` : '',
-        kbCtx ? `KNOWLEDGE BASE:\n${kbCtx.slice(0, 3000)}` : '',
-        personalCtx || '',
+        modePrompt   ? `BEHAVIOR MODE:\n${modePrompt}` : '',
+        metricsCtx   ? `LIVE PC METRICS:\n${metricsCtx}` : '',
+        kbCtx        ? `KNOWLEDGE BASE:\n${kbCtx.slice(0, 3000)}` : '',
+        personalCtx  || '',
       ].filter(Boolean).join('\n\n');
-
-      let kbUsed = nexusCtx
+      const kbUsed = nexusCtx
         ? (nexusCtx.localFindings?.length || 0) + (nexusCtx.relayFindings?.length || 0)
         : kbCtx ? Math.max(1, (kbCtx.match(/\n---\n/g) || []).length + 1) : 0;
-
-      // STAGE 4: AI processing
       startStage('ai');
       if (typeof nexusBridge?.chat !== 'function') throw new Error('AI bridge unavailable');
-
-      // STAGE 5: Streaming response
       startStage('streaming');
       const result = await nexusBridge.chat({
-        messages: [
-          { role: 'system', content: sysPrompt },
-          ...histCtx,
-          { role: 'user', content: text },
-        ],
-        stream: false,
-        model: activeModel || undefined,
+        messages: [{ role: 'system', content: sysPrompt }, ...histCtx, { role: 'user', content: text }],
+        stream: false, model: activeModel || undefined,
       });
-
-      const reply     = result?.content || result?.message || result?.response || result?.text || 'No response received.';
+      const reply = result?.content || result?.message || result?.response || result?.text || 'No response received.';
       const responseMs = Date.now() - t0;
-
-      // Simulate streaming by updating message progressively
       const CHUNK = Math.max(4, Math.floor(reply.length / 20));
       for (let i = CHUNK; i <= reply.length; i += CHUNK) {
-        const chunk = reply.slice(0, i);
-        setMessages(prev => prev.map(m =>
-          m.id === placeholderId ? { ...m, content: chunk } : m
-        ));
+        setMessages(prev => prev.map(m => m.id === placeholderId ? { ...m, content: reply.slice(0, i) } : m));
         if (i < reply.length) await new Promise(r => setTimeout(r, 18));
       }
-
-      // Final update with full message + metadata
       const kbSources: KBSource[] = nexusCtx?.localFindings?.slice(0, 3).map((f: any) => ({
-        topic: f.topic || f.query || 'Knowledge Base',
-        relevance: Math.round((f.score || 0.8) * 100),
+        topic: f.topic || f.query || 'Knowledge Base', relevance: Math.round((f.score || 0.8) * 100),
       })) || [];
-
-      setMessages(prev => prev.map(m =>
-        m.id === placeholderId
-          ? {
-              ...m,
-              content: reply,
-              kbSources,
-              metadata: { model: result?.model || activeModel || '', responseMs, kbUsed },
-            }
-          : m
-      ));
-
+      setMessages(prev => prev.map(m => m.id === placeholderId
+        ? { ...m, content: reply, kbSources, metadata: { model: result?.model || activeModel || '', responseMs, kbUsed } }
+        : m));
       setStreamingId(null);
-      addEntry({ role: 'user', content: text, timestamp: Date.now() });
+      addEntry({ role: 'user',      content: text,  timestamp: Date.now() });
       addEntry({ role: 'assistant', content: reply, timestamp: Date.now() });
       knowledgeAccumulator.processExchange(text, reply).catch(() => {});
-      if (isConnected && (nexusCtx?.growthCount ?? 0) === 0) {
-        knowledgeGrowthEngine.silentGrowth().catch(() => {});
-      }
+      if (isConnected && (nexusCtx?.growthCount ?? 0) === 0) knowledgeGrowthEngine.silentGrowth().catch(() => {});
       endStage('done');
-
     } catch (err: any) {
       const msg  = err?.message || 'Unknown error';
       const noC  = msg === 'PC_NOT_CONNECTED' || msg.toLowerCase().includes('not connected') || !serverConnection.isConnected();
       const noOl = msg.toLowerCase().includes('ollama') || msg.toLowerCase().includes('empty response');
-
-      autoErrorLogger.log('warn', '[ButlerV13]', msg);
-      endStage('error');
-      setStreamingId(null);
-
-      const offlineReply = getOfflineReply(text, noC);
-
-      // Update placeholder to failed state
-      setMessages(prev => prev.map(m =>
-        m.id === placeholderId
-          ? {
-              ...m,
-              content: offlineReply,
-              failed: noC || noOl,
-              failReason: noC
-                ? 'PC not connected — go to HOME tab to pair'
-                : noOl
-                ? 'Ollama AI unavailable — check if Ollama is running on your PC'
-                : `Request failed: ${msg.slice(0, 80)}`,
-            }
-          : m
-      ));
-
+      autoErrorLogger.log('warn', '[ButlerV15]', msg);
+      endStage('error'); setStreamingId(null);
+      setMessages(prev => prev.map(m => m.id === placeholderId ? {
+        ...m,
+        content:    getOfflineReply(text, noC),
+        failed:     noC || noOl,
+        failReason: noC  ? 'PC not connected — go to HOME tab to pair'
+                  : noOl ? 'Ollama AI unavailable — check if Ollama is running on your PC'
+                  : `Request failed: ${msg.slice(0, 80)}`,
+      } : m));
     } finally {
       setIsLoading(false);
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 200);
@@ -1575,7 +1744,7 @@ function ButlerInner() {
   const sendRef = useRef(sendMessage);
   useEffect(() => { sendRef.current = sendMessage; }, [sendMessage]);
 
-  // Read prefill from QuickButlerBar when tab gains focus
+  // ── Prefill prompt from other tabs ────────────────────────────
   useEffect(() => {
     const PREFILL_KEY = '@butler_prefill_prompt';
     const checkPrefill = async () => {
@@ -1589,21 +1758,15 @@ function ButlerInner() {
       } catch {}
     };
     checkPrefill();
-    (global as any).__butlerInjectMessage = (t: string) => {
-      if (t?.trim()) sendRef.current(t.trim());
-    };
+    (global as any).__butlerInjectMessage = (t: string) => { if (t?.trim()) sendRef.current(t.trim()); };
     return () => { delete (global as any).__butlerInjectMessage; };
   }, []);
 
+  // ── Retry handler ─────────────────────────────────────────────
   const handleRetry = useCallback((failedId: string) => {
-    const msg = messages.find(m => m.id === failedId);
-    // Find the user message before this failed one
     const failIdx = messages.findIndex(m => m.id === failedId);
     const userMsg = failIdx > 0 ? messages.slice(0, failIdx).reverse().find(m => m.role === 'user') : null;
-    if (userMsg) {
-      setMessages(prev => prev.filter(m => m.id !== failedId));
-      sendMessage(userMsg.content);
-    }
+    if (userMsg) { setMessages(prev => prev.filter(m => m.id !== failedId)); sendMessage(userMsg.content); }
   }, [messages, sendMessage]);
 
   const handleCopy  = useCallback((t: string) => { haptics.light(); safeSetClipboard(t); }, []);
@@ -1615,42 +1778,48 @@ function ButlerInner() {
     try {
       await saveButlerScript(code, { title: `Butler_${Date.now()}` });
       (global as any).__showConnectionToast?.('Script saved to FORGE tab', TEAL);
-    } catch {
-      (global as any).__showConnectionToast?.('Save failed', RED);
-    }
+    } catch { (global as any).__showConnectionToast?.('Save failed', RED); }
   }, []);
   const handleBuild = useCallback((p: string) => {
     sendMessage(`Write a production-quality Python script that: ${p}. Include full try/except, progress output, and clear comments.`);
   }, [sendMessage]);
 
+  const visibleMsgCount = messages.filter(m => m.role !== 'system').length;
+
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
       <BuilderModal visible={showBuilder} onClose={() => setShowBuilder(false)} onBuild={handleBuild} />
-
-      {/* Header */}
+      <HistorySheet
+        visible={showHistory}
+        sessions={sessions}
+        currentId={currentSessId}
+        onClose={() => setShowHistory(false)}
+        onRestore={restoreSession}
+        onDelete={deleteSession}
+        onNewChat={startNewChat}
+      />
       <HoloHeader
         safeTop={insets.top}
         isConn={isConnected}
         model={activeModel}
-        msgCount={messages.filter(m => m.role !== 'system').length}
+        msgCount={visibleMsgCount}
+        sessionCount={sessions.length}
         onClear={clearChat}
         onBuilder={() => setShowBuilder(true)}
+        onHistory={() => { haptics.medium(); setShowHistory(true); }}
       />
-
-      {/* Mode bar + model badge */}
       <ModeBar active={chatMode} onSelect={setChatMode} />
       <ModelBadge
-        model={activeModel}
-        reason={modelReason}
-        capability={modelCap}
-        isConn={isConnected}
-        loading={modelLoading}
+        model={activeModel} reason={modelReason} capability={modelCap}
+        isConn={isConnected} loading={modelLoading}
+        onModelPulled={(pulled) => {
+          setActiveModel(pulled);
+          const tier = MODEL_TIERS.find(p => p.match.test(pulled));
+          setModelReason(tier?.reason ?? 'Freshly installed · best choice for Python automation');
+          setModelCap(tier?.capability ?? 'ELITE');
+        }}
       />
-
-      {/* Session analytics */}
       <SessionAnalytics messages={messages} isConn={isConnected} model={activeModel} />
-
-      {/* Chat + input */}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
         <FlatList
           ref={listRef as any}
@@ -1658,23 +1827,15 @@ function ButlerInner() {
           keyExtractor={m => m.id}
           renderItem={({ item }) => (
             <MessageBubble
-              msg={item}
-              onCopy={handleCopy}
-              onSave={handleSave}
-              onReact={handleReact}
+              msg={item} onCopy={handleCopy} onSave={handleSave} onReact={handleReact}
               onRetry={item.failed ? handleRetry : undefined}
               isStreaming={item.id === streamingId}
             />
           )}
-          ListEmptyComponent={
-            <WelcomePanel isConn={isConnected} onSend={sendMessage} />
-          }
+          ListEmptyComponent={<WelcomePanel isConn={isConnected} onSend={sendMessage} />}
           ListFooterComponent={
             <>
-              {/* Pipeline progress bar shown during processing */}
-              {isLoading && (
-                <PipelineProgress stage={currentStage} elapsed={stageElapsed} />
-              )}
+              {isLoading && <PipelineProgress stage={currentStage} elapsed={stageElapsed} />}
               <View style={{ height: 10 }} />
             </>
           }
@@ -1686,11 +1847,7 @@ function ButlerInner() {
           windowSize={7}
           removeClippedSubviews={Platform.OS === 'android'}
         />
-
-        {messages.filter(m => m.role !== 'system').length > 0 && (
-          <QuickStrip onCmd={sendMessage} onDrawer={() => setShowBuilder(true)} />
-        )}
-
+        {visibleMsgCount > 0 && <QuickStrip onCmd={sendMessage} onDrawer={() => setShowBuilder(true)} />}
         <InputBar onSend={sendMessage} isConn={isConnected} disabled={isLoading} />
       </KeyboardAvoidingView>
     </View>
