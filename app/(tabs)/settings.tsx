@@ -822,6 +822,157 @@ function SettingsScreenInner() {
         <TutorialBanner onReplay={onReplayOnboarding} />
 
         {/* ═══════════════════════════════════════
+            📱 PLAY STORE PERMISSIONS DISCLOSURE
+        ═══════════════════════════════════════ */}
+        <View>
+          <Sec icon="google-play" label="PLAY STORE PERMISSIONS" color={C.teal}
+            sub="Declared permissions as shown on Google Play — all optional except network." />
+          <View style={[ic.root, { borderColor: C.teal + '35' }]}>
+            <View style={{ height: 2.5, backgroundColor: C.teal }} />
+            <View style={{ padding: 14, gap: 10 }}>
+              {/* Explanation header */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9,
+                borderWidth: 1, borderRadius: 10, borderColor: C.teal + '35',
+                backgroundColor: C.teal + '07', padding: 11 }}>
+                <MaterialCommunityIcons name="information-outline" size={15} color={C.teal} style={{ flexShrink: 0 }} />
+                <Text style={{ fontFamily: MONO, fontSize: 11, color: C.teal + 'BB', flex: 1, lineHeight: 16 }}>
+                  Butler AI requests the minimum permissions required. Each permission is used for one explicit purpose and nothing else.
+                </Text>
+              </View>
+
+              {[
+                {
+                  permission: 'INTERNET',
+                  group: 'Network',
+                  required: true,
+                  icon: 'wifi',
+                  color: C.cyan,
+                  purpose: 'Communicate with butler_server.py on your home LAN over Wi-Fi. Zero external internet calls.',
+                  neverUsedFor: 'Cloud APIs, telemetry, analytics, ad networks',
+                },
+                {
+                  permission: 'CHANGE_NETWORK_STATE',
+                  group: 'Network',
+                  required: false,
+                  icon: 'lan-connect',
+                  color: C.cyan,
+                  purpose: 'Detect LAN connectivity changes to trigger auto-reconnect to PC server.',
+                  neverUsedFor: 'Changing user network settings or VPN configuration',
+                },
+                {
+                  permission: 'CAMERA',
+                  group: 'Camera',
+                  required: false,
+                  icon: 'camera-outline',
+                  color: C.amber,
+                  purpose: 'Scan QR code displayed on your PC screen to pair with butler_server.py. One-shot only.',
+                  neverUsedFor: 'Recording video, taking photos, background camera access',
+                },
+                {
+                  permission: 'READ_EXTERNAL_STORAGE',
+                  group: 'Storage',
+                  required: false,
+                  icon: 'folder-outline',
+                  color: C.purple,
+                  purpose: 'Pick a file from your phone to send to your paired PC via the File Share tab.',
+                  neverUsedFor: 'Scanning media library, accessing contacts or call logs',
+                },
+                {
+                  permission: 'WRITE_EXTERNAL_STORAGE',
+                  group: 'Storage',
+                  required: false,
+                  icon: 'content-save-outline',
+                  color: C.purple,
+                  purpose: 'Save downloaded files received from your PC to device storage when explicitly requested.',
+                  neverUsedFor: 'Background writes, logging, or any automatic file creation',
+                },
+                {
+                  permission: 'VIBRATE',
+                  group: 'Haptics',
+                  required: false,
+                  icon: 'vibrate',
+                  color: C.green,
+                  purpose: 'Haptic feedback on button presses and script execution completion.',
+                  neverUsedFor: 'Alerts, notifications, or any background vibration',
+                },
+              ].map((p, i) => (
+                <View key={i} style={{
+                  borderWidth: 1.5, borderRadius: 12, borderColor: p.color + '30',
+                  backgroundColor: p.color + '06', overflow: 'hidden',
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11, padding: 12 }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 10, borderWidth: 1.5,
+                      borderColor: p.color + '55', backgroundColor: p.color + '14',
+                      alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <MaterialCommunityIcons name={p.icon as any} size={17} color={p.color} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                        <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '900', color: p.color, letterSpacing: 0.5 }}>
+                          {p.permission}
+                        </Text>
+                        <View style={{
+                          borderWidth: 1, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2,
+                          borderColor: (p.required ? C.red : C.green) + '55',
+                          backgroundColor: (p.required ? C.red : C.green) + '0C',
+                        }}>
+                          <Text style={{ fontFamily: MONO, fontSize: 8, fontWeight: '900',
+                            color: p.required ? C.red : C.green }}>
+                            {p.required ? 'REQUIRED' : 'OPTIONAL'}
+                          </Text>
+                        </View>
+                        <Text style={{ fontFamily: MONO, fontSize: 9, color: p.color + '60' }}>{p.group}</Text>
+                      </View>
+                      <Text style={{ fontFamily: MONO, fontSize: 11, color: C.mid, marginTop: 4, lineHeight: 16 }}>
+                        {p.purpose}
+                      </Text>
+                    </View>
+                  </View>
+                  {/* Never used for */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7,
+                    borderTopWidth: 1, borderTopColor: p.color + '20',
+                    paddingHorizontal: 12, paddingVertical: 8,
+                    backgroundColor: C.red + '04' }}>
+                    <MaterialIcons name="block" size={11} color={C.red + '70'} style={{ flexShrink: 0 }} />
+                    <Text style={{ fontFamily: MONO, fontSize: 10, color: C.red + '60', flex: 1, lineHeight: 14 }}>
+                      Never: {p.neverUsedFor}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+
+              {/* Permissions NOT requested */}
+              <View style={{ borderWidth: 1, borderRadius: 11, borderColor: C.green + '30',
+                backgroundColor: C.green + '06', padding: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <MaterialCommunityIcons name="shield-check" size={14} color={C.green} />
+                  <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '900', color: C.green, letterSpacing: 0.5 }}>
+                    NEVER REQUESTED
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                  {['CONTACTS','LOCATION','MICROPHONE','CALL LOG','SMS / MMS',
+                    'BACKGROUND LOCATION','READ CALL LOG','RECORD AUDIO',
+                    'PROCESS OUTGOING CALLS','READ PHONE STATE'].map((perm) => (
+                    <View key={perm} style={{ borderWidth: 1, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 5,
+                      borderColor: C.green + '35', backgroundColor: C.green + '07' }}>
+                      <Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '700', color: C.green + '90' }}>{perm}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+
+              {/* Play Store compliance link */}
+              <ActionRow icon="google-play" iconLib="community"
+                label="PLAY STORE DATA SAFETY"
+                sub="View our complete Play Store data safety declaration"
+                color={C.teal}
+                onPress={() => openURL('https://shawnjan-cmd.github.io/privacy-policy-/#data-safety')} />
+            </View>
+          </View>
+        </View>
+
+        {/* ═══════════════════════════════════════
             🛡 PRIVACY & LEGAL — PROMINENT
         ═══════════════════════════════════════ */}
         <View>
