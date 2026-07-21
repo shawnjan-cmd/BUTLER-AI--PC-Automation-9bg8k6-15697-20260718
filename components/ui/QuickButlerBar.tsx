@@ -87,21 +87,30 @@ function phonemeHaptic(char: string) {
   if ('bcdfghjklmnpqrstvwxyz'.includes(c)) { (haptics as any).selection?.(); }
 }
 
+// ── UNIQUE GRADIENT ID COUNTER — prevents collisions when multiple instances mount ──
+let _waveGradCounter = 0;
+
 // ── ENTROPY WAVEFORM — full width ─────────────────────────────────
 function entropyWave(text: string, W: number, H: number): string {
   if (!text) return `M 0 ${H / 2} L ${W} ${H / 2}`;
   const N = 20;
   const pts: [number, number][] = [];
+  const midY = H / 2;
   for (let i = 0; i <= N; i++) {
     const x = (i / N) * W;
-    let y = H / 2;
+    let y = midY;
     for (let j = 0; j < Math.min(text.length, 10); j++) {
-      const freq = ((text.charCodeAt(j) % 5) + 1);
+      const code = text.charCodeAt(j);
+      // Guard: skip NaN (can happen with certain Unicode chars)
+      if (!Number.isFinite(code)) continue;
+      const freq = ((code % 5) + 1);
       const amp  = H * 0.22 * (1 - j / text.length);
-      y += amp * Math.sin((i / N) * Math.PI * 2 * freq + j * 0.7);
+      const wave = amp * Math.sin((i / N) * Math.PI * 2 * freq + j * 0.7);
+      if (Number.isFinite(wave)) y += wave;
     }
     pts.push([x, Math.max(1, Math.min(H - 1, y))]);
   }
+  if (pts.length === 0) return `M 0 ${midY} L ${W} ${midY}`;
   let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
   for (let i = 1; i < pts.length; i++) {
     const [px, py] = pts[i - 1];
@@ -116,17 +125,20 @@ function AmbientWave({ text, color }: { text: string; color: string }) {
   const W = Math.max(280, SW - 12);
   const H = 28;
   const d = useMemo(() => entropyWave(text, W, H), [text]);
+  // Stable unique gradient ID per component instance — prevents SVG defs collision
+  // when two instances of QuickButlerBar ever render simultaneously.
+  const gradId = useRef(`qbb_wg_${++_waveGradCounter}`).current;
   return (
     <Svg width={W} height={H} style={StyleSheet.absoluteFill} pointerEvents="none">
       <Defs>
-        <SvgGrad id="wg3" x1="0" y1="0" x2="1" y2="0">
+        <SvgGrad id={gradId} x1="0" y1="0" x2="1" y2="0">
           <Stop offset="0"    stopColor={color} stopOpacity="0"    />
           <Stop offset="0.3"  stopColor={color} stopOpacity="0.25" />
           <Stop offset="0.7"  stopColor={color} stopOpacity="0.18" />
           <Stop offset="1"    stopColor={color} stopOpacity="0"    />
         </SvgGrad>
       </Defs>
-      <Path d={d} stroke="url(#wg3)" strokeWidth="1.5" fill="none" />
+      <Path d={d} stroke={`url(#${gradId})`} strokeWidth="1.5" fill="none" />
     </Svg>
   );
 }
@@ -280,21 +292,49 @@ function getGhost(text: string): string {
 const VOCAB_KEY = '@qbb_vocab_v3';
 let _vocab: [string, number][] = [];
 let _vocabLoaded = false;
+let _vocabLoading = false;  // prevents concurrent load races
 async function loadVocab() {
-  if (_vocabLoaded) return;
-  try { const r = await AsyncStorage.getItem(VOCAB_KEY); if (r) _vocab = JSON.parse(r); } catch {}
-  _vocabLoaded = true;
+  if (_vocabLoaded || _vocabLoading) return;
+  _vocabLoading = true;
+  try {
+    const r = await AsyncStorage.getItem(VOCAB_KEY);
+    if (r) {
+      const parsed = JSON.parse(r);
+      // Validate shape: must be an array of [string, number] pairs
+      if (Array.isArray(parsed)) {
+        _vocab = parsed.filter(
+          (e): e is [string, number] =>
+            Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'number'
+        );
+      }
+    }
+  } catch {
+    // Corrupt storage — silently reset vocab to empty
+    _vocab = [];
+  } finally {
+    _vocabLoaded = true;
+    _vocabLoading = false;
+  }
 }
 async function recordVocab(text: string) {
   await loadVocab();
   const words = text.toLowerCase().trim().split(/\s+/).filter(w => w.length > 3);
-  for (let i = 0; i < words.length; i++) {
-    const g = words[i] + (words[i + 1] ? ' ' + words[i + 1] : '');
-    const ex = _vocab.find(([k]) => k === words[i]);
-    if (ex) ex[1]++; else _vocab.push([words[i], 1]);
+  // Snapshot _vocab to avoid mutation-during-iteration issues
+  const snapshot = [..._vocab];
+  for (const word of words) {
+    const ex = snapshot.find(([k]) => k === word);
+    if (ex) {
+      ex[1]++;
+    } else {
+      snapshot.push([word, 1]);
+    }
   }
-  _vocab = _vocab.sort((a, b) => b[1] - a[1]).slice(0, 120);
-  AsyncStorage.setItem(VOCAB_KEY, JSON.stringify(_vocab)).catch(() => {});
+  _vocab = snapshot.sort((a, b) => b[1] - a[1]).slice(0, 120);
+  try {
+    await AsyncStorage.setItem(VOCAB_KEY, JSON.stringify(_vocab));
+  } catch {
+    // Non-critical — vocab persistence failure should never crash the bar
+  }
 }
 
 // ── MAIN COMPONENT ────────────────────────────────────────────────
