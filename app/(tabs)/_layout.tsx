@@ -76,7 +76,8 @@ const ICON_MAP: Record<string, IconFn> = {
   connect:        (c, s) => <MaterialCommunityIcons name="server-network" size={s} color={c} />,
   settings:       (c, s) => <MaterialIcons name="tune" size={s} color={c} />,
   cosmetic:       (c, s) => <MaterialCommunityIcons name="palette-swatch" size={s} color={c} />,
-
+  terminal:       (c, s) => <MaterialIcons name="receipt-long" size={s} color={c} />,
+  support:        (c, s) => <MaterialCommunityIcons name="help-circle-outline" size={s} color={c} />,
 };
 
 const TAB_LABELS: Record<string, string> = {
@@ -89,7 +90,9 @@ const TAB_LABELS: Record<string, string> = {
   fileshare:      'VAULT',
   settings:       'CFG',
   cosmetic:       'SKINS',
-
+  terminal:       'LOGS',
+  support:        'HELP',
+  connect:        'PAIR',
 };
 
 // ── Loading splash — shown ONLY during the AsyncStorage read ─────
@@ -264,11 +267,13 @@ export default function TabsLayout() {
       <Tabs.Screen name="cosmetic"  options={{ title: 'SKINS',               tabBarLabel: 'SKINS'              }} />
       <Tabs.Screen name="settings"  options={{ title: TAB_LABELS.settings,   tabBarLabel: TAB_LABELS.settings  }} />
 
+      {/* ── ADDITIONAL VISIBLE TABS (scroll right past CFG) ── */}
+      <Tabs.Screen name="terminal" options={{ title: TAB_LABELS.terminal, tabBarLabel: TAB_LABELS.terminal }} />
+      <Tabs.Screen name="support"  options={{ title: TAB_LABELS.support,  tabBarLabel: TAB_LABELS.support  }} />
+      <Tabs.Screen name="connect"  options={{ title: TAB_LABELS.connect,  tabBarLabel: TAB_LABELS.connect  }} />
+
       {/* ── HIDDEN UTILITY TABS ── */}
-      <Tabs.Screen name="index"          options={{ href: null }} />
-      <Tabs.Screen name="connect"        options={{ title: 'PAIR', tabBarLabel: 'PAIR' }} />
-      <Tabs.Screen name="terminal"       options={{ href: null }} />
-      <Tabs.Screen name="support"        options={{ href: null }} />
+      <Tabs.Screen name="index" options={{ href: null }} />
 
 
     </Tabs>

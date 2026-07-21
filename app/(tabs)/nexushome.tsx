@@ -22,6 +22,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 
 import { COLOR, FONT, glow, SHADOW } from '@/constants/tokens';
+import { HexTag } from '@/components/ui/HexTag';
+import { CornerFrame } from '@/components/ui/CornerFrame';
+import { ScanlineOverlay } from '@/components/ui/ScanlineOverlay';
 import { TabErrorBoundary } from '@/components/ui/TabErrorBoundary';
 import { RemoteAccessMonetizationCard } from '@/components/home/RemoteAccessMonetizationCard';
 import { NexusVaultCard } from '@/components/ui/NexusVaultCard';
@@ -511,13 +514,9 @@ function LiveGauges({ isConn, cpu, ram, disk, cpuHistory, ramHistory, diskHistor
             </View>
           }
         />
-        {/* HUD corners */}
-        <View style={lgx.corners}>
-          <View style={[lgx.cornerTL, { borderColor: CYAN + '45' }]} />
-          <View style={[lgx.cornerTR, { borderColor: CYAN + '45' }]} />
-          <View style={[lgx.cornerBL, { borderColor: CYAN + '45' }]} />
-          <View style={[lgx.cornerBR, { borderColor: CYAN + '45' }]} />
-        </View>
+        {/* HUD corners via CornerFrame + optional scanline when live */}
+        <CornerFrame color={CYAN + '45'} size={10} thickness={1.5} />
+        {isConn && <ScanlineOverlay color={CYAN} duration={4500} opacity={0.18} />}
 
         {/* Gauges row */}
         <View style={lgx.gaugeRow}>
@@ -552,11 +551,6 @@ function LiveGauges({ isConn, cpu, ram, disk, cpuHistory, ramHistory, diskHistor
 const lgx = StyleSheet.create({
   statusPill:   { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4 },
   statusTxt:    { fontFamily: MONO, fontSize: 8.5, fontWeight: '900' },
-  corners:      { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none' },
-  cornerTL:     { position: 'absolute', top: 8,  left: 8,  width: 12, height: 12, borderTopWidth: 1.5, borderLeftWidth: 1.5 },
-  cornerTR:     { position: 'absolute', top: 8,  right: 8, width: 12, height: 12, borderTopWidth: 1.5, borderRightWidth: 1.5 },
-  cornerBL:     { position: 'absolute', bottom: 8, left: 8,  width: 12, height: 12, borderBottomWidth: 1.5, borderLeftWidth: 1.5 },
-  cornerBR:     { position: 'absolute', bottom: 8, right: 8, width: 12, height: 12, borderBottomWidth: 1.5, borderRightWidth: 1.5 },
   gaugeRow:     { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 16, paddingBottom: 8 },
   gaugeDivider: { width: 1, alignSelf: 'stretch', backgroundColor: BORDER, marginHorizontal: 4 },
 });
@@ -722,7 +716,7 @@ function RuntimePanel({ isConn, scripts, kbCount }: { isConn: boolean; scripts: 
             { label: 'PEAK',    value: isConn ? `${Math.round(Math.max(0, (scripts * 3) % 100))}%` : '—', sub: 'cpu peak', color: AMBER },
             { label: 'AVG',     value: isConn ? `${kbCount}` : '—',    sub: 'vectors',   color: GREEN },
           ].map(r => (
-            <View key={r.label} style={[rt.cell, { borderColor: r.color + '25', borderTopColor: r.color }]}>
+            <View key={r.label} style={[rt.cell, { borderColor: r.color + '25', borderTopColor: r.color, position: 'relative', overflow: 'hidden' }]}>
               <Text style={[rt.cellLabel, { color: r.color + '80' }]}>{r.label}</Text>
               <Text style={[rt.cellVal, { color: r.color }]}>{r.value}</Text>
               <Text style={rt.cellSub}>{r.sub}</Text>
@@ -912,15 +906,15 @@ const af = StyleSheet.create({
 // CORE SURFACES — 3×3 grid with press animations
 // ══════════════════════════════════════════════════════════════════
 const SURFACES = [
-  { icon: 'robot-happy-outline',   label: 'Chat',     tab: 'butler',    color: CYAN   },
-  { icon: 'auto-fix',              label: 'Flows',    tab: 'builder',   color: GREEN  },
-  { icon: 'code-braces',           label: 'Scripts',  tab: 'scripts',   color: AMBER  },
-  { icon: 'brain',                 label: 'KB',       tab: 'knowledge', color: PURPLE },
-  { icon: 'folder-network',        label: 'Files',    tab: 'fileshare', color: PINK   },
-  { icon: 'chart-bar',             label: 'Logs',     tab: 'logs',      color: RED    },
-  { icon: 'monitor-dashboard',     label: 'PC',       tab: 'connect',   color: CYAN   },
-  { icon: 'palette-swatch',        label: 'Theme',    tab: 'cosmetic',  color: PURPLE },
-  { icon: 'tune-variant',          label: 'System',   tab: 'settings',  color: MID    },
+  { icon: 'robot-happy-outline',   label: 'Chat',     tab: 'butler',    color: CYAN,   hex: 'chat-butler'   },
+  { icon: 'auto-fix',              label: 'Flows',    tab: 'builder',   color: GREEN,  hex: 'flows-forge'   },
+  { icon: 'code-braces',           label: 'Scripts',  tab: 'scripts',   color: AMBER,  hex: 'scripts-lib'   },
+  { icon: 'brain',                 label: 'KB',       tab: 'knowledge', color: PURPLE, hex: 'kb-nexus'      },
+  { icon: 'folder-network',        label: 'Files',    tab: 'fileshare', color: PINK,   hex: 'vault-files'   },
+  { icon: 'chart-bar',             label: 'Logs',     tab: 'logs',      color: RED,    hex: 'pc-intel'      },
+  { icon: 'monitor-dashboard',     label: 'PC',       tab: 'connect',   color: CYAN,   hex: 'remote-ctrl'   },
+  { icon: 'palette-swatch',        label: 'Theme',    tab: 'cosmetic',  color: PURPLE, hex: 'skins-fx'      },
+  { icon: 'tune-variant',          label: 'System',   tab: 'settings',  color: MID,    hex: 'sys-config'    },
 ];
 
 function CoreSurfaces({ goToTab }: { goToTab: (t: string) => void }) {
@@ -935,7 +929,7 @@ function CoreSurfaces({ goToTab }: { goToTab: (t: string) => void }) {
         {/* Rainbow divider */}
         <View style={{ height: 3, flexDirection: 'row', marginHorizontal: 16, borderRadius: 2, overflow: 'hidden', marginBottom: 14 }}>
           {SURFACES.map((s, i) => (
-            <View key={i} style={{ flex: 1, backgroundColor: s.color, opacity: 0.7 }} />
+            <View key={i} style={{ flex: 1, backgroundColor: s.color, opacity: 0.8 }} />
           ))}
         </View>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10, paddingBottom: 14, gap: 8 }}>
@@ -945,11 +939,23 @@ function CoreSurfaces({ goToTab }: { goToTab: (t: string) => void }) {
               onPressIn={() => pressIn(i)}
               onPressOut={() => pressOut(i)}
               style={{ width: `${(100 - 16) / 3}%` as any }}>
-              <Animated.View style={[cs.cell, { borderColor: s.color + '30', backgroundColor: SURFACE2, transform: [{ scale: scaleAs[i] }] }]}>
-                <View style={[cs.iconBubble, { borderColor: s.color + '50', backgroundColor: s.color + '10' }]}>
-                  <MaterialCommunityIcons name={s.icon as any} size={20} color={s.color + 'CC'} />
+              <Animated.View style={[cs.cell, {
+                borderColor: s.color + '30',
+                borderTopColor: s.color,
+                borderTopWidth: 2.5,
+                backgroundColor: SURFACE2,
+                transform: [{ scale: scaleAs[i] }],
+                overflow: 'hidden',
+                position: 'relative',
+              }]}>
+                {/* Hex tag top-right */}
+                <View style={{ position: 'absolute', top: 5, right: 4 }}>
+                  <HexTag seed={s.hex} color={s.color} opacity={0.42} />
                 </View>
-                <Text style={[cs.label, { color: TEXT2 }]}>{s.label}</Text>
+                <View style={[cs.iconBubble, { borderColor: s.color + '55', backgroundColor: s.color + '12' }]}>
+                  <MaterialCommunityIcons name={s.icon as any} size={22} color={s.color} />
+                </View>
+                <Text style={[cs.label, { color: s.color + 'BB' }]}>{s.label}</Text>
               </Animated.View>
             </Pressable>
           ))}
@@ -959,9 +965,9 @@ function CoreSurfaces({ goToTab }: { goToTab: (t: string) => void }) {
   );
 }
 const cs = StyleSheet.create({
-  cell:       { alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 14, borderRadius: 13, borderWidth: 1 },
-  iconBubble: { width: 42, height: 42, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  label:      { fontSize: 10.5, fontWeight: '700' },
+  cell:       { alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 14, paddingTop: 18, borderRadius: 13, borderWidth: 1 },
+  iconBubble: { width: 44, height: 44, borderRadius: 13, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  label:      { fontFamily: 'monospace', fontSize: 10.5, fontWeight: '700' },
 });
 
 // ══════════════════════════════════════════════════════════════════
@@ -971,6 +977,11 @@ function ZeroCloudCard() {
   return (
     <View style={{ paddingHorizontal: PAD }}>
       <View style={zc.root}>
+        {/* Rainbow top strip */}
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2.5, flexDirection: 'row' }}>
+          {[CYAN, GREEN, AMBER, PURPLE, RED].map((c, i) => <View key={i} style={{ flex: 1, backgroundColor: c }} />)}
+        </View>
+        <CornerFrame color={CYAN + '38'} size={9} thickness={1.5} />
         <View style={[zc.iconBox, { backgroundColor: CYAN + '14', borderColor: CYAN + '40' }]}>
           <MaterialCommunityIcons name="shield-off-outline" size={22} color={CYAN} />
         </View>
@@ -986,7 +997,7 @@ function ZeroCloudCard() {
   );
 }
 const zc = StyleSheet.create({
-  root:    { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: SURFACE, borderRadius: 14, borderWidth: 1, borderColor: BORDER, padding: 16 },
+  root:    { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: SURFACE, borderRadius: 14, borderWidth: 1, borderColor: BORDER, padding: 16, paddingTop: 18, overflow: 'hidden', position: 'relative' },
   iconBox: { width: 44, height: 44, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   title:   { fontSize: 14, fontWeight: '700', color: TEXT, marginBottom: 3 },
   sub:     { fontSize: 11, color: MID, lineHeight: 16 },
@@ -1050,13 +1061,18 @@ function QuickScripts({ isConn }: { isConn: boolean }) {
             return (
               <TouchableOpacity key={s.id} onPress={() => run(s)} disabled={!isConn || !!running}
                 activeOpacity={0.75} style={[qs2.btn, !isConn && { opacity: 0.35 }]}>
-                <View style={[qs2.iconWrap, { backgroundColor: s.color + '14', borderColor: s.color + '35' }]}>
+                <View style={[qs2.iconWrap, {
+                  backgroundColor: s.color + '14',
+                  borderColor: s.color + '40',
+                  borderTopColor: s.color,
+                  borderTopWidth: 2.5,
+                }]}>
                   {isRun
                     ? <ActivityIndicator size="small" color={s.color} />
-                    : <MaterialCommunityIcons name={s.icon as any} size={20} color={s.color} />
+                    : <MaterialCommunityIcons name={s.icon as any} size={22} color={s.color} />
                   }
                 </View>
-                <Text style={[qs2.label, { color: TEXT2 }]}>{s.label}</Text>
+                <Text style={[qs2.label, { color: s.color + 'AA' }]}>{s.label}</Text>
               </TouchableOpacity>
             );
           })}
@@ -1083,8 +1099,8 @@ function QuickScripts({ isConn }: { isConn: boolean }) {
 }
 const qs2 = StyleSheet.create({
   btn:     { width: '33.33%', alignItems: 'center', paddingVertical: 14, gap: 7 },
-  iconWrap:{ width: 48, height: 48, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  label:   { fontFamily: MONO, fontSize: 8.5, fontWeight: '900', letterSpacing: 0.3, textAlign: 'center' },
+  iconWrap:{ width: 54, height: 54, borderRadius: 15, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  label:   { fontFamily: MONO, fontSize: 9, fontWeight: '900', letterSpacing: 0.3, textAlign: 'center' },
   outBox:  { borderWidth: 1.5, borderRadius: 12, padding: 12 },
 });
 
