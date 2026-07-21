@@ -314,12 +314,15 @@ function HomeHeader({ safeTop, isConn, addr, onPair }: {
       <View style={hdr.body}>
         {/* ── ANIMATED ROBOT MASCOT ── */}
         <Animated.View style={{ alignItems: 'center', transform: [{ translateY: floatY }] }}>
-          {/* Expanding outer ring */}
-          <Animated.View style={[hdr.outerRing, {
-            borderColor: CYAN + '80',
-            transform: [{ scale: ringScA }],
-            opacity: glowA.interpolate({ inputRange: [0.15, 1], outputRange: [0.18, 0.5] }),
-          }]} />
+          {/* Expanding outer ring — opacity and native transform MUST be on separate views.
+               Mixing useNativeDriver:true (transform) and useNativeDriver:false (opacity)
+               on the same Animated.View node causes the "moved to native" JS crash. */}
+          <Animated.View style={{ opacity: glowA.interpolate({ inputRange: [0.15, 1], outputRange: [0.18, 0.5] }) }}>
+            <Animated.View style={[hdr.outerRing, {
+              borderColor: CYAN + '80',
+              transform: [{ scale: ringScA }],
+            }]} />
+          </Animated.View>
           {/* Glowing robot box */}
           <Animated.View style={[hdr.robotBox, { borderColor: CYAN, backgroundColor: glowBg }]}>
             <HUDCorners color={CYAN + '70'} size={9} t={1.5} />
