@@ -52,8 +52,8 @@ export function clearButlerUnread() {
 
 // ── CONSTANTS ────────────────────────────────────────────────────
 const MONO: any = Platform.OS === 'ios' ? 'Courier' : 'monospace';
-const DOCK_H = 56;   // height of the dock itself
-const ICON_S = 17;
+const DOCK_H = 62;   // taller dock for larger icons
+const ICON_S = 22;   // bigger icon size
 const _SW    = Math.max(320, Dimensions.get('window').width);
 
 const HIDDEN_TABS = new Set(['onboarding', 'index', 'terminal', 'support']);
@@ -237,29 +237,29 @@ const TabPill = React.memo(function TabPill({ routeName, isFocused, label, flex,
 const tp = StyleSheet.create({
   inner: {
     alignItems: 'center', justifyContent: 'center',
-    paddingTop: 5, paddingBottom: 3, paddingHorizontal: 1,
-    borderRadius: 9, borderWidth: 1.5,
-    minWidth: 28, width: '100%',
+    paddingTop: 6, paddingBottom: 4, paddingHorizontal: 2,
+    borderRadius: 11, borderWidth: 1.5,
+    minWidth: 32, width: '100%',
     position: 'relative', overflow: 'hidden',
   },
   stripe: {
     position: 'absolute', top: 0, left: 2, right: 2,
-    height: 2.5, borderRadius: 1.5,
+    height: 3, borderRadius: 1.5,
   },
   iconWrap: {
     position: 'relative', alignItems: 'center', justifyContent: 'center',
-    marginBottom: 1,
+    marginBottom: 2,
   },
   activeDot: {
-    position: 'absolute', bottom: -3, width: 3, height: 3, borderRadius: 1.5,
+    position: 'absolute', bottom: -4, width: 4, height: 4, borderRadius: 2,
   },
   unreadDot: {
     position: 'absolute', top: -3, right: -3,
-    width: 8, height: 8, borderRadius: 4,
+    width: 9, height: 9, borderRadius: 4.5,
     backgroundColor: '#FF3344', borderWidth: 1.5, borderColor: '#010508',
   },
   label: {
-    fontFamily: MONO, fontSize: 6.5, fontWeight: '900', letterSpacing: 0.2,
+    fontFamily: MONO, fontSize: 7, fontWeight: '900', letterSpacing: 0.3,
     textAlign: 'center', includeFontPadding: false,
   },
 });
@@ -329,12 +329,8 @@ export default function FuturisticTabBar(
       {/* ── DOCK ── */}
       <View style={st.dock}>
 
-        {/* Rainbow signal line across top of dock */}
-        <View pointerEvents="none" style={st.signalLine}>
-          {signalColors.map((c, i) => (
-            <View key={i} style={{ flex: 1, backgroundColor: c }} />
-          ))}
-        </View>
+        {/* Cyan signal line — single color, no rainbow */}
+        <View pointerEvents="none" style={[st.signalLine, { backgroundColor: 'rgba(0,200,224,0.55)' }]} />
 
         {/* Tab row */}
         <View style={st.tabRow}>
@@ -404,17 +400,16 @@ const st = StyleSheet.create({
   dock: {
     height: DOCK_H,
     marginHorizontal: 4,
-    borderRadius: 13,
+    borderRadius: 14,
     overflow: 'hidden',
     backgroundColor: '#020912',
     borderWidth: 1.5,
-    borderColor: 'rgba(0,229,255,0.15)',
-    ...Platform.select({ android: { elevation: 14 }, default: {} }),
+    borderColor: 'rgba(0,200,224,0.20)',
+    ...Platform.select({ android: { elevation: 16 }, default: {} }),
   },
 
   signalLine: {
     height: 2.5,
-    flexDirection: 'row',
     position: 'absolute',
     top: 0, left: 0, right: 0,
     zIndex: 3,

@@ -65,9 +65,9 @@ const PAD     = 14;
 
 // ─── HERO ROBOT MASCOT IMAGE ──────────────────────────────────────
 const MASCOT_IMG = (() => {
+  try { return require('@/assets/images/butler-shield-mascot.jpg'); } catch {}
   try { return require('@/assets/images/butler-hero-robot.png'); } catch {}
   try { return require('@/assets/images/mascot_shield.png'); } catch {}
-  try { return require('@/assets/images/nexus-robot-v2.png'); } catch {}
   return null;
 })();
 
@@ -378,12 +378,8 @@ function HomeHeader({ safeTop, isConn, addr, onPair }: {
         </View>
       </View>
 
-      {/* Bottom rainbow stripe */}
-      <View style={{ height: 2.5, flexDirection: 'row' }}>
-        {[CYAN, CYAN, GREEN, GREEN, AMBER, AMBER, PURPLE, PURPLE, RED, RED].map((c, i) => (
-          <View key={i} style={{ flex: 1, backgroundColor: c + (i % 2 === 0 ? '60' : '20') }} />
-        ))}
-      </View>
+      {/* Bottom accent line */}
+      <View style={{ height: 2, backgroundColor: CYAN + '35' }} />
     </View>
   );
 }
@@ -576,11 +572,7 @@ function PairPrompt({ onPair }: { onPair: () => void }) {
 
   return (
     <View style={pq.root}>
-      <View style={{ height: 3, flexDirection: 'row' }}>
-        {[CYAN, GREEN, AMBER, PURPLE, RED].map((c, i) => (
-          <View key={i} style={{ flex: 1, backgroundColor: c }} />
-        ))}
-      </View>
+      <View style={{ height: 3, backgroundColor: AMBER + 'A0' }} />
       <View style={{ flexDirection: 'row', gap: 16, padding: 16, paddingTop: 14, alignItems: 'center' }}>
         <Animated.View style={{ transform: [{ translateY }] }}>
           <Animated.View style={[pq.robotBox, {
@@ -1223,9 +1215,7 @@ function CoreNav({ goToTab }: { goToTab: (t: string) => void }) {
             ))}
           </View>
         </View>
-        <View style={{ height: 2.5, flexDirection: 'row', marginHorizontal: 16, borderRadius: 1.5, overflow: 'hidden', marginBottom: 14 }}>
-          {NAV_ITEMS.map((n, i) => <View key={i} style={{ flex: 1, backgroundColor: n.color }} />)}
-        </View>
+        <View style={{ height: 2, marginHorizontal: 16, borderRadius: 1.5, backgroundColor: CYAN + '30', marginBottom: 14 }} />
         <View style={cn.grid}>
           {NAV_ITEMS.map((n, i) => (
             <Pressable key={i}
@@ -1485,11 +1475,7 @@ function ZeroCloudBanner() {
   return (
     <View style={{ paddingHorizontal: PAD }}>
       <View style={[zcb.root, { backgroundColor: SURFACE }]}>
-        <View style={{ height: 2.5, flexDirection: 'row', overflow: 'hidden' }}>
-          {[CYAN, GREEN, AMBER, PURPLE, RED, TEAL, PINK, BLUE, CYAN].map((c, i) => (
-            <View key={i} style={{ flex: 1, backgroundColor: c }} />
-          ))}
-        </View>
+        <View style={{ height: 2.5, backgroundColor: GREEN + '70' }} />
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, paddingTop: 14, gap: 14 }}>
           <View style={[zcb.iconBox, { backgroundColor: GREEN + '14', borderColor: GREEN + '50' }]}>
             <HUDCorners color={GREEN + '35'} size={7} />
@@ -1637,11 +1623,7 @@ function Footer({ isConn, addr }: { isConn: boolean; addr: string }) {
   return (
     <View style={{ paddingHorizontal: PAD, paddingBottom: 28 }}>
       <View style={{ alignItems: 'center', gap: 8, paddingTop: 22, borderTopWidth: 1, borderTopColor: BORDER }}>
-        <View style={{ flexDirection: 'row', height: 2.5, width: 140, borderRadius: 2, overflow: 'hidden', marginBottom: 2 }}>
-          {[CYAN, GREEN, AMBER, PURPLE, RED, CYAN, GREEN, TEAL].map((c, i) => (
-            <View key={i} style={{ flex: 1, backgroundColor: c }} />
-          ))}
-        </View>
+        <View style={{ height: 2, width: 140, borderRadius: 2, backgroundColor: CYAN + '50', marginBottom: 2 }} />
         <Text style={{ fontFamily: MONO, fontSize: 9, color: CYAN + '70', letterSpacing: 1.5, fontWeight: '700' }}>
           BUTLER AI  ·  v9.1  ·  LOCAL-FIRST  ·  ZERO CLOUD
         </Text>
