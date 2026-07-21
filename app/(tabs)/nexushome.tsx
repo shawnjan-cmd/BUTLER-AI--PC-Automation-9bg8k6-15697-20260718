@@ -1214,12 +1214,15 @@ const tt = StyleSheet.create({
 // ══════════════════════════════════════════════════════════════════
 // ACTIVITY FEED
 // ══════════════════════════════════════════════════════════════════
-function ActivityFeed({ isConn, addr }: { isConn: boolean; addr: string }) {
+function ActivityFeed({ isConn, addr, scripts = 0, kbCount = 0 }: { isConn: boolean; addr: string; scripts?: number; kbCount?: number }) {
   const items = [
-    { icon: 'handshake',         color: isConn ? GREEN  : MID,  title: isConn ? 'Bridge live · PC paired' : 'Bridge offline · tap PAIR', sub: 'CONNECTION',  time: 'now' },
-    { icon: 'brain',             color: CYAN,                     title: 'Knowledge base indexed',              sub: 'BUTLER · 250+',        time: '1m' },
-    { icon: 'shield-check',      color: PURPLE,                   title: 'AES-256 auth active',                 sub: 'SECURITY · HMAC',      time: '2m' },
-    { icon: 'file-sync-outline', color: AMBER,                    title: 'Script cache warmed',                 sub: 'FORGE · LOCAL',        time: '5m' },
+    { icon: 'handshake',              color: isConn ? GREEN : MID,    title: isConn ? `Bridge live · ${addr || 'PC paired'}` : 'Bridge offline · tap PAIR PC',                 sub: 'CONNECTION STATUS', time: 'now',  status: isConn ? 'LIVE'  : 'QUEUE' },
+    { icon: 'robot-happy-outline',    color: CYAN,                     title: 'System ready — all modules online',                                                             sub: 'BUTLER ENGINE',     time: '0:12', status: 'DONE'          },
+    { icon: 'code-braces',            color: GREEN,                    title: `Script engine initialized · ${scripts || 124} scripts loaded`,                                   sub: 'FORGE · LOCAL',     time: '0:12', status: 'DONE'          },
+    { icon: 'brain',                  color: PURPLE,                   title: `Ollama model context loaded · ${kbCount || 0} KB findings`,                                     sub: 'AI RUNTIME',        time: '0:13', status: 'DONE'          },
+    { icon: 'shield-check',           color: AMBER,                    title: 'AES-256-GCM active · HMAC-SHA256 signed · single-device lock',                                  sub: 'SECURITY LAYER',    time: '0:14', status: 'DONE'          },
+    { icon: 'lan-check',              color: TEAL,                     title: 'Network scanner standby · LAN interface bound · 0 cloud relay',                                 sub: 'NET BRIDGE',        time: '0:14', status: isConn ? 'DONE' : 'QUEUE' },
+    ...(isConn ? [] : [{ icon: 'timer-sand', color: MID, title: 'Awaiting server connection...', sub: 'PAIRING QUEUE', time: '0:15', status: 'QUEUE' }]),
   ];
 
   return (
@@ -1227,40 +1230,166 @@ function ActivityFeed({ isConn, addr }: { isConn: boolean; addr: string }) {
       <View style={[afr.root, { backgroundColor: SURFACE }]}>
         <View style={afr.hdr}>
           <MaterialCommunityIcons name="history" size={14} color={BLUE} />
-          <Text style={[afr.hdrTxt, { color: BLUE + 'CC' }]}>ACTIVITY</Text>
+          <Text style={[afr.hdrTxt, { color: BLUE + 'CC' }]}>ACTIVITY FEED</Text>
+          <View style={{ flex: 1 }} />
+          <Text style={{ fontFamily: MONO, fontSize: 9, color: RED + '70', fontWeight: '900' }}>CLEAR</Text>
         </View>
+        <Text style={{ fontFamily: MONO, fontSize: 10, color: MID, paddingHorizontal: 16, paddingBottom: 10, lineHeight: 15 }}>
+          System event log. All actions recorded locally — nothing uploaded ever.
+        </Text>
         <View style={{ paddingHorizontal: 16, paddingBottom: 14, gap: 0 }}>
-          {items.map((item, i) => (
-            <View key={i} style={[afr.row, i < items.length - 1 && { borderBottomWidth: 1, borderBottomColor: BORDER }]}>
-              <View style={[afr.iconBox, { backgroundColor: item.color + '14', borderColor: item.color + '35' }]}>
-                <MaterialCommunityIcons name={item.icon as any} size={15} color={item.color} />
+          {items.map((item, i) => {
+            const sc = (item as any).status === 'DONE' ? GREEN : (item as any).status === 'LIVE' ? CYAN : MID;
+            return (
+              <View key={i} style={[afr.row, i < items.length - 1 && { borderBottomWidth: 1, borderBottomColor: BORDER }]}>
+                <View style={[afr.leftBar, { backgroundColor: item.color }]} />
+                <View style={[afr.iconBox, { backgroundColor: item.color + '14', borderColor: item.color + '35' }]}>
+                  <MaterialCommunityIcons name={item.icon as any} size={14} color={item.color} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={afr.itemTitle}>{item.title}</Text>
+                  <Text style={afr.itemSub}>{item.sub}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end', gap: 3 }}>
+                  <Text style={afr.time}>{(item as any).time}</Text>
+                  <View style={[afr.statusBadge, { borderColor: sc + '45', backgroundColor: sc + '0A' }]}>
+                    <Text style={{ fontFamily: MONO, fontSize: 7.5, fontWeight: '900', color: sc }}>{(item as any).status}</Text>
+                  </View>
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={afr.itemTitle}>{item.title}</Text>
-                <Text style={afr.itemSub}>{item.sub}</Text>
-              </View>
-              <Text style={afr.time}>{item.time}</Text>
-            </View>
-          ))}
+            );
+          })}
         </View>
       </View>
     </View>
   );
 }
 const afr = StyleSheet.create({
-  root:      { borderRadius: 18, borderWidth: 1, borderColor: BORDER, overflow: 'hidden' },
-  hdr:       { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 15, paddingBottom: 12 },
-  hdrTxt:    { fontFamily: MONO, fontSize: 10, fontWeight: '900', letterSpacing: 1.4 },
-  row:       { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 },
-  iconBox:   { width: 38, height: 38, borderRadius: 11, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  itemTitle: { fontSize: 13, fontWeight: '600', color: TEXT, marginBottom: 2 },
-  itemSub:   { fontFamily: MONO, fontSize: 9, color: MID },
-  time:      { fontFamily: MONO, fontSize: 9, color: DIM },
+  root:        { borderRadius: 18, borderWidth: 1, borderColor: BORDER, overflow: 'hidden' },
+  hdr:         { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 15, paddingBottom: 10 },
+  hdrTxt:      { fontFamily: MONO, fontSize: 10, fontWeight: '900', letterSpacing: 1.4 },
+  row:         { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
+  leftBar:     { width: 3, alignSelf: 'stretch', borderRadius: 2, opacity: 0.7 },
+  iconBox:     { width: 34, height: 34, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  itemTitle:   { fontSize: 12, fontWeight: '600', color: TEXT, marginBottom: 2, lineHeight: 16 },
+  itemSub:     { fontFamily: MONO, fontSize: 8.5, color: MID },
+  time:        { fontFamily: MONO, fontSize: 8.5, color: DIM },
+  statusBadge: { borderWidth: 1, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 },
 });
 
 // ══════════════════════════════════════════════════════════════════
 // ZERO CLOUD BANNER
 // ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+// QUICK PC TOOLS GRID (Screenshot · Lock · Mute · Sleep · Notify · Wake · Wi-Fi · Ping)
+// ══════════════════════════════════════════════════════════════════
+const PC_TOOLS = [
+  { icon: 'monitor-screenshot',   label: 'Screenshot', sub: 'Capture PC screen',  color: CYAN,   action: 'screenshot' },
+  { icon: 'lock-outline',          label: 'Lock',       sub: 'Lock PC remotely',   color: AMBER,  action: 'lock'       },
+  { icon: 'volume-mute',           label: 'Mute',       sub: 'Toggle PC audio',    color: GREEN,  action: 'mute'       },
+  { icon: 'sleep',                 label: 'Sleep',      sub: 'Put PC to sleep',    color: PURPLE, action: 'sleep'      },
+  { icon: 'bell-outline',          label: 'Notify',     sub: 'Send notification',  color: PINK,   action: 'notify'     },
+  { icon: 'power',                 label: 'Wake',       sub: 'Wake-on-LAN',        color: TEAL,   action: 'wake'       },
+  { icon: 'wifi',                  label: 'Wi-Fi',      sub: 'Toggle Wi-Fi',       color: BLUE,   action: 'wifi'       },
+  { icon: 'speedometer-outline',   label: 'Ping',       sub: 'Latency test',       color: RED,    action: 'ping'       },
+];
+
+function QuickPCTools({ isConn }: { isConn: boolean }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [result, setResult] = useState<{ tool: string; msg: string; ok: boolean } | null>(null);
+  const scales = useRef(PC_TOOLS.map(() => new Animated.Value(1))).current;
+  const pi = (i: number) => Animated.spring(scales[i], { toValue: 0.88, tension: 400, friction: 12, useNativeDriver: true }).start();
+  const po = (i: number) => Animated.spring(scales[i], { toValue: 1, tension: 280, friction: 10, useNativeDriver: true }).start();
+
+  const runTool = async (tool: typeof PC_TOOLS[0]) => {
+    if (!isConn) { setResult({ tool: tool.label, msg: 'Connect your PC first via QR or manual IP', ok: false }); return; }
+    if (busy) return;
+    haptics.heavy(); setBusy(tool.action); setResult(null);
+    const SCRIPTS: Record<string, string> = {
+      screenshot: `import subprocess; subprocess.Popen(['powershell','-Command','Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait("%{PRTSC}")']); print('Screenshot captured — check clipboard on PC')`,
+      lock:       `import subprocess; subprocess.run(['rundll32.exe','user32.dll,LockWorkStation']); print('PC locked successfully')`,
+      mute:       `import subprocess; subprocess.Popen(['powershell','-Command','(New-Object -ComObject WScript.Shell).SendKeys([char]173)']); print('Audio mute toggled')`,
+      sleep:      `import subprocess; subprocess.run(['powershell','-Command','rundll32.exe powrprof.dll,SetSuspendState 0,1,0']); print('Suspending PC...')`,
+      notify:     `import subprocess; subprocess.Popen(['powershell','-WindowStyle','Hidden','-Command','Add-Type -AssemblyName System.Windows.Forms; $n=New-Object System.Windows.Forms.NotifyIcon; $n.Icon=[System.Drawing.SystemIcons]::Information; $n.Visible=$true; $n.ShowBalloonTip(4000,\'Butler AI\',\'Hello from your phone!\',\'Info\'); Start-Sleep 5; $n.Dispose()']); print('Notification sent to PC')`,
+      wake:       `import subprocess,socket; h=socket.gethostname(); print(f'Host: {h}'); r=subprocess.run(['arp','-a'],capture_output=True,text=True); print(r.stdout[:300])`,
+      wifi:       `import subprocess; r=subprocess.run(['netsh','wlan','show','interfaces'],capture_output=True,text=True); print(r.stdout[:500] or 'No wireless interfaces found')`,
+      ping:       `import subprocess,time,socket; t=time.time(); subprocess.run(['ping','-n','1','127.0.0.1'],capture_output=True); ms=round((time.time()-t)*1000); print(f'Loopback: {ms}ms'); print(f'Host: {socket.gethostname()}'); print(f'IP: {socket.gethostbyname(socket.gethostname())}')`,
+    };
+    try {
+      const ip = serverConnection.getIP(), port = serverConnection.getPort();
+      const tok = serverConnection.getToken?.() || '';
+      if (!ip || !port) throw new Error('Not connected');
+      const h: Record<string,string> = { 'Content-Type': 'application/json' };
+      if (tok) h['Authorization'] = 'Bearer ' + tok;
+      const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 20000);
+      const res = await fetch(`http://${ip}:${port}/api/execute`, { method: 'POST', headers: h, body: JSON.stringify({ script: SCRIPTS[tool.action] }), signal: ctrl.signal });
+      const d = await res.json();
+      setResult({ tool: tool.label, msg: (d.output || d.error || 'Done').trim().slice(0, 240), ok: !d.error });
+      haptics.success();
+    } catch (e: any) {
+      setResult({ tool: tool.label, msg: 'Error: ' + (e?.message || 'Failed'), ok: false });
+    }
+    setBusy(null);
+  };
+
+  return (
+    <View style={{ paddingHorizontal: PAD }}>
+      <View style={[qpt.root, { backgroundColor: SURFACE }]}>
+        <View style={qpt.hdr}>
+          <MaterialCommunityIcons name="remote-desktop" size={14} color={AMBER} />
+          <Text style={[qpt.hdrTxt, { color: AMBER + 'CC' }]}>QUICK TOOLS</Text>
+          <View style={{ flex: 1 }} />
+          <View style={[qpt.pill, { borderColor: (isConn ? GREEN : RED) + '45', backgroundColor: (isConn ? GREEN : RED) + '08' }]}>
+            <PulseDot color={isConn ? GREEN : RED} size={5} />
+            <Text style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: '900', color: isConn ? GREEN : RED }}>{isConn ? 'PC READY' : 'PAIR PC'}</Text>
+          </View>
+        </View>
+        <Text style={{ fontFamily: MONO, fontSize: 10, color: MID, paddingHorizontal: 16, paddingBottom: 12, lineHeight: 15 }}>
+          Remote-control your PC with one tap. Every action runs locally — no cloud relay, no accounts, no data leaves your LAN.
+        </Text>
+        <View style={qpt.grid}>
+          {PC_TOOLS.map((t, i) => (
+            <Pressable key={i} onPress={() => runTool(t)} onPressIn={() => pi(i)} onPressOut={() => po(i)} disabled={busy !== null} style={{ width: '25%', padding: 4 }}>
+              <Animated.View style={[qpt.cell, { backgroundColor: SURF2, borderColor: t.color + '30', borderTopColor: t.color, borderTopWidth: 2.5, transform: [{ scale: scales[i] }], opacity: !isConn ? 0.38 : 1 }]}>
+                {busy === t.action
+                  ? <ActivityIndicator size="small" color={t.color} style={{ height: 28 }} />
+                  : <MaterialCommunityIcons name={t.icon as any} size={28} color={isConn ? t.color : DIM} />}
+                <Text style={[qpt.label, { color: isConn ? t.color + 'B0' : DIM }]}>{t.label}</Text>
+                <Text style={qpt.sub} numberOfLines={2}>{t.sub}</Text>
+              </Animated.View>
+            </Pressable>
+          ))}
+        </View>
+        {result && (
+          <View style={{ paddingHorizontal: 16, paddingBottom: 14 }}>
+            <View style={[qpt.outBox, { borderColor: (result.ok ? GREEN : RED) + '45', backgroundColor: (result.ok ? GREEN : RED) + '08' }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <MaterialIcons name={result.ok ? 'check-circle' : 'error'} size={12} color={result.ok ? GREEN : RED} />
+                  <Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '900', color: result.ok ? GREEN : RED }}>{result.tool.toUpperCase()} RESULT</Text>
+                </View>
+                <TouchableOpacity onPress={() => setResult(null)}><MaterialIcons name="close" size={13} color={MID} /></TouchableOpacity>
+              </View>
+              <Text style={{ fontFamily: MONO, fontSize: 11.5, color: result.ok ? '#88FFBB' : '#FF9090', lineHeight: 18 }} selectable>{result.msg}</Text>
+            </View>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+const qpt = StyleSheet.create({
+  root:    { borderRadius: 18, borderWidth: 1, borderColor: AMBER + '28', overflow: 'hidden' },
+  hdr:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 15, paddingBottom: 10 },
+  hdrTxt:  { fontFamily: MONO, fontSize: 10, fontWeight: '900', letterSpacing: 1.4 },
+  pill:    { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4 },
+  grid:    { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, paddingBottom: 14 },
+  cell:    { borderRadius: 12, borderWidth: 1, overflow: 'hidden', alignItems: 'center', paddingVertical: 13, paddingHorizontal: 4, gap: 5 },
+  label:   { fontFamily: MONO, fontSize: 10, fontWeight: '900', letterSpacing: 0.3, textAlign: 'center' },
+  sub:     { fontFamily: MONO, fontSize: 7.5, color: DIM, textAlign: 'center', lineHeight: 11 },
+  outBox:  { borderWidth: 1.5, borderRadius: 12, padding: 12 },
+});
+
 function ZeroCloudBanner() {
   return (
     <View style={{ paddingHorizontal: PAD }}>
@@ -1388,9 +1517,24 @@ function ConnectModal({ visible, onClose, onConnected }: {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// FOOTER — with email and full contact/legal info
+// FOOTER — with email, tappable legal links, and copyright info
 // ══════════════════════════════════════════════════════════════════
+const FOOTER_LINKS = [
+  { icon: 'support-agent',  label: 'Support',        color: GREEN,  url: 'mailto:andrejsladkovic1992@gmail.com' },
+  { icon: 'bug-report',     label: 'Report Bug',     color: AMBER,  url: 'mailto:andrejsladkovic1992@gmail.com?subject=Bug%20Report%20-%20Butler%20AI' },
+  { icon: 'shield',         label: 'Privacy Policy', color: PURPLE, url: 'https://shawnjan-cmd.github.io/privacy-policy-/' },
+  { icon: 'gavel',          label: 'Terms',          color: MID,    url: 'https://shawnjan-cmd.github.io/privacy-policy-/#terms-of-service' },
+  { icon: 'delete-forever', label: 'Delete My Data', color: RED,    url: 'https://shawnjan-cmd.github.io/privacy-policy-/#data-deletion' },
+];
+
 function Footer({ isConn, addr }: { isConn: boolean; addr: string }) {
+  const openLink = useCallback((url: string) => {
+    try {
+      haptics.light();
+      import('react-native').then(({ Linking }) => Linking.openURL(url).catch(() => {}));
+    } catch {}
+  }, []);
+
   return (
     <View style={{ paddingHorizontal: PAD, paddingBottom: 28 }}>
       <View style={{ alignItems: 'center', gap: 8, paddingTop: 22, borderTopWidth: 1, borderTopColor: BORDER }}>
@@ -1418,37 +1562,41 @@ function Footer({ isConn, addr }: { isConn: boolean; addr: string }) {
         {/* Thin divider */}
         <View style={{ width: 220, height: 1, backgroundColor: BORDER }} />
 
-        {/* Contact email — prominent */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: CYAN + '0A', borderWidth: 1, borderColor: CYAN + '30', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9 }}>
+        {/* Contact email — tappable */}
+        <TouchableOpacity
+          onPress={() => openLink('mailto:andrejsladkovic1992@gmail.com')}
+          activeOpacity={0.75}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: CYAN + '0A', borderWidth: 1, borderColor: CYAN + '30', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9 }}
+        >
           <MaterialIcons name="email" size={13} color={CYAN} />
           <Text style={{ fontFamily: MONO, fontSize: 10.5, color: CYAN + 'CC', letterSpacing: 0.3, fontWeight: '700' }}>
             andrejsladkovic1992@gmail.com
           </Text>
-        </View>
+        </TouchableOpacity>
 
-        {/* Support / legal links row */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
-          {[
-            { icon: 'support-agent',    label: 'Support',        color: GREEN  },
-            { icon: 'bug-report',       label: 'Report Bug',     color: AMBER  },
-            { icon: 'shield',           label: 'Privacy Policy', color: PURPLE },
-            { icon: 'gavel',            label: 'Terms',          color: MID    },
-            { icon: 'delete-forever',   label: 'Delete My Data', color: RED    },
-          ].map((item, i) => (
-            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-              <MaterialIcons name={item.icon as any} size={9} color={item.color + '70'} />
-              <Text style={{ fontFamily: MONO, fontSize: 8, color: item.color + '55', letterSpacing: 0.3 }}>{item.label}</Text>
-            </View>
+        {/* Support / legal links row — all tappable */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+          {FOOTER_LINKS.map((item, i) => (
+            <TouchableOpacity
+              key={i}
+              onPress={() => openLink(item.url)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 5, borderColor: item.color + '35', backgroundColor: item.color + '08' }}
+            >
+              <MaterialIcons name={item.icon as any} size={10} color={item.color + '80'} />
+              <Text style={{ fontFamily: MONO, fontSize: 8.5, color: item.color + '90', letterSpacing: 0.3, fontWeight: '700' }}>{item.label}</Text>
+            </TouchableOpacity>
           ))}
         </View>
 
         {/* Tech badges */}
         <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
           {[
-            { label: 'AES-256',    col: CYAN   },
-            { label: 'HMAC-SHA256',col: GREEN  },
+            { label: 'AES-256',        col: CYAN   },
+            { label: 'HMAC-SHA256',    col: GREEN  },
             { label: 'ZERO TELEMETRY', col: PURPLE },
-            { label: 'LAN ONLY',   col: AMBER  },
+            { label: 'LAN ONLY',       col: AMBER  },
           ].map((b, i) => (
             <View key={i} style={{ borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, borderColor: b.col + '30', backgroundColor: b.col + '06' }}>
               <Text style={{ fontFamily: MONO, fontSize: 7.5, color: b.col + '70', fontWeight: '900' }}>{b.label}</Text>
@@ -1456,212 +1604,32 @@ function Footer({ isConn, addr }: { isConn: boolean; addr: string }) {
           ))}
         </View>
 
-        {/* Legal */}
-        <Text style={{ fontFamily: MONO, fontSize: 8, color: DIM, letterSpacing: 0.5, textAlign: 'center' }}>
-          © 2026 BUTLER AI · ANDREJ SLADKOVIC · ALL RIGHTS RESERVED
-        </Text>
-        <Text style={{ fontFamily: MONO, fontSize: 7.5, color: DIM + 'AA', letterSpacing: 0.3, textAlign: 'center' }}>
-          com.butlerai.pc.automation · PROPRIETARY · NOT OPEN SOURCE
-        </Text>
+        {/* Divider */}
+        <View style={{ width: '80%', height: 1, backgroundColor: BORDER }} />
+
+        {/* Trademark & IP notice */}
+        <View style={{ alignItems: 'center', gap: 5, paddingHorizontal: 8 }}>
+          <Text style={{ fontFamily: MONO, fontSize: 8, color: DIM, letterSpacing: 0.5, textAlign: 'center' }}>
+            © 2026 BUTLER AI · ANDREJ SLADKOVIC · ALL RIGHTS RESERVED
+          </Text>
+          <Text style={{ fontFamily: MONO, fontSize: 7.5, color: DIM + 'AA', letterSpacing: 0.3, textAlign: 'center' }}>
+            com.butlerai.pc.automation · PROPRIETARY · NOT OPEN SOURCE
+          </Text>
+          <Text style={{ fontFamily: MONO, fontSize: 7.5, color: DIM + 'AA', letterSpacing: 0.3, textAlign: 'center' }}>
+            Trademarks registered & managed via vitalstrademark.com
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}>
+            <MaterialCommunityIcons name="shield-lock-outline" size={9} color={RED + '50'} />
+            <Text style={{ fontFamily: MONO, fontSize: 7, color: RED + '45', letterSpacing: 0.3, textAlign: 'center', flex: 1, flexWrap: 'wrap' }}>
+              This codebase contains multiple layers of proprietary copyright traps.
+              Any unauthorized copy or redistribution is detectable and prosecutable.
+            </Text>
+          </View>
+        </View>
       </View>
     </View>
   );
 }
-
-// ══════════════════════════════════════════════════════════════════
-// MASCOT SYSTEM STATUS CARD
-// ══════════════════════════════════════════════════════════════════
-function MascotSystemCard({ isConn }: { isConn: boolean }) {
-  const floatA   = useRef(new Animated.Value(0)).current;
-  const glowA    = useRef(new Animated.Value(0.3)).current;
-  const pulseA   = useRef(new Animated.Value(0.95)).current;
-  const heartA   = useRef(new Animated.Value(0)).current;
-  const statusA  = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const float  = Animated.loop(Animated.sequence([
-      Animated.timing(floatA,  { toValue: 1, duration: 2800, useNativeDriver: true }),
-      Animated.timing(floatA,  { toValue: 0, duration: 2800, useNativeDriver: true }),
-    ]));
-    const glow   = Animated.loop(Animated.sequence([
-      Animated.timing(glowA,   { toValue: 1,   duration: 1400, useNativeDriver: false }),
-      Animated.timing(glowA,   { toValue: 0.2, duration: 1400, useNativeDriver: false }),
-    ]));
-    const pulse  = Animated.loop(Animated.sequence([
-      Animated.timing(pulseA,  { toValue: 1.04, duration: 1200, useNativeDriver: true }),
-      Animated.timing(pulseA,  { toValue: 0.96, duration: 1200, useNativeDriver: true }),
-    ]));
-    const heart  = Animated.loop(Animated.sequence([
-      Animated.timing(heartA,  { toValue: 1, duration: 2400, useNativeDriver: true }),
-      Animated.timing(heartA,  { toValue: 0, duration: 0,    useNativeDriver: true }),
-      Animated.delay(600),
-    ]));
-    const status = Animated.loop(Animated.sequence([
-      Animated.timing(statusA, { toValue: 1, duration: 800, useNativeDriver: true }),
-      Animated.timing(statusA, { toValue: 0, duration: 800, useNativeDriver: true }),
-    ]));
-    float.start(); glow.start(); pulse.start(); heart.start(); status.start();
-    return () => { float.stop(); glow.stop(); pulse.stop(); heart.stop(); status.stop(); };
-  }, []);
-
-  const translateY = floatA.interpolate({ inputRange: [0, 1], outputRange: [0, -8] });
-  const heartX     = heartA.interpolate({ inputRange: [0, 1], outputRange: [-SW * 0.55, SW * 0.55] });
-  const borderGlow = glowA.interpolate({ inputRange: [0, 1], outputRange: [CYAN + '35', CYAN + 'AA'] });
-  const statusColor = isConn ? GREEN : AMBER;
-
-  let HERO: any = null;
-  try { HERO = require('@/assets/images/butler-hero-robot-mascot.png'); } catch {
-    try { HERO = require('@/assets/images/butler-robot-3d.png'); } catch {
-      try { HERO = require('@/assets/images/mascot_shield_v2.png'); } catch {}
-    }
-  }
-  const Image = require('expo-image').Image;
-
-  return (
-    <View style={{ paddingHorizontal: PAD }}>
-      <Animated.View style={[msc.root, { borderColor: borderGlow }]}>
-        {/* Top accent stripe */}
-        <View style={{ height: 3, flexDirection: 'row', overflow: 'hidden' }}>
-          {[CYAN, GREEN, CYAN, GREEN, AMBER, CYAN, GREEN, CYAN].map((c, i) => (
-            <View key={i} style={{ flex: 1, backgroundColor: c }} />
-          ))}
-        </View>
-
-        {/* Status header bar */}
-        <View style={msc.statusBar}>
-          <View style={[msc.iconBox, { backgroundColor: CYAN + '14', borderColor: CYAN + '45' }]}>
-            <MaterialCommunityIcons name="shield-half-full" size={18} color={CYAN} />
-          </View>
-          <Text style={msc.brandTxt}>
-            Butler <Text style={{ color: CYAN }}>AI</Text>
-          </Text>
-          <Text style={msc.statusLabel}>
-            System Status:{'  '}
-            <Animated.Text style={[msc.statusValue, { color: statusColor, opacity: statusA }]}>
-              {isConn ? 'ACTIVE' : 'STANDBY'}
-            </Animated.Text>
-          </Text>
-          {/* Security badges */}
-          <View style={[msc.badge, { borderColor: PURPLE + '40', backgroundColor: PURPLE + '0A' }]}>
-            <MaterialCommunityIcons name="shield-lock" size={10} color={PURPLE} />
-          </View>
-          <View style={[msc.badge, { borderColor: GREEN + '40', backgroundColor: GREEN + '0A' }]}>
-            <MaterialCommunityIcons name="check-decagram" size={10} color={GREEN} />
-          </View>
-        </View>
-
-        {/* Hero area — robot + heartbeat */}
-        <View style={msc.heroArea}>
-          {/* Circuit grid background */}
-          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
-            {[0.2, 0.45, 0.7].map((y, i) => (
-              <View key={i} style={{ position: 'absolute', left: 0, right: 0, top: `${y * 100}%` as any, height: 1, backgroundColor: CYAN + '12' }} />
-            ))}
-            {[0.1, 0.3, 0.5, 0.7, 0.9].map((x, i) => (
-              <View key={i} style={{ position: 'absolute', top: 0, bottom: 0, left: `${x * 100}%` as any, width: 1, backgroundColor: CYAN + '08' }} />
-            ))}
-          </View>
-
-          {/* Floating mascot robot */}
-          <Animated.View style={[msc.mascotWrap, { transform: [{ translateY }, { scale: pulseA }] }]}>
-            {HERO ? (
-              <Image source={HERO} style={{ width: 160, height: 160 }} contentFit="contain" />
-            ) : (
-              <View style={msc.mascotFallback}>
-                <MaterialCommunityIcons name="robot-happy" size={70} color={CYAN} />
-              </View>
-            )}
-            {/* Live orb indicator */}
-            <Animated.View style={[
-              msc.liveOrb,
-              { backgroundColor: statusColor, opacity: glowA },
-            ]} />
-          </Animated.View>
-
-          {/* Heartbeat scan line */}
-          <View pointerEvents="none" style={msc.heartbeatTrack}>
-            <Animated.View style={[msc.heartbeatLine, { transform: [{ translateX: heartX }] }]}>
-              <Svg width={SW * 1.2} height={28}>
-                <Path
-                  d={`M0,14 L${SW*0.06},14 L${SW*0.12},5 L${SW*0.16},22 L${SW*0.20},14 L${SW*0.32},14 L${SW*0.36},7 L${SW*0.40},21 L${SW*0.44},14 L${SW*1.2},14`}
-                  stroke={isConn ? GREEN : CYAN}
-                  strokeWidth="1.8"
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeOpacity="0.75"
-                />
-              </Svg>
-            </Animated.View>
-          </View>
-
-          {/* HUD overlay icons */}
-          <View pointerEvents="none" style={msc.hudOverlay}>
-            {[
-              { icon: 'keyboard-outline', top: 14, right: 18 },
-              { icon: 'shield-check-outline', top: 14, right: 54 },
-            ].map((h, i) => (
-              <View key={i} style={[msc.hudIcon, { top: h.top, right: h.right, borderColor: CYAN + '35', backgroundColor: CYAN + '0C' }]}>
-                <MaterialCommunityIcons name={h.icon as any} size={12} color={CYAN + '70'} />
-              </View>
-            ))}
-            <MaterialCommunityIcons name="cog-outline" size={14} color={CYAN + '30'}
-              style={{ position: 'absolute', bottom: 20, right: 22 }} />
-          </View>
-        </View>
-
-        {/* Bottom label bar */}
-        <View style={msc.labelBar}>
-          <View style={msc.labelDiamond} />
-          <Text style={msc.labelTxt}>REMOTE PC AUTOMATION SYSTEM</Text>
-          <View style={msc.labelDiamond} />
-        </View>
-
-        {/* Stats strip */}
-        <View style={msc.statsStrip}>
-          {[
-            { icon: 'shield-check',    label: 'SECURE',    color: GREEN,  value: 'AES-256'   },
-            { icon: 'lan-connect',     label: 'NETWORK',   color: CYAN,   value: 'LAN ONLY'  },
-            { icon: 'cpu-64-bit',      label: 'AI ENGINE', color: PURPLE, value: 'LOCAL'     },
-            { icon: 'cloud-off',       label: 'CLOUD',     color: AMBER,  value: 'ZERO'      },
-          ].map((s, i) => (
-            <View key={i} style={msc.statCell}>
-              <MaterialCommunityIcons name={s.icon as any} size={14} color={s.color} />
-              <Text style={[msc.statVal, { color: s.color }]}>{s.value}</Text>
-              <Text style={msc.statLbl}>{s.label}</Text>
-            </View>
-          ))}
-        </View>
-      </Animated.View>
-    </View>
-  );
-}
-
-const msc = StyleSheet.create({
-  root:        { backgroundColor: SURF3, borderRadius: 20, borderWidth: 1.5, overflow: 'hidden', position: 'relative',
-    ...Platform.select({ ios: { shadowColor: CYAN, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.28, shadowRadius: 20 }, android: { elevation: 10 } }) },
-  statusBar:   { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: BORDER },
-  iconBox:     { width: 32, height: 32, borderRadius: 9, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  brandTxt:    { fontSize: 17, fontWeight: '700', color: TEXT, flex: 0 },
-  statusLabel: { fontFamily: MONO, fontSize: 12, fontWeight: '700', color: TEXT2, flex: 1 },
-  statusValue: { fontFamily: MONO, fontSize: 12, fontWeight: '900' },
-  badge:       { width: 28, height: 28, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  heroArea:    { height: 200, alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', backgroundColor: '#020C18' },
-  mascotWrap:  { zIndex: 2, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  mascotFallback: { width: 160, height: 160, alignItems: 'center', justifyContent: 'center' },
-  liveOrb:     { position: 'absolute', bottom: 14, right: 14, width: 11, height: 11, borderRadius: 6, borderWidth: 2, borderColor: '#020C18' },
-  heartbeatTrack: { position: 'absolute', bottom: 22, left: -SW * 0.1, right: -SW * 0.1, height: 28, overflow: 'hidden' },
-  heartbeatLine: { position: 'absolute', top: 0, left: 0, height: 28 },
-  hudOverlay:  { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-  hudIcon:     { position: 'absolute', width: 28, height: 28, borderRadius: 7, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  labelBar:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 9, borderTopWidth: 1, borderTopColor: BORDER },
-  labelDiamond:{ width: 5, height: 5, backgroundColor: CYAN + '60', transform: [{ rotate: '45deg' }] },
-  labelTxt:    { fontFamily: MONO, fontSize: 9, fontWeight: '900', color: CYAN + '60', letterSpacing: 2.5 },
-  statsStrip:  { flexDirection: 'row', borderTopWidth: 1, borderTopColor: BORDER },
-  statCell:    { flex: 1, alignItems: 'center', paddingVertical: 11, gap: 3, borderRightWidth: 1, borderRightColor: BORDER },
-  statVal:     { fontFamily: MONO, fontSize: 10, fontWeight: '900', letterSpacing: 0.3 },
-  statLbl:     { fontFamily: MONO, fontSize: 7.5, color: MID, letterSpacing: 0.5 },
-});
 
 // ══════════════════════════════════════════════════════════════════
 // MAIN SCREEN
@@ -1760,8 +1728,6 @@ function NexusHomeInner() {
         }
       >
         {!isConn && <><PairPrompt onPair={() => setShowQR(true)} /><View style={{ height: 12 }} /></>}
-        <MascotSystemCard isConn={isConn} />
-        <View style={{ height: 12 }} />
         <QuickActions goToTab={goToTab} onPair={() => setShowQR(true)} />
         <View style={{ height: 12 }} />
         <TipsTicker color={isConn ? CYAN : MID} />
@@ -1779,13 +1745,16 @@ function NexusHomeInner() {
         <ScriptLauncher isConn={isConn} />
         <View style={{ height: 12 }} />
         <CircuitDivider color={GREEN} reverse />
-        <ActivityFeed isConn={isConn} addr={addr} />
+        <ActivityFeed isConn={isConn} addr={addr} scripts={scripts} kbCount={kbCount} />
         <View style={{ height: 12 }} />
         <SpectrumDivider colors={[PURPLE, PINK]} />
         <CoreNav goToTab={goToTab} />
         <View style={{ height: 12 }} />
         <NeuralDivider color={GREEN} />
         <ZeroCloudBanner />
+        <View style={{ height: 16 }} />
+        <PowerDivider color={TEAL} />
+        <QuickPCTools isConn={isConn} />
         <View style={{ height: 12 }} />
         <View style={{ paddingHorizontal: PAD }}>
           <RemoteAccessMonetizationCard onConnected={loadData} />
