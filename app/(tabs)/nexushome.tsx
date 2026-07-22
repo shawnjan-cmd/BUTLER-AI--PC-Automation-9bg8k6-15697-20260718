@@ -52,7 +52,7 @@ const GREEN   = '#00CC96';
 const AMBER   = '#F5A820';
 const RED     = '#FF4060';
 const PURPLE  = '#9B6AFF';
-const PINK    = '#FF6B9D';
+const PINK    = '#4A90FF';
 const TEAL    = '#00D4AA';
 const BLUE    = '#4A9EFF';
 const DIM     = '#2A3A50';
@@ -101,6 +101,43 @@ function ButlerAILogo({ size = 46 }: { size?: number }) {
       <Rect x={x3+iw*0.08} y={y0+ih*0.62} width={iw*0.84} height={ih*0.16} rx={iw*0.05} fill="#fff" opacity={0.9} />
       <Rect x={x3+iw*0.30} y={y0+ih*0.64} width={iw*0.40} height={ih*0.10} rx={iw*0.03} fill="#0d1828" opacity={0.5} />
     </Svg>
+  );
+}
+
+// ─── ANIMATED CIRCUIT GRID BACKGROUND ─────────────────────────────────
+function CircuitGridBg({ color, opacity = 0.07 }: { color: string; opacity?: number }) {
+  const scanA = useRef(new Animated.Value(-60)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(scanA, { toValue: SW + 60, duration: 2600, useNativeDriver: true }),
+      Animated.timing(scanA, { toValue: -60, duration: 0, useNativeDriver: true }),
+      Animated.delay(1800),
+    ]));
+    loop.start(); return () => loop.stop();
+  }, []);
+  const cols = 8; const rows = 3; const cw = SW / cols; const ch = 14;
+  return (
+    <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, overflow: 'hidden' }} pointerEvents="none">
+      <Svg width={SW} height={rows * ch + 8} viewBox={`0 0 ${SW} ${rows * ch + 8}`} style={{ position: 'absolute', left: 0, top: 0 }}>
+        {Array.from({ length: cols + 1 }).map((_, ci) => (
+          <Path key={`v${ci}`} d={`M${ci * cw} 0 V${rows * ch}`} stroke={color} strokeWidth={0.5} opacity={opacity} />
+        ))}
+        {Array.from({ length: rows + 1 }).map((_, ri) => (
+          <Path key={`h${ri}`} d={`M0 ${ri * ch} H${SW}`} stroke={color} strokeWidth={0.5} opacity={opacity} />
+        ))}
+        {Array.from({ length: cols }).map((_, ci) =>
+          Array.from({ length: rows }).map((_, ri) => (
+            <Circle key={`n${ci}${ri}`} cx={(ci + 0.5) * cw} cy={(ri + 0.5) * ch} r={1.2} fill={color} opacity={opacity * 2} />
+          ))
+        )}
+      </Svg>
+      <Animated.View style={[{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 60, transform: [{ translateX: scanA }] }]}>
+        <Svg width={60} height={rows * ch + 8} viewBox={`0 0 60 ${rows * ch + 8}`}>
+          <Path d="M30 0 V999" stroke={color} strokeWidth={20} opacity={0.10} />
+          <Path d="M30 0 V999" stroke={color} strokeWidth={2} opacity={0.55} />
+        </Svg>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -300,8 +337,11 @@ function HomeHeader({ safeTop, isConn, addr, onPair }: {
   const [time, setTime] = useState('');
   const [secs, setSecs] = useState('');
   const [dateStr, setDate] = useState('');
+  // JS-driver animation (border/bg color)
   const glowA  = useRef(new Animated.Value(0.4)).current;
+  // Native-driver animations (transform)
   const floatA = useRef(new Animated.Value(0)).current;
+  const ringScA = useRef(new Animated.Value(0.7)).current;
 
   useEffect(() => {
     const update = () => {
@@ -314,53 +354,68 @@ function HomeHeader({ safeTop, isConn, addr, onPair }: {
   }, []);
 
   useEffect(() => {
+    // JS driver
     const gl = Animated.loop(Animated.sequence([
-      Animated.timing(glowA, { toValue: 1, duration: 1800, useNativeDriver: false }),
-      Animated.timing(glowA, { toValue: 0.2, duration: 1800, useNativeDriver: false }),
+      Animated.timing(glowA, { toValue: 1.0, duration: 1500, useNativeDriver: false }),
+      Animated.timing(glowA, { toValue: 0.15, duration: 1500, useNativeDriver: false }),
     ]));
+    // Native driver
     const fl = Animated.loop(Animated.sequence([
       Animated.timing(floatA, { toValue: 1, duration: 2800, useNativeDriver: true }),
       Animated.timing(floatA, { toValue: 0, duration: 2800, useNativeDriver: true }),
     ]));
-    gl.start(); fl.start();
-    return () => { gl.stop(); fl.stop(); };
+    const rn = Animated.loop(Animated.sequence([
+      Animated.timing(ringScA, { toValue: 1.0, duration: 1100, useNativeDriver: true }),
+      Animated.timing(ringScA, { toValue: 0.4, duration: 1100, useNativeDriver: true }),
+    ]));
+    gl.start(); fl.start(); rn.start();
+    return () => { gl.stop(); fl.stop(); rn.stop(); };
   }, []);
 
-  const connCol = isConn ? GREEN : AMBER;
-  const floatY  = floatA.interpolate({ inputRange: [0, 1], outputRange: [0, -3] });
-  const glowBg  = glowA.interpolate({ inputRange: [0, 1], outputRange: [CYAN + '0E', CYAN + '20'] });
+  const connCol     = isConn ? GREEN : AMBER;
+  const floatY      = floatA.interpolate({ inputRange: [0, 1], outputRange: [0, -4] });
+  // JS-driven border (cannot use native driver)
+  const glowBorder  = glowA.interpolate({ inputRange: [0, 1], outputRange: [connCol + '25', connCol + 'CC'] });
+  const glowBg      = glowA.interpolate({ inputRange: [0, 1], outputRange: [connCol + '08', connCol + '1C'] });
 
   return (
     <View style={[hdr.root, { paddingTop: safeTop }]}>
-      <View style={{ height: 2.5, backgroundColor: CYAN }} />
+      {/* Animated circuit grid background — robot themed */}
+      <CircuitGridBg color={connCol} opacity={isConn ? 0.08 : 0.04} />
+      {/* Top accent stripe */}
+      <View style={{ height: 3, backgroundColor: connCol }} />
+      <View style={{ height: 1, backgroundColor: connCol + '40' }} />
+
       <View style={hdr.body}>
-        {/* ── Shield mascot — compact ── */}
+        {/* ── Mascot with JS-driven outer ring + native float ── */}
         <Animated.View style={{ transform: [{ translateY: floatY }], flexShrink: 0 }}>
-          <Animated.View style={[hdr.mascotBox, { borderColor: CYAN + '70', backgroundColor: glowBg }]}>
+          {/* Outer ring — JS driver for border color */}
+          <Animated.View style={[hdr.outerRing, { borderColor: glowBorder, backgroundColor: glowBg }]}>
             {MASCOT_IMG ? (
               <Image source={MASCOT_IMG} style={hdr.mascotImg} resizeMode="cover" />
             ) : (
-              <MaterialCommunityIcons name="robot-happy" size={22} color={CYAN} />
+              <MaterialCommunityIcons name="robot-happy" size={24} color={connCol} />
             )}
-            <Animated.View style={[hdr.statusOrb, { backgroundColor: connCol, opacity: glowA }]} />
           </Animated.View>
+          {/* Status orb — native scale pulse */}
+          <Animated.View style={[hdr.statusOrb, { backgroundColor: connCol, transform: [{ scale: ringScA }] }]} />
         </Animated.View>
 
         {/* ── SVG logo ── */}
         <View style={hdr.logoBox}>
-          <ButlerAILogo size={46} />
+          <ButlerAILogo size={44} />
         </View>
 
-        {/* ── Brand + status pills ── */}
+        {/* ── Brand + pills ── */}
         <View style={{ flex: 1, gap: 4 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 3 }}>
             <Text style={hdr.brand}>BUTLER AI</Text>
-            <Text style={hdr.brandSep}>:</Text>
+            <Text style={hdr.brandSep}>·</Text>
             <Text style={hdr.brandSub}>PC AUTOMATION</Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
             <TouchableOpacity onPress={() => { haptics.heavy(); onPair(); }} activeOpacity={0.8}
-              style={[hdr.pill, { borderColor: connCol + '60', backgroundColor: connCol + '0C' }]}>
+              style={[hdr.pill, { borderColor: connCol + '60', backgroundColor: connCol + '0E' }]}>
               <PulseDot color={connCol} size={4} />
               <Text style={[hdr.pillTxt, { color: connCol }]}>
                 {isConn ? (addr.split(':')[0] || 'ONLINE') : 'PAIR PC'}
@@ -368,63 +423,79 @@ function HomeHeader({ safeTop, isConn, addr, onPair }: {
             </TouchableOpacity>
             <View style={[hdr.pill, { borderColor: BORDER }]}>
               <MaterialCommunityIcons name="lock-check" size={8} color={MID} />
-              <Text style={[hdr.pillTxt, { color: DIM }]}>AES-256</Text>
+              <Text style={[hdr.pillTxt, { color: MID }]}>AES-256</Text>
             </View>
             <View style={[hdr.pill, { borderColor: BORDER }]}>
               <MaterialCommunityIcons name="lan-connect" size={8} color={MID} />
-              <Text style={[hdr.pillTxt, { color: DIM }]}>LAN</Text>
+              <Text style={[hdr.pillTxt, { color: MID }]}>LAN</Text>
             </View>
           </View>
+          <Text style={hdr.versionLine}>v9.1 · HMAC-SHA256 · ZERO CLOUD · LOCAL LLM</Text>
         </View>
 
-        {/* ── Compact clock + QR ── */}
+        {/* ── Clock + QR ── */}
         <View style={{ alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 1 }}>
             <Text style={hdr.clockMain}>{time}</Text>
-            <Text style={[hdr.clockSecs, { color: CYAN }]}>{secs}</Text>
+            <Text style={[hdr.clockSecs, { color: connCol }]}>{secs}</Text>
           </View>
           <Text style={hdr.dateTxt}>{dateStr}</Text>
           <TouchableOpacity onPress={() => { haptics.heavy(); onPair(); }} activeOpacity={0.8}
-            style={[hdr.qrBtn, { borderColor: CYAN + '45', backgroundColor: CYAN + '0A' }]}>
-            <MaterialIcons name="qr-code-scanner" size={14} color={CYAN} />
+            style={[hdr.qrBtn, { borderColor: connCol + '55', backgroundColor: connCol + '0C' }]}>
+            <MaterialIcons name="qr-code-scanner" size={14} color={connCol} />
           </TouchableOpacity>
         </View>
       </View>
-      <View style={{ height: 1.5, backgroundColor: CYAN + '25' }} />
+
+      {/* Bottom accent */}
+      <View style={{ height: 1.5, backgroundColor: connCol + '45' }} />
+      <View style={{ height: 1, backgroundColor: connCol + '18' }} />
     </View>
   );
 }
 
 const hdr = StyleSheet.create({
-  root:       { backgroundColor: SURF3, overflow: 'hidden' },
-  body:       { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: PAD, paddingTop: 9, paddingBottom: 8 },
-  mascotBox:  { width: 42, height: 42, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative', flexShrink: 0 },
-  mascotImg:  { width: 42, height: 42 },
-  statusOrb:  { position: 'absolute', bottom: 3, right: 3, width: 8, height: 8, borderRadius: 4, borderWidth: 1.5, borderColor: SURF3 },
-  logoBox:    { width: 46, height: 46, borderRadius: 12, overflow: 'hidden', flexShrink: 0 },
-  brand:      { fontSize: 16, fontWeight: '900', color: '#FFFFFF', letterSpacing: 0.3 },
-  brandSep:   { fontSize: 14, fontWeight: '700', color: MID },
-  brandSub:   { fontSize: 11, fontWeight: '700', color: CYAN + 'BB', letterSpacing: 0.3 },
-  pill:       { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 12, paddingHorizontal: 7, paddingVertical: 3 },
-  pillTxt:    { fontFamily: MONO, fontSize: 7.5, fontWeight: '900', letterSpacing: 0.2 },
-  clockMain:  { fontFamily: MONO, fontSize: 17, fontWeight: '900', color: TEXT, letterSpacing: 0.5 },
-  clockSecs:  { fontFamily: MONO, fontSize: 10, fontWeight: '900' },
-  dateTxt:    { fontFamily: MONO, fontSize: 7, color: DIM, letterSpacing: 0.4 },
-  qrBtn:      { width: 28, height: 28, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  root:        { backgroundColor: SURF3, overflow: 'hidden', position: 'relative' },
+  body:        { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: PAD, paddingTop: 10, paddingBottom: 9 },
+  outerRing:   { width: 48, height: 48, borderRadius: 13, borderWidth: 2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 },
+  mascotImg:   { width: 44, height: 44 },
+  statusOrb:   { position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, borderRadius: 5, borderWidth: 2, borderColor: SURF3 },
+  logoBox:     { width: 44, height: 44, borderRadius: 11, overflow: 'hidden', flexShrink: 0 },
+  brand:       { fontSize: 15, fontWeight: '900', color: '#FFFFFF', letterSpacing: 0.5 },
+  brandSep:    { fontSize: 13, fontWeight: '700', color: MID },
+  brandSub:    { fontSize: 10, fontWeight: '700', color: CYAN + 'CC', letterSpacing: 0.4 },
+  pill:        { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 3 },
+  pillTxt:     { fontFamily: MONO, fontSize: 7.5, fontWeight: '900', letterSpacing: 0.3 },
+  versionLine: { fontFamily: MONO, fontSize: 6.5, color: DIM, letterSpacing: 0.5 },
+  clockMain:   { fontFamily: MONO, fontSize: 18, fontWeight: '900', color: TEXT, letterSpacing: 0.6 },
+  clockSecs:   { fontFamily: MONO, fontSize: 10, fontWeight: '900' },
+  dateTxt:     { fontFamily: MONO, fontSize: 7, color: DIM, letterSpacing: 0.5 },
+  qrBtn:       { width: 30, height: 30, borderRadius: 9, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
 });
 
 // ══════════════════════════════════════════════════════════════════
-// MINI AI CHAT BAR v10 — COMPACT PROFESSIONAL EXPANDABLE
-// Design: single-line pill collapsed → smooth spring expand
-// Palette: matches SURF3/CYAN/AMBER of the app — no matrix green
+// MINI AI CHAT BAR v11 — PREMIUM EXPANDABLE COMMAND CENTER
+// Collapsed: elegant single pill with robot icon + prompt + status
+// Expanded: full panel with input, quick chips, tab shortcuts
 // ══════════════════════════════════════════════════════════════════
 const QUICK_CMDS = [
-  { icon: 'monitor-dashboard',  label: 'Stats',    prompt: 'Show CPU, RAM, disk and top processes',        color: CYAN   },
-  { icon: 'broom',              label: 'Clean',    prompt: 'Clean all temp files and show freed space',    color: GREEN  },
-  { icon: 'network-outline',    label: 'Net',      prompt: 'Show network interfaces and IP addresses',     color: AMBER  },
-  { icon: 'code-braces',        label: 'Script',   prompt: 'Write a Python script for ',                  color: PURPLE },
-  { icon: 'eye-circle-outline', label: 'Procs',    prompt: 'List top 8 CPU-consuming processes',          color: TEAL   },
-  { icon: 'shield-check',       label: 'Audit',    prompt: 'Run a quick security audit on my PC',         color: RED    },
+  { icon: 'monitor-dashboard',   label: 'PC Stats',  prompt: 'Show CPU, RAM, disk usage and top 5 processes', color: CYAN   },
+  { icon: 'broom',               label: 'Clean PC',  prompt: 'Clean all temp files and show freed space',     color: GREEN  },
+  { icon: 'network-outline',     label: 'Network',   prompt: 'Show all network interfaces and my IP addresses',color: AMBER  },
+  { icon: 'code-braces',         label: 'Write Code',prompt: 'Write a Python script to ',                     color: PURPLE },
+  { icon: 'shield-check',        label: 'Security',  prompt: 'Run a quick security audit on my PC',           color: RED    },
+  { icon: 'eye-circle-outline',  label: 'Processes', prompt: 'List top 8 CPU-consuming processes with PID',   color: TEAL   },
+  { icon: 'harddisk',            label: 'Disk',      prompt: 'Show disk usage by drive with free space',      color: BLUE   },
+  { icon: 'lightning-bolt',      label: 'Quick Fix', prompt: 'Diagnose and fix the most common PC performance issues', color: RED },
+];
+
+const CHAT_SHORTCUTS = [
+  { icon: 'home',             label: 'CORE',  tab: 'nexushome', color: CYAN   },
+  { icon: 'code-braces',      label: 'FORGE', tab: 'scripts',   color: PURPLE },
+  { icon: 'robot-happy-outline', label: 'AI', tab: 'butler',    color: GREEN  },
+  { icon: 'brain',            label: 'KB',    tab: 'knowledge', color: AMBER  },
+  { icon: 'chart-bar',        label: 'LOG',   tab: 'logs',      color: BLUE   },
+  { icon: 'tune-variant',     label: 'CFG',   tab: 'settings',  color: MID    },
 ];
 
 function MiniChatBar({ isConn }: { isConn: boolean }) {
@@ -432,80 +503,107 @@ function MiniChatBar({ isConn }: { isConn: boolean }) {
   const [text,     setText]     = useState('');
   const [sending,  setSending]  = useState(false);
   const [reply,    setReply]    = useState('');
+  const [replyType,setReplyType]= useState<'ok'|'err'|''>('');
 
-  const expandH  = useRef(new Animated.Value(0)).current;
-  const cursorA  = useRef(new Animated.Value(1)).current;
-  const accentA  = useRef(new Animated.Value(0.25)).current;
+  // Animation values — carefully separated native vs JS
+  const expandH   = useRef(new Animated.Value(0)).current;    // JS — height
+  const cursorA   = useRef(new Animated.Value(1)).current;    // native — opacity
+  const accentA   = useRef(new Animated.Value(0.3)).current;  // JS — border color
+  const rowScaleA = useRef(new Animated.Value(1)).current;    // native — bar press
+  const chipSlide = useRef(new Animated.Value(24)).current;   // native — chips entrance
 
-  // Cursor blink
   useEffect(() => {
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(cursorA, { toValue: 0, duration: 520, useNativeDriver: true }),
-      Animated.timing(cursorA, { toValue: 1, duration: 520, useNativeDriver: true }),
+    const cur = Animated.loop(Animated.sequence([
+      Animated.timing(cursorA, { toValue: 0, duration: 500, useNativeDriver: true }),
+      Animated.timing(cursorA, { toValue: 1, duration: 500, useNativeDriver: true }),
     ]));
-    loop.start(); return () => loop.stop();
+    const acc = Animated.loop(Animated.sequence([
+      Animated.timing(accentA, { toValue: 1.0, duration: 1600, useNativeDriver: false }),
+      Animated.timing(accentA, { toValue: 0.18, duration: 1600, useNativeDriver: false }),
+    ]));
+    cur.start(); acc.start();
+    return () => { cur.stop(); acc.stop(); };
   }, []);
 
-  // Accent glow pulse
-  useEffect(() => {
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(accentA, { toValue: 0.9, duration: 1800, useNativeDriver: false }),
-      Animated.timing(accentA, { toValue: 0.2, duration: 1800, useNativeDriver: false }),
-    ]));
-    loop.start(); return () => loop.stop();
-  }, []);
-
-  const EXPAND_HEIGHT = reply ? 220 : 168;
+  const COLLAPSED_H = 0;
+  const CHIPS_H     = reply ? 282 : 216;
 
   const toggleExpand = () => {
     haptics.light();
     const next = !expanded;
     setExpanded(next);
-    if (!next) setReply('');
-    Animated.spring(expandH, {
-      toValue: next ? EXPAND_HEIGHT : 0,
-      tension: 78, friction: 13, useNativeDriver: false,
-    }).start();
+    if (!next) { setReply(''); setReplyType(''); }
+    Animated.parallel([
+      Animated.spring(expandH, {
+        toValue: next ? CHIPS_H : COLLAPSED_H,
+        tension: 88, friction: 14, useNativeDriver: false,
+      }),
+      Animated.spring(chipSlide, {
+        toValue: next ? 0 : 24,
+        tension: 120, friction: 16, useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const pressBar = () => {
+    Animated.sequence([
+      Animated.timing(rowScaleA, { toValue: 0.975, duration: 60, useNativeDriver: true }),
+      Animated.spring(rowScaleA, { toValue: 1, tension: 280, friction: 10, useNativeDriver: true }),
+    ]).start();
+    toggleExpand();
   };
 
   const send = async (prompt?: string) => {
     const t = (prompt || text).trim();
     if (!t || sending) return;
-    haptics.heavy(); setSending(true); setText(''); setReply('');
+    haptics.heavy(); setSending(true); setText(''); setReply(''); setReplyType('');
     try {
       if (isConn) {
-        const ip = serverConnection.getIP(), port = serverConnection.getPort();
-        const tok = serverConnection.getToken?.() || '';
+        const ip  = serverConnection.getIP();
+        const port = serverConnection.getPort();
+        const tok  = serverConnection.getToken?.() || '';
+        if (!ip || !port) throw new Error('Not connected');
         const h: Record<string, string> = { 'Content-Type': 'application/json' };
         if (tok) h['Authorization'] = 'Bearer ' + tok;
         const ctrl = new AbortController();
-        setTimeout(() => ctrl.abort(), 25000);
+        setTimeout(() => ctrl.abort(), 28000);
         const res = await fetch(`http://${ip}:${port}/api/butler/chat`, {
           method: 'POST', headers: h,
           body: JSON.stringify({ messages: [{ role: 'user', content: t }] }),
           signal: ctrl.signal,
         });
         if (res.ok) {
-          const d = await res.json();
-          const r = d.reply || d.content || d.message || d.response || '';
-          setReply(r.slice(0, 240) || 'Done.');
+          const d   = await res.json();
+          const r   = (d.reply || d.content || d.message || d.response || '').trim();
+          setReply(r.slice(0, 280) || 'Done.');
+          setReplyType('ok');
           haptics.success();
-        } else throw new Error(`HTTP ${res.status}`);
+        } else {
+          throw new Error(`Server HTTP ${res.status}`);
+        }
       } else {
         const lc = t.toLowerCase();
-        const OFFLINE = [
-          { test: /hi|hello|hey/,      r: 'Hello! Connect your PC via QR to unlock full AI.' },
-          { test: /help|what can/,     r: 'I run scripts, monitor your PC, chat via local Ollama — 100% local.' },
-          { test: /script|python|code/,r: 'Tap FORGE tab to browse 250+ automation scripts.' },
-          { test: /pair|connect|qr/,   r: 'Run butler_server.py then tap PAIR PC at the top.' },
-          { test: /privacy|cloud/,     r: 'Zero cloud. Everything stays on your local LAN.' },
+        const OFFLINE_RESPONSES: Array<{ test: RegExp; r: string }> = [
+          { test: /hi|hello|hey/,        r: 'Hello! Pair your PC via QR code to unlock full local AI.' },
+          { test: /help|what can/,       r: 'I run Python scripts, monitor your PC, and chat via local Ollama AI — 100% offline.' },
+          { test: /script|python|code/,  r: 'Tap FORGE tab to browse 250+ automation scripts ready to run.' },
+          { test: /pair|connect|qr/,     r: 'Run butler_server.py on your PC, then tap PAIR PC at the top.' },
+          { test: /privacy|cloud|data/,  r: 'Zero cloud. All data stays on your local LAN. Nothing is uploaded.' },
+          { test: /cpu|ram|memory/,      r: 'Pair your PC to see live CPU, RAM, and disk metrics in real-time.' },
+          { test: /security|safe/,       r: 'AES-256-GCM encrypted. HMAC-SHA256 signed. Single-device lock.' },
         ];
-        setReply(OFFLINE.find(o => o.test.test(lc))?.r ?? 'Pair your PC to unlock full AI.');
+        const matched = OFFLINE_RESPONSES.find(o => o.test.test(lc));
+        setReply(matched?.r ?? 'Pair your PC first to unlock full Butler AI capabilities.');
+        setReplyType('ok');
         haptics.success();
       }
     } catch (e: any) {
-      setReply(`Error: ${e?.message?.slice(0, 70) || 'Request failed'}`);
-    } finally { setSending(false); }
+      const msg = e?.name === 'AbortError' ? 'Request timed out (28s)' : (e?.message?.slice(0, 80) || 'Request failed');
+      setReply('Error: ' + msg);
+      setReplyType('err');
+    } finally {
+      setSending(false);
+    }
   };
 
   const openFullChat = () => {
@@ -513,125 +611,149 @@ function MiniChatBar({ isConn }: { isConn: boolean }) {
     (global as any).__butlerSwitchTab?.('butler');
   };
 
-  const cc = isConn ? CYAN : AMBER;
-  const borderCol = accentA.interpolate({ inputRange: [0, 1], outputRange: [cc + '28', cc + '70'] });
+  const cc         = isConn ? CYAN : AMBER;
+  const borderCol  = accentA.interpolate({ inputRange: [0, 1], outputRange: [cc + '22', cc + '80'] });
+  const replyColor = replyType === 'err' ? RED : replyType === 'ok' ? CYAN : MID;
 
   return (
     <View style={chat.root}>
-      {/* ── TOP ACCENT LINE ── */}
-      <Animated.View style={[chat.topLine, { backgroundColor: borderCol as any }]} />
+      {/* ── ANIMATED TOP ACCENT ── */}
+      <Animated.View style={[chat.topAccent, { backgroundColor: borderCol as any }]} />
 
-      {/* ── COLLAPSED BAR ── */}
-      <Pressable
-        onPress={toggleExpand}
-        style={({ pressed }) => [chat.bar, pressed && { opacity: 0.86 }]}>
-        {/* Left: avatar + prompt */}
-        <View style={chat.barLeft}>
-          <View style={[chat.avatar, { borderColor: cc + '50', backgroundColor: cc + '0D' }]}>
+      {/* ── COLLAPSED PILL BAR ── */}
+      <Pressable onPress={pressBar} style={({ pressed }) => [{ opacity: pressed ? 0.92 : 1 }]}>
+        <Animated.View style={[chat.bar, { transform: [{ scale: rowScaleA }] }]}>
+          {/* LEFT: robot avatar + live dot */}
+          <View style={[chat.avatar, { borderColor: cc + '60', backgroundColor: cc + '10' }]}>
             {sending
               ? <ActivityIndicator size="small" color={cc} style={{ transform: [{ scale: 0.7 }] }} />
-              : <MaterialCommunityIcons name="robot-happy-outline" size={13} color={cc} />}
-            <View style={[chat.avatarOrb, { backgroundColor: cc }]} />
+              : <MaterialCommunityIcons name="robot-happy-outline" size={14} color={cc} />}
+            <Animated.View style={[chat.avatarOrb, { backgroundColor: cc, opacity: cursorA }]} />
           </View>
-          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', overflow: 'hidden' }}>
-            <Text style={[chat.promptTxt, sending && { opacity: 0.5 }]} numberOfLines={1}>
-              {text.length > 0 ? text : (isConn ? 'Ask Butler AI…' : 'Pair PC to start…')}
+
+          {/* CENTRE: prompt text + blinking cursor */}
+          <View style={chat.barCenter}>
+            <Text style={[chat.promptTxt, { color: sending ? DIM : TEXT + 'B8' }]} numberOfLines={1}>
+              {text.length > 0 ? text : (sending ? 'Thinking...' : (isConn ? '>_ Ask Butler AI or run a command…' : '>_ Pair PC to activate AI…'))}
             </Text>
-            {!expanded && !sending && (
+            {!expanded && !sending && text.length === 0 && (
               <Animated.View style={[chat.cursor, { opacity: cursorA, backgroundColor: cc }]} />
             )}
           </View>
-        </View>
-        {/* Right: pills + chevron */}
-        <View style={chat.barRight}>
-          <View style={[chat.statusPill, { borderColor: cc + '45', backgroundColor: cc + '0A' }]}>
-            <PulseDot color={cc} size={4} />
-            <Text style={[chat.statusTxt, { color: cc }]}>{isConn ? 'LIVE' : 'OFF'}</Text>
+
+          {/* RIGHT: status + full chat + chevron */}
+          <View style={chat.barRight}>
+            <View style={[chat.statusPill, { borderColor: cc + '50', backgroundColor: cc + '0C' }]}>
+              <PulseDot color={cc} size={4} />
+              <Text style={[chat.statusTxt, { color: cc }]}>{isConn ? 'LIVE' : 'OFF'}</Text>
+            </View>
+            <TouchableOpacity
+              onPress={e => { e.stopPropagation?.(); openFullChat(); }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 6 }}
+              activeOpacity={0.8}
+              style={[chat.fullBtn, { borderColor: PURPLE + '50', backgroundColor: PURPLE + '0F' }]}>
+              <MaterialIcons name="open-in-new" size={9} color={PURPLE} />
+              <Text style={[chat.fullTxt, { color: PURPLE }]}>FULL</Text>
+            </TouchableOpacity>
+            <MaterialIcons
+              name={expanded ? 'expand-less' : 'expand-more'}
+              size={20} color={cc + '70'} />
           </View>
-          <TouchableOpacity
-            onPress={(e) => { e.stopPropagation?.(); openFullChat(); }}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 6 }}
-            activeOpacity={0.75}
-            style={[chat.fullBtn, { borderColor: PURPLE + '55', backgroundColor: PURPLE + '12' }]}>
-            <MaterialIcons name="open-in-new" size={10} color={PURPLE} />
-            <Text style={[chat.fullTxt, { color: PURPLE }]}>FULL</Text>
-          </TouchableOpacity>
-          <MaterialIcons
-            name={expanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
-            size={18} color={cc + '80'} />
-        </View>
+        </Animated.View>
       </Pressable>
 
-      {/* ── TAGS ROW ── */}
+      {/* ── TAGS INFO ROW ── */}
       <View style={chat.tagsRow}>
-        {['BUTLER AI', 'LOCAL LLM', 'ZERO CLOUD', 'AES-256'].map((t, i) => (
+        {['BUTLER AI', 'OLLAMA', 'LOCAL', 'AES-256', 'ZERO CLOUD'].map((tag, i) => (
           <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
             {i > 0 && <View style={chat.tagDot} />}
-            <Text style={chat.tagTxt}>{t}</Text>
+            <Text style={chat.tagTxt}>{tag}</Text>
           </View>
         ))}
         <View style={{ flex: 1 }} />
         <TouchableOpacity onPress={openFullChat} activeOpacity={0.7} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-          <Text style={{ fontFamily: MONO, fontSize: 8, color: CYAN + '70', fontWeight: '700' }}>OPEN AI CHAT ›</Text>
+          <Text style={{ fontFamily: MONO, fontSize: 8, color: CYAN + '80', fontWeight: '900' }}>OPEN AI ›</Text>
         </TouchableOpacity>
       </View>
 
-      {/* ── EXPANDED PANEL ── */}
-      <Animated.View style={[chat.expandPanel, { height: expandH, overflow: 'hidden' }]}>
-        {/* Input field */}
-        <View style={[chat.inputRow, { borderColor: cc + '55' }]}>
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder={isConn ? 'Ask anything…' : 'Ask (pair PC for full AI)…'}
-            placeholderTextColor={DIM}
-            style={chat.input}
-            returnKeyType="send"
-            onSubmitEditing={() => send()}
-            blurOnSubmit={false}
-            editable={!sending}
-            maxLength={500}
-            autoFocus={expanded}
-          />
-          <TouchableOpacity
-            onPress={() => send()}
-            activeOpacity={0.85}
-            disabled={!text.trim() || sending}
-            style={[chat.sendBtn, {
-              backgroundColor: text.trim() && !sending ? cc : DIM + '30',
-              borderColor: text.trim() && !sending ? cc : DIM,
-            }]}>
-            {sending
-              ? <ActivityIndicator size="small" color={text.trim() ? BG : DIM} />
-              : <MaterialIcons name="send" size={15} color={text.trim() && !sending ? BG : DIM} />}
-          </TouchableOpacity>
-        </View>
+      {/* ── EXPANDABLE PANEL ── */}
+      <Animated.View style={{ height: expandH, overflow: 'hidden' }}>
+        <Animated.View style={{ transform: [{ translateY: chipSlide }] }}>
 
-        {/* Reply bubble */}
-        {!!reply && (
-          <Pressable onPress={() => setReply('')} style={chat.replyBubble}>
-            <MaterialCommunityIcons name="robot-happy" size={12} color={cc} style={{ flexShrink: 0, marginTop: 1 }} />
-            <Text style={chat.replyTxt} numberOfLines={3}>{reply}</Text>
-            <MaterialIcons name="close" size={11} color={DIM} style={{ flexShrink: 0 }} />
-          </Pressable>
-        )}
-
-        {/* Quick chips */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 6, paddingHorizontal: 12, paddingVertical: 7 }}>
-          {QUICK_CMDS.map((c, i) => (
+          {/* INPUT ROW */}
+          <View style={[chat.inputRow, { borderColor: cc + '60' }]}>
+            <MaterialCommunityIcons name="robot-happy-outline" size={14} color={cc + '80'} />
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              placeholder={isConn ? 'Ask anything, run a script, or give a command…' : 'Ask (pair PC for full AI)…'}
+              placeholderTextColor={DIM}
+              style={chat.input}
+              returnKeyType="send"
+              onSubmitEditing={() => send()}
+              blurOnSubmit={false}
+              editable={!sending}
+              maxLength={500}
+            />
             <TouchableOpacity
-              key={i}
-              onPress={() => { haptics.light(); send(c.prompt); }}
-              activeOpacity={0.8}
-              style={[chat.chip, { borderColor: c.color + '40', backgroundColor: c.color + '0C' }]}>
-              <MaterialCommunityIcons name={c.icon as any} size={11} color={c.color} />
-              <Text style={[chat.chipTxt, { color: c.color }]}>{c.label}</Text>
+              onPress={() => send()}
+              activeOpacity={0.85}
+              disabled={!text.trim() || sending}
+              style={[chat.sendBtn, {
+                backgroundColor: text.trim() && !sending ? cc : DIM + '25',
+                borderColor: text.trim() && !sending ? cc : DIM + '40',
+              }]}>
+              {sending
+                ? <ActivityIndicator size="small" color={cc} style={{ transform: [{ scale: 0.65 }] }} />
+                : <MaterialIcons name="send" size={14} color={text.trim() && !sending ? BG : DIM} />}
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+          </View>
+
+          {/* REPLY BUBBLE */}
+          {!!reply && (
+            <Pressable onPress={() => { setReply(''); setReplyType(''); }} style={[chat.replyBubble, { borderColor: replyColor + '30', backgroundColor: replyColor + '08' }]}>
+              <MaterialCommunityIcons
+                name={replyType === 'err' ? 'alert-circle-outline' : 'robot-happy'}
+                size={13} color={replyColor} style={{ flexShrink: 0 }} />
+              <Text style={[chat.replyTxt, { color: replyColor + 'DD' }]} numberOfLines={4}>{reply}</Text>
+              <MaterialIcons name="close" size={11} color={DIM} style={{ flexShrink: 0, marginTop: 1 }} />
+            </Pressable>
+          )}
+
+          {/* QUICK COMMAND CHIPS */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 7, paddingHorizontal: 12, paddingTop: 6, paddingBottom: 5 }}>
+            {QUICK_CMDS.map((c, i) => (
+              <TouchableOpacity
+                key={i}
+                onPress={() => { haptics.light(); send(c.prompt); }}
+                activeOpacity={0.8}
+                style={[chat.chip, { borderColor: c.color + '45', backgroundColor: c.color + '0D' }]}>
+                <View style={[chat.chipIcon, { backgroundColor: c.color + '18', borderColor: c.color + '35' }]}>
+                  <MaterialCommunityIcons name={c.icon as any} size={11} color={c.color} />
+                </View>
+                <Text style={[chat.chipTxt, { color: c.color }]}>{c.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {/* TAB SHORTCUTS ROW */}
+          <View style={chat.shortcutRow}>
+            <Text style={chat.shortcutLabel}>JUMP TO:</Text>
+            {CHAT_SHORTCUTS.map((s, i) => (
+              <TouchableOpacity
+                key={i}
+                onPress={() => { haptics.light(); (global as any).__butlerSwitchTab?.(s.tab); }}
+                activeOpacity={0.8}
+                style={[chat.shortcut, { borderColor: s.color + '40', backgroundColor: s.color + '0A' }]}>
+                <MaterialCommunityIcons name={s.icon as any} size={10} color={s.color} />
+                <Text style={[chat.shortcutTxt, { color: s.color }]}>{s.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Animated.View>
       </Animated.View>
     </View>
   );
@@ -640,69 +762,71 @@ function MiniChatBar({ isConn }: { isConn: boolean }) {
 const chat = StyleSheet.create({
   root: {
     backgroundColor: SURF3,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,200,220,0.12)',
+    borderBottomWidth: 1.5,
+    borderBottomColor: 'rgba(0,200,220,0.14)',
     overflow: 'hidden',
   },
-  topLine: {
-    height: 2,
-    opacity: 0.75,
+  topAccent: {
+    height: 2.5,
+    opacity: 0.8,
   },
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 12,
     paddingTop: 9,
-    paddingBottom: 4,
-    gap: 8,
+    paddingBottom: 5,
+    gap: 9,
   },
-  barLeft: {
+  barCenter: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     overflow: 'hidden',
+    gap: 3,
   },
   avatar: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 9,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
     position: 'relative',
+    ...Platform.select({
+      ios: { shadowColor: CYAN, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 6 },
+      android: { elevation: 3 },
+    }),
   },
   avatarOrb: {
     position: 'absolute',
     bottom: 1,
     right: 1,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
     borderWidth: 1.5,
     borderColor: SURF3,
   },
   promptTxt: {
     fontFamily: MONO,
-    fontSize: 12,
-    color: TEXT + 'C0',
+    fontSize: 11.5,
     flex: 1,
-    letterSpacing: 0.1,
+    letterSpacing: 0.2,
   },
   cursor: {
-    width: 7,
-    height: 13,
-    borderRadius: 1.5,
-    marginLeft: 3,
-    marginBottom: -2,
+    width: 2,
+    height: 14,
+    borderRadius: 1,
+    marginLeft: 2,
+    marginBottom: -1,
     flexShrink: 0,
   },
   barRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     flexShrink: 0,
   },
   statusPill: {
@@ -718,7 +842,7 @@ const chat = StyleSheet.create({
     fontFamily: MONO,
     fontSize: 8,
     fontWeight: '900',
-    letterSpacing: 0.4,
+    letterSpacing: 0.5,
   },
   fullBtn: {
     flexDirection: 'row',
@@ -740,12 +864,12 @@ const chat = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 12,
-    paddingBottom: 8,
+    paddingBottom: 7,
   },
   tagTxt: {
     fontFamily: MONO,
     fontSize: 7.5,
-    color: MID + '90',
+    color: MID + '88',
     letterSpacing: 0.4,
     fontWeight: '700',
   },
@@ -755,17 +879,17 @@ const chat = StyleSheet.create({
     borderRadius: 1.5,
     backgroundColor: DIM,
   },
-  expandPanel: {},
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 9,
     marginHorizontal: 12,
+    marginTop: 9,
     marginBottom: 6,
     borderWidth: 1.5,
-    borderRadius: 12,
+    borderRadius: 13,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 9,
     backgroundColor: BG,
   },
   input: {
@@ -778,9 +902,9 @@ const chat = StyleSheet.create({
     includeFontPadding: false,
   },
   sendBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
@@ -789,20 +913,17 @@ const chat = StyleSheet.create({
   replyBubble: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: 9,
     marginHorizontal: 12,
-    marginBottom: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: CYAN + '25',
-    backgroundColor: SURFACE + 'EE',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    marginBottom: 7,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
   },
   replyTxt: {
     fontFamily: MONO,
     fontSize: 11,
-    color: TEXT,
     flex: 1,
     lineHeight: 16,
   },
@@ -811,14 +932,56 @@ const chat = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 18,
+    paddingVertical: 7,
+    borderRadius: 20,
     borderWidth: 1.5,
+  },
+  chipIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   chipTxt: {
     fontFamily: MONO,
     fontSize: 9.5,
-    fontWeight: '700',
+    fontWeight: '800',
+  },
+  shortcutRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingTop: 4,
+    paddingBottom: 9,
+    flexWrap: 'nowrap',
+    overflow: 'hidden',
+  },
+  shortcutLabel: {
+    fontFamily: MONO,
+    fontSize: 7.5,
+    color: DIM,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    flexShrink: 0,
+  },
+  shortcut: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexShrink: 0,
+  },
+  shortcutTxt: {
+    fontFamily: MONO,
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
 });
 
@@ -917,50 +1080,153 @@ const pq = StyleSheet.create({
 });
 
 // ══════════════════════════════════════════════════════════════════
-// QUICK ACTIONS — 2×2 GRID (larger icons, more satisfying)
+// QUICK ACTIONS — 2×2 GRID · GLOWING DARK ICON STYLE
+// Design: dark rounded square bg, colored glow icon, count+subtitle
+// Inspired by the images showing dark rounded cards with colored icons
 // ══════════════════════════════════════════════════════════════════
 const QA_ITEMS = [
-  { icon: 'robot-happy-outline', label: 'AI CHAT',  sub: 'Local Ollama',    tab: 'butler',    color: CYAN,   lib: 'c' },
-  { icon: 'code-braces',         label: 'SCRIPTS',  sub: '250+ scripts',    tab: 'scripts',   color: GREEN,  lib: 'c' },
-  { icon: 'folder-network',      label: 'FILES',    sub: 'LAN transfer',    tab: 'fileshare', color: PURPLE, lib: 'c' },
-  { icon: 'brain',               label: 'KB',       sub: 'Knowledge base',  tab: 'knowledge', color: AMBER,  lib: 'c' },
+  { icon: 'robot-happy-outline', label: 'AI CHAT',  sub: 'Local Ollama · Private', tab: 'butler',    color: CYAN,   extra: 'chat' },
+  { icon: 'code-braces',         label: 'SCRIPTS',  sub: '250+ Python scripts',    tab: 'scripts',   color: GREEN,  extra: 'forge' },
+  { icon: 'folder-network',      label: 'FILES',    sub: 'LAN · direct · secure',   tab: 'fileshare', color: PURPLE, extra: 'vault' },
+  { icon: 'brain',               label: 'KNOWLEDGE',sub: 'AI neural store',         tab: 'knowledge', color: AMBER,  extra: 'kb' },
 ];
 
 function QuickActions({ goToTab, onPair }: { goToTab: (t: string) => void; onPair: () => void }) {
   const scales = useRef(QA_ITEMS.map(() => new Animated.Value(1))).current;
-  const pi = (i: number) => Animated.spring(scales[i], { toValue: 0.87, tension: 420, friction: 12, useNativeDriver: true }).start();
-  const po = (i: number) => Animated.spring(scales[i], { toValue: 1,    tension: 280, friction: 10, useNativeDriver: true }).start();
+  const glows  = useRef(QA_ITEMS.map(() => new Animated.Value(0.25))).current;
+
+  const pi = (i: number) => {
+    Animated.parallel([
+      Animated.spring(scales[i], { toValue: 0.91, tension: 420, friction: 12, useNativeDriver: true }),
+      Animated.timing(glows[i],  { toValue: 1.0, duration: 80, useNativeDriver: false }),
+    ]).start();
+  };
+  const po = (i: number) => {
+    Animated.parallel([
+      Animated.spring(scales[i], { toValue: 1, tension: 280, friction: 10, useNativeDriver: true }),
+      Animated.timing(glows[i],  { toValue: 0.25, duration: 300, useNativeDriver: false }),
+    ]).start();
+  };
 
   return (
     <View style={{ paddingHorizontal: PAD }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 9 }}>
+        <MaterialCommunityIcons name="lightning-bolt" size={10} color={AMBER} />
+        <Text style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: '900', color: AMBER + 'A0', letterSpacing: 1.8 }}>QUICK ACCESS</Text>
+        <View style={{ flex: 1, height: 1, backgroundColor: AMBER + '20' }} />
+      </View>
       <View style={qa.row}>
-        {QA_ITEMS.map((a, i) => (
-          <Pressable key={a.label}
-            onPress={() => { haptics.medium(); a.tab === 'pair' ? onPair() : goToTab(a.tab); }}
-            onPressIn={() => pi(i)} onPressOut={() => po(i)}
-            style={{ width: '48%' }}>
-            <Animated.View style={[qa.cell, {
-              backgroundColor: SURFACE, borderColor: a.color + '28', borderTopColor: a.color, borderTopWidth: 2.5,
-              transform: [{ scale: scales[i] }],
-            }]}>
-              <View style={[qa.iconBubble, { backgroundColor: a.color + '14', borderColor: a.color + '40' }]}>
-                <MaterialCommunityIcons name={a.icon as any} size={30} color={a.color} />
-              </View>
-              <Text style={[qa.label, { color: a.color + 'AA' }]}>{a.label}</Text>
-              <Text style={[qa.sub, { color: a.color + '55' }]}>{a.sub}</Text>
-            </Animated.View>
-          </Pressable>
-        ))}
+        {QA_ITEMS.map((a, i) => {
+          const borderColor = glows[i].interpolate({ inputRange: [0, 1], outputRange: [a.color + '25', a.color + 'AA'] });
+          const shadowBg    = glows[i].interpolate({ inputRange: [0, 1], outputRange: [a.color + '0A', a.color + '20'] });
+          return (
+            <Pressable key={a.label}
+              onPress={() => { haptics.medium(); goToTab(a.tab); }}
+              onPressIn={() => pi(i)} onPressOut={() => po(i)}
+              style={{ width: '48%' }}>
+              <Animated.View style={[
+                qa.cell,
+                { transform: [{ scale: scales[i] }] },
+              ]}>
+                {/* Dark card with colored top border */}
+                <Animated.View style={[qa.cardInner, {
+                  borderColor,
+                  backgroundColor: shadowBg,
+                  borderTopColor: a.color,
+                }]}>
+                  <HUDCorners color={a.color + '30'} size={7} />
+                  {/* Code-style label top-right */}
+                  <Text style={[qa.hexCode, { color: a.color + '40' }]}>{a.extra.toUpperCase()}</Text>
+
+                  {/* Large glowing icon box — dark rounded square style */}
+                  <Animated.View style={[qa.iconBox, {
+                    borderColor: a.color + '60',
+                    backgroundColor: a.color + '12',
+                    ...Platform.select({
+                      ios: { shadowColor: a.color, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 10 },
+                      android: { elevation: 5 },
+                    }),
+                  }]}>
+                    <MaterialCommunityIcons name={a.icon as any} size={34} color={a.color} />
+                  </Animated.View>
+
+                  <Text style={[qa.label, { color: a.color + 'CC' }]}>{a.label}</Text>
+                  <Text style={[qa.sub, { color: a.color + '60' }]}>{a.sub}</Text>
+
+                  {/* Bottom glow line */}
+                  <Animated.View style={[qa.bottomGlow, { backgroundColor: a.color, opacity: glows[i] }]} />
+                </Animated.View>
+              </Animated.View>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
 }
 const qa = StyleSheet.create({
   row:       { flexDirection: 'row', gap: 9, flexWrap: 'wrap' },
-  cell:      { alignItems: 'center', paddingVertical: 20, paddingTop: 22, gap: 9, borderRadius: 18, borderWidth: 1, overflow: 'hidden' },
-  iconBubble:{ width: 60, height: 60, borderRadius: 18, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  label:     { fontFamily: MONO, fontSize: 12, fontWeight: '900', letterSpacing: 0.5, textAlign: 'center' },
-  sub:       { fontFamily: MONO, fontSize: 9, letterSpacing: 0.3, textAlign: 'center' },
+  cell:      { width: '100%' },
+  cardInner: {
+    alignItems: 'center', paddingVertical: 20, paddingTop: 24, gap: 9,
+    borderRadius: 18, borderWidth: 1.5, borderTopWidth: 3,
+    overflow: 'hidden', position: 'relative',
+    backgroundColor: SURFACE,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12 },
+      android: { elevation: 6 },
+    }),
+  },
+  hexCode:   { position: 'absolute', top: 7, right: 8, fontFamily: MONO, fontSize: 7, fontWeight: '900' },
+  iconBox:   {
+    width: 68, height: 68, borderRadius: 20, borderWidth: 1.5,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  label:     { fontFamily: MONO, fontSize: 12, fontWeight: '900', letterSpacing: 0.6, textAlign: 'center' },
+  sub:       { fontFamily: MONO, fontSize: 9, letterSpacing: 0.3, textAlign: 'center', lineHeight: 13 },
+  bottomGlow:{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 2.5 },
+});
+
+// ══════════════════════════════════════════════════════════════════
+// NETWORK METRICS BAR — horizontal pill cards
+// Shows Latency/Network/Disk/Uptime/FPS from real server data
+// Only meaningful when connected; shows dashes offline
+// ══════════════════════════════════════════════════════════════════
+function NetworkMetricsBar({ isConn, latency, cpu, disk }: { isConn: boolean; latency: number; cpu: number; disk: number }) {
+  const METRICS = [
+    { icon: 'wifi',                 label: 'LATENCY',  value: isConn ? `${latency}ms` : '—',      color: latency > 300 ? RED : latency > 100 ? AMBER : GREEN },
+    { icon: 'lan-connect',          label: 'NETWORK',  value: isConn ? 'LAN' : '—',               color: isConn ? CYAN  : MID  },
+    { icon: 'speedometer',          label: 'THROUGHPUT',value: isConn ? 'LOCAL' : '—',             color: isConn ? TEAL  : MID  },
+    { icon: 'harddisk',             label: 'DISK',     value: isConn ? Math.round(disk) + '%' : '—', color: disk > 90 ? RED : disk > 70 ? AMBER : GREEN },
+    { icon: 'monitor-screenshot',   label: 'FRAME',    value: '60fps',                             color: PURPLE },
+    { icon: 'clock-check-outline',  label: 'UPTIME',   value: isConn ? '—h' : '—',                color: isConn ? BLUE  : MID  },
+  ];
+  return (
+    <View style={{ paddingHorizontal: PAD }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
+        {METRICS.map((m, i) => (
+          <View key={i} style={[nmb.card, {
+            backgroundColor: m.color + '10',
+            borderColor: m.color + '40',
+            borderTopColor: m.color,
+            ...Platform.select({ ios: { shadowColor: m.color, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 6 }, android: { elevation: 3 } }),
+          }]}>
+            <View style={[nmb.iconBox, { backgroundColor: m.color + '18', borderColor: m.color + '35' }]}>
+              <MaterialCommunityIcons name={m.icon as any} size={16} color={m.color} />
+            </View>
+            <Text style={[nmb.label, { color: m.color + '90' }]}>{m.label}</Text>
+            <Text style={[nmb.value, { color: isConn ? m.color : DIM }]}>{m.value}</Text>
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+const nmb = StyleSheet.create({
+  card:    { alignItems: 'center', borderRadius: 14, borderWidth: 1.5, borderTopWidth: 2.5, paddingHorizontal: 12, paddingVertical: 11, gap: 5, minWidth: 72 },
+  iconBox: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  label:   { fontFamily: MONO, fontSize: 8, fontWeight: '900', letterSpacing: 0.5 },
+  value:   { fontFamily: MONO, fontSize: 13, fontWeight: '900', lineHeight: 16 },
 });
 
 // ══════════════════════════════════════════════════════════════════
@@ -1907,52 +2173,162 @@ function CrawlerGraphCard({ isConn, kbCount }: { isConn: boolean; kbCount: numbe
     </View>
   );
 }
+// Category node layout: 4 corners in a diamond for the KB graph
+const KB_CATS = [
+  { cat: 'Py',  color: CYAN,   pct: 0.32, rx: 0.14, ry: 0.18 },
+  { cat: 'Sys', color: GREEN,  pct: 0.28, rx: 0.86, ry: 0.18 },
+  { cat: 'Net', color: AMBER,  pct: 0.22, rx: 0.18, ry: 0.82 },
+  { cat: 'AI',  color: PURPLE, pct: 0.18, rx: 0.82, ry: 0.82 },
+];
+const KB_HUB = { rx: 0.50, ry: 0.50 };
+
 function KnowledgeHUDCard({ isConn, kbCount }: { isConn: boolean; kbCount: number }) {
-  const nodes = isConn ? (kbCount > 0 ? kbCount * 12 : 128456) : 0;
+  const base  = kbCount > 0 ? kbCount : 0;
+  const nodes = isConn ? (base > 0 ? base * 12 : 128456) : 0;
   const rels  = isConn ? Math.round(nodes * 7.1) : 0;
-  const dotA  = useRef([0,1,2,3,4].map(() => new Animated.Value(0.3))).current;
+
+  const cats = useMemo(() =>
+    KB_CATS.map(c => ({
+      ...c,
+      count:  Math.round((base > 0 ? base : 1000) * c.pct),
+      radius: 4 + c.pct * 7,
+    })),
+  [base]);
+
+  const pulseAnims = useRef(KB_CATS.map(() => new Animated.Value(0.4))).current;
+  const hubPulse   = useRef(new Animated.Value(0.6)).current;
+
   useEffect(() => {
-    dotA.forEach((a, i) => {
-      const loop = Animated.loop(Animated.sequence([
-        Animated.delay(i * 280),
-        Animated.timing(a, { toValue: 1,   duration: 800, useNativeDriver: true }),
-        Animated.timing(a, { toValue: 0.2, duration: 800, useNativeDriver: true }),
-      ]));
-      loop.start();
-    });
-    return () => dotA.forEach(a => a.stopAnimation());
+    const hLoop = Animated.loop(Animated.sequence([
+      Animated.timing(hubPulse, { toValue: 1.0, duration: 1100, useNativeDriver: true }),
+      Animated.timing(hubPulse, { toValue: 0.3, duration: 1100, useNativeDriver: true }),
+    ]));
+    const cLoops = pulseAnims.map((a, i) =>
+      Animated.loop(Animated.sequence([
+        Animated.delay(i * 300),
+        Animated.timing(a, { toValue: 1.0, duration: 820, useNativeDriver: true }),
+        Animated.timing(a, { toValue: 0.15, duration: 820, useNativeDriver: true }),
+      ]))
+    );
+    hLoop.start(); cLoops.forEach(l => l.start());
+    return () => { hLoop.stop(); cLoops.forEach(l => l.stop()); };
   }, []);
-  const fmtK = (n: number) => n >= 1000 ? (n/1000).toFixed(0)+'K' : String(n);
-  const NET = [{x:28,y:28},{x:14,y:14},{x:42,y:14},{x:11,y:36},{x:44,y:36}];
+
+  const fmtK = (n: number) => n >= 1000 ? (n / 1000).toFixed(0) + 'K' : String(n);
+  const GW = 56; const GH = 60;
+  const ax = (rx: number) => rx * GW;
+  const ay = (ry: number) => ry * GH;
+
   return (
     <View style={[stc.cell, { borderColor: GREEN + '40', borderTopColor: GREEN, borderTopWidth: 2.5, backgroundColor: SURFACE }]}>
       <HUDCorners color={GREEN + '30'} size={8} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 }}>
-        <MaterialCommunityIcons name="graph" size={11} color={GREEN} />
+        <MaterialCommunityIcons name="graph-outline" size={11} color={GREEN} />
         <Text style={[stc.hdrTxt, { color: GREEN }]}>KNOWLEDGE</Text>
         <PulseDot color={isConn ? GREEN : DIM} size={5} />
       </View>
-      <View style={{ height: 56, position: 'relative', marginBottom: 4 }}>
-        <Svg width="100%" height={56} viewBox="0 0 56 56">
-          {NET.map((n, i) => NET.slice(i+1).map((m, j) => (
-            <Path key={`${i}-${j}`} d={`M${n.x} ${n.y} L${m.x} ${m.y}`}
-              stroke={GREEN} strokeWidth={0.7} opacity={isConn ? 0.35 : 0.1} />
-          )))}
+
+      {/* Dynamic KB graph */}
+      <View style={{ height: GH + 4, position: 'relative', marginBottom: 4 }}>
+        <Svg width="100%" height={GH + 4} viewBox={`0 0 ${GW} ${GH + 4}`}>
+          {/* Star links: each cat to hub — weighted stroke */}
+          {cats.map((c, i) => (
+            <Path key={`lk${i}`}
+              d={`M${ax(c.rx)} ${ay(c.ry)} L${ax(KB_HUB.rx)} ${ay(KB_HUB.ry)}`}
+              stroke={isConn ? c.color : DIM}
+              strokeWidth={isConn ? 0.8 + c.pct * 3 : 0.35}
+              opacity={isConn ? 0.5 : 0.07}
+            />
+          ))}
+          {/* Cross links for web texture */}
+          {cats.map((a, i) => cats.slice(i + 1).map((b, j) => (
+            <Path key={`xl${i}${j}`}
+              d={`M${ax(a.rx)} ${ay(a.ry)} L${ax(b.rx)} ${ay(b.ry)}`}
+              stroke={isConn ? a.color : DIM}
+              strokeWidth={0.3}
+              opacity={isConn ? 0.15 : 0.04}
+            />
+          )))
+          }
+          {/* Hub circle */}
+          <Circle cx={ax(KB_HUB.rx)} cy={ay(KB_HUB.ry)} r={5.5}
+            fill={isConn ? GREEN + '22' : 'transparent'}
+            stroke={isConn ? GREEN : DIM} strokeWidth={1.2}
+            opacity={isConn ? 0.9 : 0.15}
+          />
+          <Circle cx={ax(KB_HUB.rx)} cy={ay(KB_HUB.ry)} r={2.5}
+            fill={isConn ? GREEN : DIM} opacity={0.85}
+          />
+          {/* Category node circles */}
+          {cats.map((c, i) => (
+            <Circle key={`cn${i}`}
+              cx={ax(c.rx)} cy={ay(c.ry)} r={c.radius}
+              fill={isConn ? c.color + '20' : 'transparent'}
+              stroke={isConn ? c.color : DIM} strokeWidth={1}
+              opacity={isConn ? 0.7 : 0.12}
+            />
+          ))}
         </Svg>
-        {NET.map((n, i) => (
-          <Animated.View key={i} style={{ position: 'absolute', left: n.x - 4, top: n.y - 4, opacity: isConn ? dotA[i] : 0.15 }}>
-            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: GREEN, borderWidth: 1.5, borderColor: SURFACE }} />
+        {/* Animated pulsing overlays — native driver opacity */}
+        {cats.map((c, i) => (
+          <Animated.View key={`an${i}`} style={{
+            position: 'absolute',
+            left: `${c.rx * 100}%`,
+            top: `${c.ry * 100}%`,
+            transform: [{ translateX: -9 }, { translateY: -9 }],
+            opacity: isConn ? pulseAnims[i] : 0.15,
+          }}>
+            <View style={{
+              width: 18, height: 18, borderRadius: 9,
+              backgroundColor: c.color + '22',
+              borderWidth: 1.5, borderColor: c.color + 'BB',
+              alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Text style={{ fontFamily: MONO, fontSize: 5, fontWeight: '900', color: c.color }}>{c.cat}</Text>
+            </View>
           </Animated.View>
         ))}
+        {/* Pulsing hub overlay */}
+        <Animated.View style={{
+          position: 'absolute',
+          left: `${KB_HUB.rx * 100}%`,
+          top: `${KB_HUB.ry * 100}%`,
+          transform: [{ translateX: -7 }, { translateY: -7 }, { scale: hubPulse }],
+          opacity: isConn ? 0.9 : 0.15,
+        }}>
+          <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: GREEN + '28', borderWidth: 2, borderColor: GREEN }} />
+        </Animated.View>
       </View>
+
+      {/* Category pills */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3, marginBottom: 5 }}>
+        {cats.map(c => (
+          <View key={c.cat} style={{
+            flexDirection: 'row', alignItems: 'center', gap: 2,
+            backgroundColor: c.color + '10', borderWidth: 1, borderColor: c.color + '30',
+            borderRadius: 5, paddingHorizontal: 4, paddingVertical: 2,
+          }}>
+            <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: c.color }} />
+            <Text style={{ fontFamily: MONO, fontSize: 6, color: c.color, fontWeight: '900' }}>{c.cat}</Text>
+            <Text style={{ fontFamily: MONO, fontSize: 6, color: c.color + '60' }}>
+              {isConn ? fmtK(c.count) : '—'}
+            </Text>
+          </View>
+        ))}
+      </View>
+
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 5 }}>
         <View style={{ alignItems: 'center' }}>
           <Text style={{ fontFamily: MONO, fontSize: 6.5, color: DIM, fontWeight: '900' }}>NODES</Text>
-          <Text style={{ fontFamily: MONO, fontSize: 11, color: isConn ? GREEN : DIM, fontWeight: '900' }}>{isConn ? fmtK(nodes) : '—'}</Text>
+          <Text style={{ fontFamily: MONO, fontSize: 11, color: isConn ? GREEN : DIM, fontWeight: '900' }}>
+            {isConn ? fmtK(nodes) : '—'}
+          </Text>
         </View>
         <View style={{ alignItems: 'center' }}>
           <Text style={{ fontFamily: MONO, fontSize: 6.5, color: DIM, fontWeight: '900' }}>RELATIONS</Text>
-          <Text style={{ fontFamily: MONO, fontSize: 11, color: isConn ? TEAL : DIM, fontWeight: '900' }}>{isConn ? fmtK(rels) : '—'}</Text>
+          <Text style={{ fontFamily: MONO, fontSize: 11, color: isConn ? TEAL : DIM, fontWeight: '900' }}>
+            {isConn ? fmtK(rels) : '—'}
+          </Text>
         </View>
       </View>
     </View>
@@ -2750,32 +3126,36 @@ function NexusHomeInner() {
           <QuickStartBar goToTab={goToTab} />
           <View style={{ height: 10 }} />
 
-          {/* ── QUICK ACTIONS 2×2 ── */}
-          <QuickActions goToTab={goToTab} onPair={() => setShowQR(true)} />
+          {/* ── NETWORK METRICS BAR — real data first ── */}
+          <NetworkMetricsBar isConn={isConn} latency={latency} cpu={metrics.cpu} disk={metrics.disk} />
           <View style={{ height: 12 }} />
-          <TipsTicker color={isConn ? CYAN : MID} />
-          <View style={{ height: 12 }} />
-          <CircuitDivider color={isConn ? CYAN : DIM} />
 
           {/* ── SYSTEM TELEMETRY 2×2 ── */}
           <SystemTelemetryGrid isConn={isConn} addr={addr} cpu={metrics.cpu} ram={metrics.ram} disk={metrics.disk} kbCount={kbCount} />
-          <View style={{ height: 12 }} />
+          <View style={{ height: 10 }} />
+          <CircuitDivider color={isConn ? CYAN : DIM} />
+
+          {/* ── LIVE GAUGES — hero metrics ── */}
+          <LiveGauges isConn={isConn} cpu={metrics.cpu} ram={metrics.ram} disk={metrics.disk} cpuH={cpuH} ramH={ramH} diskH={diskH} />
+          <View style={{ height: 10 }} />
           <SpectrumDivider colors={[CYAN, GREEN]} />
+
+          {/* ── QUICK ACTIONS 2×2 — glowing dark icon style ── */}
+          <QuickActions goToTab={goToTab} onPair={() => setShowQR(true)} />
+          <View style={{ height: 12 }} />
+          <TipsTicker color={isConn ? CYAN : MID} />
+          <View style={{ height: 10 }} />
+          <NeuralDivider color={PURPLE} />
+
+          {/* ── INTELLIGENCE GRAPHS ── */}
+          <IntelligenceGraphsSection isConn={isConn} cpu={metrics.cpu} ram={metrics.ram} kbCount={kbCount} scripts={scripts} cpuH={cpuH} ramH={ramH} />
+          <View style={{ height: 10 }} />
+          <CircuitDivider color={PURPLE} />
 
           {/* ── SYSTEM METRICS MINI-CARDS ── */}
           <SystemMetricsGrid isConn={isConn} scripts={scripts} />
           <View style={{ height: 12 }} />
           <PowerDivider color={AMBER} />
-
-          {/* ── LIVE GAUGES ── */}
-          <LiveGauges isConn={isConn} cpu={metrics.cpu} ram={metrics.ram} disk={metrics.disk} cpuH={cpuH} ramH={ramH} diskH={diskH} />
-          <View style={{ height: 12 }} />
-          <NeuralDivider color={PURPLE} />
-
-          {/* ── INTELLIGENCE GRAPHS ── */}
-          <IntelligenceGraphsSection isConn={isConn} cpu={metrics.cpu} ram={metrics.ram} kbCount={kbCount} scripts={scripts} cpuH={cpuH} ramH={ramH} />
-          <View style={{ height: 12 }} />
-          <CircuitDivider color={PURPLE} />
 
           {/* ── AI MEMORY ── */}
           <AIMemoryPanel isConn={isConn} kbCount={kbCount} />
