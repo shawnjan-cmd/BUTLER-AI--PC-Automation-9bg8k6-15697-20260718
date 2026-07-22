@@ -1,22 +1,17 @@
 /**
- * FuturisticTabBar — NEXUS COMMAND DOCK v8.0 BUTLER EDITION
+ * FuturisticTabBar — NEXUS COMMAND DOCK v9.0 CLEAN CARD EDITION
  *
- * ARCHITECTURE FIX:
- *   QuickButlerBar is now rendered as a NORMAL flex child ABOVE the dock —
- *   NOT position:absolute. This eliminates the overlap bug permanently.
- *   The entire component is position:absolute at the bottom, and inside it
- *   we stack: [QuickButlerBar] then [Dock] vertically.
- *
- * VISUAL:
- *   All 10 tabs visible, no scroll.
- *   Butler-robot themed icons. Multi-color signal line.
- *   Active tab: glowing top stripe + tinted bg + pulsing dot.
+ * VISUAL: Clean dark rounded card matching screenshot reference.
+ *   • Dark card with "ALL PAGES" header label
+ *   • Each tab: icon + label, active = rounded square highlight
+ *   • Single cyan top accent line
+ *   • No rainbow, no heavy glow — elegant and professional
  */
 
 import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Platform, Animated,
-  Dimensions,
+  Dimensions, Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -27,9 +22,7 @@ import {
   NexusCoreIcon, ForgeScriptsIcon, ButlerAIIcon, KnowledgeBaseIcon,
   IntelLogsIcon, BuilderIcon, VaultIcon, ConfigIcon, SkinsIcon,
 } from '@/components/ui/NexusTabIcons';
-import Svg, {
-  Path, Circle, Rect, Line, G, Polygon, Defs, LinearGradient, Stop,
-} from 'react-native-svg';
+import Svg, { Path, Circle, Rect, Line, G } from 'react-native-svg';
 
 // ── GLOBAL AI NOTIFICATION STATE ─────────────────────────────────
 let _butlerUnread = false;
@@ -51,10 +44,11 @@ export function clearButlerUnread() {
 (global as any).__clearButlerUnread      = clearButlerUnread;
 
 // ── CONSTANTS ────────────────────────────────────────────────────
-const MONO: any = Platform.OS === 'ios' ? 'Courier' : 'monospace';
-const DOCK_H = 62;   // taller dock for larger icons
-const ICON_S = 22;   // bigger icon size
-const _SW    = Math.max(320, Dimensions.get('window').width);
+const MONO: any  = Platform.OS === 'ios' ? 'Courier' : 'monospace';
+const SANS: any  = Platform.OS === 'ios' ? 'System' : 'sans-serif';
+const DOCK_H     = 68;
+const ICON_S     = 22;
+const _SW        = Math.max(320, Dimensions.get('window').width);
 
 const HIDDEN_TABS = new Set(['onboarding', 'index', 'terminal', 'support']);
 
@@ -72,46 +66,37 @@ const TAB_ALIASES: Record<string, string> = {
 };
 
 const TAB_META: Record<string, { color: string; label: string }> = {
-  nexushome: { color: '#00E5FF', label: 'HOME'  },
-  scripts:   { color: '#CC44FF', label: 'FORGE' },
+  nexushome: { color: '#00E5FF', label: 'Home'  },
+  scripts:   { color: '#CC44FF', label: 'Forge' },
   butler:    { color: '#00FF88', label: 'AI'    },
   knowledge: { color: '#4A9EFF', label: 'KB'    },
-  logs:      { color: '#FFB020', label: 'PC'    },
-  builder:   { color: '#FF6644', label: 'BUILD' },
-  fileshare: { color: '#FF44AA', label: 'NET'   },
-  settings:  { color: '#8888BB', label: 'CFG'   },
-  cosmetic:  { color: '#AA44FF', label: 'SKIN'  },
-  connect:   { color: '#00CCBB', label: 'PAIR'  },
+  logs:      { color: '#FFB020', label: 'Intel' },
+  builder:   { color: '#FF6644', label: 'Build' },
+  fileshare: { color: '#FF44AA', label: 'Vault' },
+  settings:  { color: '#8888BB', label: 'Cfg'   },
+  cosmetic:  { color: '#AA44FF', label: 'Skins' },
+  connect:   { color: '#00CCBB', label: 'Pair'  },
 };
 
-function getColor(r: string) { return TAB_META[r]?.color ?? '#00E5FF'; }
-function getLabel(r: string) { return TAB_META[r]?.label ?? r.slice(0, 4).toUpperCase(); }
+function getColor(r: string)  { return TAB_META[r]?.color ?? '#00E5FF'; }
+function getLabel(r: string)  { return TAB_META[r]?.label ?? r.slice(0, 5); }
 
-// ── BUTLER-ROBOT-THEMED ICONS — all custom SVG ────────────────────
-// Each tab has a unique robot/butler design element
-
-// PAIR / CONNECT — QR Scanner robot eye
+// ── PAIR ICON ────────────────────────────────────────────────────
 function PairIcon({ size = 17, color = '#00CCBB', active = false }) {
-  const s = size, cx = s / 2, cy = s / 2;
+  const s = size; const cx = s / 2; const cy = s / 2;
   return (
     <Svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}>
-      {/* Outer QR frame corners */}
-      <Rect x={cx - s*0.42} y={cy - s*0.42} width={s*0.26} height={s*0.26} rx={s*0.04}
+      <Rect x={cx-s*0.42} y={cy-s*0.42} width={s*0.26} height={s*0.26} rx={s*0.04}
         stroke={color} strokeWidth={s*0.06} fill="none" />
-      <Rect x={cx + s*0.16} y={cy - s*0.42} width={s*0.26} height={s*0.26} rx={s*0.04}
+      <Rect x={cx+s*0.16} y={cy-s*0.42} width={s*0.26} height={s*0.26} rx={s*0.04}
         stroke={color} strokeWidth={s*0.06} fill="none" />
-      <Rect x={cx - s*0.42} y={cy + s*0.16} width={s*0.26} height={s*0.26} rx={s*0.04}
+      <Rect x={cx-s*0.42} y={cy+s*0.16} width={s*0.26} height={s*0.26} rx={s*0.04}
         stroke={color} strokeWidth={s*0.06} fill="none" />
-      {/* Inner squares */}
-      <Rect x={cx - s*0.30} y={cy - s*0.30} width={s*0.12} height={s*0.12} rx={s*0.02} fill={color} opacity={0.8} />
-      <Rect x={cx + s*0.18} y={cy - s*0.30} width={s*0.12} height={s*0.12} rx={s*0.02} fill={color} opacity={0.8} />
-      <Rect x={cx - s*0.30} y={cy + s*0.18} width={s*0.12} height={s*0.12} rx={s*0.02} fill={color} opacity={0.8} />
-      {/* Bottom right: robot eye instead of QR */}
-      <Circle cx={cx + s*0.28} cy={cy + s*0.28} r={s*0.16} stroke={color} strokeWidth={s*0.05} fill="none" />
-      <Circle cx={cx + s*0.28} cy={cy + s*0.28} r={s*0.06} fill={color} opacity={active ? 1 : 0.6} />
-      {/* Scan line */}
-      {active && <Line x1={cx - s*0.46} y1={cy - s*0.02} x2={cx + s*0.46} y2={cy - s*0.02}
-        stroke={color} strokeWidth={s*0.03} opacity={0.5} />}
+      <Rect x={cx-s*0.30} y={cy-s*0.30} width={s*0.12} height={s*0.12} rx={s*0.02} fill={color} opacity={0.8} />
+      <Rect x={cx+s*0.18} y={cy-s*0.30} width={s*0.12} height={s*0.12} rx={s*0.02} fill={color} opacity={0.8} />
+      <Rect x={cx-s*0.30} y={cy+s*0.18} width={s*0.12} height={s*0.12} rx={s*0.02} fill={color} opacity={0.8} />
+      <Circle cx={cx+s*0.28} cy={cy+s*0.28} r={s*0.16} stroke={color} strokeWidth={s*0.05} fill="none" />
+      <Circle cx={cx+s*0.28} cy={cy+s*0.28} r={s*0.06} fill={color} opacity={active ? 1 : 0.6} />
     </Svg>
   );
 }
@@ -133,8 +118,8 @@ function renderIcon(routeName: string, color: string, active: boolean) {
   }
 }
 
-// ── TAB PILL ─────────────────────────────────────────────────────
-interface TabPillProps {
+// ── TAB ITEM ─────────────────────────────────────────────────────
+interface TabItemProps {
   routeName: string;
   isFocused: boolean;
   label: string;
@@ -142,14 +127,14 @@ interface TabPillProps {
   onPress: () => void;
 }
 
-const TabPill = React.memo(function TabPill({ routeName, isFocused, label, flex, onPress }: TabPillProps) {
-  const color      = getColor(routeName);
+const TabItem = React.memo(function TabItem({ routeName, isFocused, label, flex, onPress }: TabItemProps) {
+  const color = getColor(routeName);
   const shortLabel = getLabel(routeName);
 
-  const scaleA  = useRef(new Animated.Value(isFocused ? 1.05 : 1)).current;
-  const opA     = useRef(new Animated.Value(isFocused ? 1 : 0.52)).current;
-  const dotA    = useRef(new Animated.Value(0.4)).current;
-  const redDotA = useRef(new Animated.Value(0.5)).current;
+  const scaleA = useRef(new Animated.Value(isFocused ? 1 : 1)).current;
+  const bgA    = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
+  const textA  = useRef(new Animated.Value(isFocused ? 1 : 0.45)).current;
+
   const [hasUnread, setHasUnread] = useState(_butlerUnread && routeName === 'butler');
 
   useEffect(() => {
@@ -165,102 +150,63 @@ const TabPill = React.memo(function TabPill({ routeName, isFocused, label, flex,
 
   useEffect(() => {
     Animated.parallel([
-      Animated.spring(scaleA, { toValue: isFocused ? 1.05 : 1, useNativeDriver: true, speed: 35, bounciness: 12 }),
-      Animated.timing(opA,    { toValue: isFocused ? 1 : 0.52,  useNativeDriver: true, duration: 170 }),
+      Animated.spring(scaleA, { toValue: isFocused ? 1.04 : 1, useNativeDriver: true, speed: 40, bounciness: 10 }),
+      Animated.timing(bgA,   { toValue: isFocused ? 1 : 0, duration: 200, useNativeDriver: false }),
+      Animated.timing(textA, { toValue: isFocused ? 1 : 0.45, duration: 180, useNativeDriver: false }),
     ]).start();
   }, [isFocused]);
 
-  useEffect(() => {
-    if (!isFocused) return;
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(dotA, { toValue: 1,   duration: 900, useNativeDriver: true }),
-      Animated.timing(dotA, { toValue: 0.1, duration: 900, useNativeDriver: true }),
-    ]));
-    loop.start(); return () => loop.stop();
-  }, [isFocused]);
-
-  useEffect(() => {
-    if (!hasUnread) return;
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(redDotA, { toValue: 1,   duration: 380, useNativeDriver: true }),
-      Animated.timing(redDotA, { toValue: 0.2, duration: 380, useNativeDriver: true }),
-    ]));
-    loop.start(); return () => loop.stop();
-  }, [hasUnread]);
+  const bgColor    = bgA.interpolate({ inputRange: [0, 1], outputRange: ['rgba(0,0,0,0)', color + '22'] });
+  const borderColor= bgA.interpolate({ inputRange: [0, 1], outputRange: ['rgba(0,0,0,0)', color + '55'] });
+  const labelColor = textA.interpolate({ inputRange: [0, 1], outputRange: [color + '70', color] });
 
   return (
     <TouchableOpacity
       onPress={() => { haptics.light(); onPress(); }}
-      activeOpacity={0.8}
-      style={{ flex, alignItems: 'center', justifyContent: 'center' }}
+      activeOpacity={0.75}
+      style={{ flex, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}
       accessibilityRole="button"
       accessibilityState={{ selected: isFocused }}
-      accessibilityLabel={label}
     >
-      <Animated.View style={[
-        tp.inner,
-        isFocused
-          ? { backgroundColor: color + '1A', borderColor: color + '65' }
-          : { backgroundColor: 'transparent', borderColor: 'transparent' },
-        { transform: [{ scale: scaleA }], opacity: opA },
-      ]}>
-        {/* Glowing top stripe */}
-        {isFocused && (
-          <View style={[tp.stripe, {
-            backgroundColor: color,
-            shadowColor: color,
-            shadowOpacity: 0.9, shadowRadius: 7,
-            shadowOffset: { width: 0, height: 0 },
-          }]} />
-        )}
-
-        {/* Icon */}
-        <View style={tp.iconWrap}>
-          {renderIcon(routeName, color, isFocused)}
+      <Animated.View style={{ transform: [{ scale: scaleA }], alignItems: 'center' }}>
+        <Animated.View style={[ti.iconBox, { backgroundColor: bgColor, borderColor }]}>
+          {/* Active indicator dot above icon */}
           {isFocused && (
-            <Animated.View style={[tp.activeDot, { backgroundColor: color, opacity: dotA }]} />
+            <View style={[ti.activeDot, { backgroundColor: color }]} />
           )}
+          {renderIcon(routeName, isFocused ? color : color + '70', isFocused)}
+          {/* Unread badge */}
           {hasUnread && !isFocused && (
-            <Animated.View style={[tp.unreadDot, { opacity: redDotA }]} />
+            <View style={ti.unreadBadge} />
           )}
-        </View>
-
-        {/* Short label */}
-        <Text style={[tp.label, { color: isFocused ? color : color + '60' }]} numberOfLines={1}>
+        </Animated.View>
+        <Animated.Text style={[ti.label, { color: labelColor }]} numberOfLines={1}>
           {shortLabel}
-        </Text>
+        </Animated.Text>
       </Animated.View>
     </TouchableOpacity>
   );
 });
 
-const tp = StyleSheet.create({
-  inner: {
+const ti = StyleSheet.create({
+  iconBox: {
+    width: 44, height: 36, borderRadius: 10, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
-    paddingTop: 6, paddingBottom: 4, paddingHorizontal: 2,
-    borderRadius: 11, borderWidth: 1.5,
-    minWidth: 32, width: '100%',
-    position: 'relative', overflow: 'hidden',
-  },
-  stripe: {
-    position: 'absolute', top: 0, left: 2, right: 2,
-    height: 3, borderRadius: 1.5,
-  },
-  iconWrap: {
-    position: 'relative', alignItems: 'center', justifyContent: 'center',
-    marginBottom: 2,
+    marginBottom: 3, position: 'relative',
   },
   activeDot: {
-    position: 'absolute', bottom: -4, width: 4, height: 4, borderRadius: 2,
+    position: 'absolute', top: -1, left: '50%', marginLeft: -10,
+    width: 20, height: 2.5, borderRadius: 1.5,
   },
-  unreadDot: {
-    position: 'absolute', top: -3, right: -3,
-    width: 9, height: 9, borderRadius: 4.5,
-    backgroundColor: '#FF3344', borderWidth: 1.5, borderColor: '#010508',
+  unreadBadge: {
+    position: 'absolute', top: 2, right: 2,
+    width: 8, height: 8, borderRadius: 4,
+    backgroundColor: '#FF3344', borderWidth: 1.5, borderColor: '#020912',
   },
   label: {
-    fontFamily: MONO, fontSize: 7, fontWeight: '900', letterSpacing: 0.3,
-    textAlign: 'center', includeFontPadding: false,
+    fontFamily: SANS, fontSize: 9.5, fontWeight: '600',
+    letterSpacing: 0.2, textAlign: 'center',
+    includeFontPadding: false,
   },
 });
 
@@ -273,7 +219,6 @@ export default function FuturisticTabBar(
   const { state, descriptors, navigation } = props;
   const insets = useSafeAreaInsets();
 
-  // Wire global tab switch
   useEffect(() => {
     (global as any).__butlerSwitchTab = (tab: string) => {
       const route = TAB_ALIASES[String(tab || '').toLowerCase()] || tab;
@@ -288,9 +233,9 @@ export default function FuturisticTabBar(
       .filter(({ route }) => {
         if (HIDDEN_TABS.has(route.name)) return false;
         const opts = descriptors[route.key].options as any;
-        if (opts?.href === null)                                        return false;
-        if (opts?.tabBarButton === null)                                return false;
-        if ((opts?.tabBarItemStyle as any)?.display === 'none')        return false;
+        if (opts?.href === null)                                 return false;
+        if (opts?.tabBarButton === null)                         return false;
+        if ((opts?.tabBarItemStyle as any)?.display === 'none') return false;
         return true;
       }),
     [state.routes, descriptors],
@@ -298,41 +243,32 @@ export default function FuturisticTabBar(
 
   const activeRouteName = visibleRoutes.find(r => r.idx === state.index)?.route?.name ?? 'nexushome';
   const isOnButlerTab   = activeRouteName === 'butler';
-
-  // Bottom safe area padding
-  const bottomPad = Math.max(insets.bottom, Platform.OS === 'android' ? 6 : 0);
-
-  // Multi-color signal stripe from visible tabs
-  const signalColors = visibleRoutes.map(({ route }) => getColor(route.name));
+  const activeColor     = getColor(activeRouteName);
+  const bottomPad       = Math.max(insets.bottom, Platform.OS === 'android' ? 6 : 0);
 
   return (
-    /**
-     * ROOT LAYOUT:
-     *   position:absolute covers the bottom area.
-     *   Inner is a COLUMN:  [QuickButlerBar] → [Dock]
-     *   This is the key fix — the bar is a SIBLING not an absolute overlay.
-     */
-    <View
-      pointerEvents="box-none"
-      style={[st.root, { paddingBottom: bottomPad }]}
-    >
-      {/* ── QUICK BUTLER BAR — renders ABOVE the dock ── */}
-      {!isOnButlerTab ? (
+    <View pointerEvents="box-none" style={[st.root, { paddingBottom: bottomPad }]}>
+      {/* ── QUICK BUTLER BAR above dock ── */}
+      {!isOnButlerTab && (
         <View style={st.barWrapper} pointerEvents="box-none">
           <QuickButlerBar />
         </View>
-      ) : null}
+      )}
 
-      {/* ── DROP SHADOW PLATE ── */}
-      <View pointerEvents="none" style={st.shadowPlate} />
+      {/* ── DOCK CARD ── */}
+      <View style={st.card}>
+        {/* Top accent line — active tab color */}
+        <View style={[st.topAccent, { backgroundColor: activeColor }]} />
 
-      {/* ── DOCK ── */}
-      <View style={st.dock}>
+        {/* Header row */}
+        <View style={st.cardHeader}>
+          <View style={[st.headerDot, { backgroundColor: activeColor }]} />
+          <Text style={[st.headerLabel, { color: activeColor + 'A0' }]}>ALL PAGES</Text>
+          <View style={{ flex: 1 }} />
+          <Text style={st.pageCount}>{visibleRoutes.length}</Text>
+        </View>
 
-        {/* Cyan signal line — single color, no rainbow */}
-        <View pointerEvents="none" style={[st.signalLine, { backgroundColor: 'rgba(0,200,224,0.55)' }]} />
-
-        {/* Tab row */}
+        {/* Tabs */}
         <View style={st.tabRow}>
           {visibleRoutes.map(({ route, idx }) => {
             const { options } = descriptors[route.key];
@@ -344,7 +280,7 @@ export default function FuturisticTabBar(
               if (!isFocused && !ev.defaultPrevented) navigation.navigate(route.name as never);
             };
             return (
-              <TabPill
+              <TabItem
                 key={route.key}
                 routeName={route.name}
                 isFocused={isFocused}
@@ -361,68 +297,63 @@ export default function FuturisticTabBar(
 }
 
 const st = StyleSheet.create({
-  // The absolute root — covers only what it needs
   root: {
     position: 'absolute',
     left: 0, right: 0, bottom: 0,
-    flexDirection: 'column',   // ← key: stack vertically
+    flexDirection: 'column',
     justifyContent: 'flex-end',
     backgroundColor: 'transparent',
   },
-
-  // Wrapper for QuickButlerBar — sits above the dock naturally
   barWrapper: {
     width: '100%',
-    // Small gap between bar and dock
-    marginBottom: 3,
+    marginBottom: 4,
   },
-
-  shadowPlate: {
-    position: 'absolute',
-    left: 4, right: 4,
-    // Covers just the dock height
-    bottom: 0, height: 64,
-    borderRadius: 16,
-    backgroundColor: '#000',
-    opacity: 0.78,
+  card: {
+    marginHorizontal: 10,
+    marginBottom: 6,
+    borderRadius: 18,
+    backgroundColor: '#020D1A',
+    borderWidth: 1.5,
+    borderColor: 'rgba(0,200,224,0.18)',
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: -6 },
-        shadowOpacity: 0.85,
-        shadowRadius: 18,
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.9,
+        shadowRadius: 16,
       },
       android: { elevation: 20 },
       default: {},
     }),
   },
-
-  dock: {
-    height: DOCK_H,
-    marginHorizontal: 4,
-    borderRadius: 14,
-    overflow: 'hidden',
-    backgroundColor: '#020912',
-    borderWidth: 1.5,
-    borderColor: 'rgba(0,200,224,0.20)',
-    ...Platform.select({ android: { elevation: 16 }, default: {} }),
-  },
-
-  signalLine: {
+  topAccent: {
     height: 2.5,
-    position: 'absolute',
-    top: 0, left: 0, right: 0,
-    zIndex: 3,
+    opacity: 0.7,
   },
-
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingTop: 6,
+    paddingBottom: 2,
+    gap: 6,
+  },
+  headerDot: {
+    width: 6, height: 6, borderRadius: 3,
+  },
+  headerLabel: {
+    fontFamily: MONO, fontSize: 8, fontWeight: '900', letterSpacing: 1.2,
+  },
+  pageCount: {
+    fontFamily: MONO, fontSize: 8, color: 'rgba(255,255,255,0.2)',
+    fontWeight: '700',
+  },
   tabRow: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingHorizontal: 3,
-    paddingTop: 3,   // below signal line
-    paddingBottom: 2,
-    marginTop: 2.5,
+    paddingHorizontal: 4,
+    paddingBottom: 6,
   },
 });

@@ -414,27 +414,75 @@ const hdr = StyleSheet.create({
 });
 
 // ══════════════════════════════════════════════════════════════════
-// MINI AI CHAT BAR
+// MINI AI CHAT BAR — EXPANDABLE NEXUS TERMINAL
+// Collapsed: terminal prompt bar · Expanded: full command center
 // ══════════════════════════════════════════════════════════════════
-function MiniChatBar({ isConn }: { isConn: boolean }) {
-  const [text, setText] = useState('');
-  const [sending, setSending] = useState(false);
-  const [reply, setReply] = useState('');
-  const borderA = useRef(new Animated.Value(0)).current;
-  const glowA   = useRef(new Animated.Value(0.25)).current;
+const QUICK_CMDS = [
+  { icon: 'monitor-dashboard', label: 'Stats',    prompt: 'Show CPU, RAM, disk and top processes'       , color: CYAN   },
+  { icon: 'broom',             label: 'Clean',    prompt: 'Clean all temp files and show freed space'   , color: GREEN  },
+  { icon: 'network-outline',   label: 'Net',      prompt: 'Show network interfaces and IP addresses'    , color: AMBER  },
+  { icon: 'code-braces',       label: 'Script',   prompt: 'Write a Python script for '                  , color: PURPLE },
+  { icon: 'eye-circle-outline',label: 'Procs',    prompt: 'List top 8 CPU-consuming processes'          , color: TEAL   },
+  { icon: 'shield-check',      label: 'Security', prompt: 'Run a quick security audit on my PC'         , color: RED    },
+];
 
+function MiniChatBar({ isConn }: { isConn: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const [text,     setText]     = useState('');
+  const [sending,  setSending]  = useState(false);
+  const [reply,    setReply]    = useState('');
+  const [cursor,   setCursor]   = useState(true);
+
+  // Animation values
+  const expandA   = useRef(new Animated.Value(0)).current;
+  const scaleA    = useRef(new Animated.Value(1)).current;
+  const glowA     = useRef(new Animated.Value(0.3)).current;
+  const cursorA   = useRef(new Animated.Value(1)).current;
+  const shimA     = useRef(new Animated.Value(-100)).current;
+
+  // Cursor blink
   useEffect(() => {
     const loop = Animated.loop(Animated.sequence([
-      Animated.timing(glowA, { toValue: 0.9,  duration: 1800, useNativeDriver: false }),
-      Animated.timing(glowA, { toValue: 0.15, duration: 1800, useNativeDriver: false }),
+      Animated.timing(cursorA, { toValue: 0, duration: 500, useNativeDriver: true }),
+      Animated.timing(cursorA, { toValue: 1, duration: 500, useNativeDriver: true }),
     ]));
     loop.start(); return () => loop.stop();
   }, []);
 
-  const send = async () => {
-    const t = text.trim();
+  // Glow pulse
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(glowA, { toValue: 1,   duration: 2000, useNativeDriver: false }),
+      Animated.timing(glowA, { toValue: 0.2, duration: 2000, useNativeDriver: false }),
+    ]));
+    loop.start(); return () => loop.stop();
+  }, []);
+
+  // Shimmer sweep
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(shimA, { toValue: 400, duration: 2200, useNativeDriver: false }),
+      Animated.timing(shimA, { toValue: -100, duration: 0, useNativeDriver: false }),
+      Animated.delay(3500),
+    ]));
+    loop.start(); return () => loop.stop();
+  }, []);
+
+  const toggleExpand = () => {
+    haptics.medium();
+    const toVal = expanded ? 0 : 1;
+    setExpanded(!expanded);
+    Animated.parallel([
+      Animated.spring(expandA, { toValue: toVal, tension: 80, friction: 12, useNativeDriver: false }),
+      Animated.spring(scaleA,  { toValue: toVal === 1 ? 1.01 : 1, tension: 160, friction: 12, useNativeDriver: true }),
+    ]).start();
+    if (!expanded) { /* Opening — clear reply */ setReply(''); }
+  };
+
+  const send = async (prompt?: string) => {
+    const t = (prompt || text).trim();
     if (!t || sending) return;
-    haptics.medium(); setSending(true); setText(''); setReply('');
+    haptics.heavy(); setSending(true); setText(''); setReply('');
     try {
       if (isConn) {
         const ip = serverConnection.getIP(), port = serverConnection.getPort();
@@ -450,108 +498,204 @@ function MiniChatBar({ isConn }: { isConn: boolean }) {
         if (res.ok) {
           const d = await res.json();
           const r = d.reply || d.content || d.message || d.response || '';
-          setReply(r.slice(0, 180) || 'Done.');
+          setReply(r.slice(0, 220) || 'Done.');
           haptics.success();
-        } else throw new Error(`Status ${res.status}`);
+        } else throw new Error(`HTTP ${res.status}`);
       } else {
         const lc = t.toLowerCase();
         const OFFLINE = [
-          { test: /hi|hello|hey/, r: 'Hello! Connect your PC via QR to unlock full AI responses.' },
-          { test: /help|what can/, r: 'I can run Python scripts, monitor your PC, manage files, and chat via local Ollama AI.' },
-          { test: /script|python|code/, r: 'Tap SCRIPTS tab to browse 250+ automation scripts.' },
-          { test: /pair|connect|qr/, r: 'Run butler_server.py on your PC, then tap PAIR PC at the top.' },
-          { test: /privacy|cloud/, r: 'Zero cloud. Everything stays on your local network.' },
+          { test: /hi|hello|hey/, r: 'Hello! Connect your PC via QR to unlock full AI.' },
+          { test: /help|what can/, r: 'I run Python scripts, monitor your PC, chat via local Ollama AI — all 100% local.' },
+          { test: /script|python|code/, r: 'Tap FORGE tab to browse 250+ automation scripts.' },
+          { test: /pair|connect|qr/, r: 'Run butler_server.py then tap PAIR PC at the top.' },
+          { test: /privacy|cloud/, r: 'Zero cloud. Everything stays on your local LAN.' },
         ];
         const match = OFFLINE.find(o => o.test.test(lc));
         setReply(match?.r ?? 'Pair your PC to unlock full AI responses.');
         haptics.success();
       }
     } catch (e: any) {
-      setReply(`Error: ${e?.message?.slice(0, 60) || 'Failed'}`);
+      setReply(`Error: ${e?.message?.slice(0, 70) || 'Request failed'}`);
     } finally { setSending(false); }
   };
 
-  const borderColor = borderA.interpolate({ inputRange: [0, 1], outputRange: [CYAN + '28', CYAN + 'AA'] });
-  const glowColor   = glowA.interpolate({ inputRange: [0, 1], outputRange: [CYAN + '0A', CYAN + '1C'] });
+  const openFullChat = () => {
+    haptics.medium();
+    (global as any).__butlerSwitchTab?.('butler');
+  };
+
+  // Animated heights
+  const expandedH = expandA.interpolate({ inputRange: [0,1], outputRange: [0, reply ? 230 : 180] });
+  const connColor = isConn ? GREEN : AMBER;
+  const borderGlow = glowA.interpolate({ inputRange: [0,1], outputRange: [CYAN + '30', CYAN + '80'] });
 
   return (
-    <View style={chat.root}>
-      <View style={chat.labelBar}>
-        <MaterialCommunityIcons name="robot-happy-outline" size={11} color={CYAN + '80'} />
-        <Text style={chat.labelTxt}>BUTLER AI  ·  LOCAL MODEL  ·  ZERO CLOUD</Text>
-        <PulseDot color={isConn ? GREEN : AMBER} size={5} />
-        <Text style={[chat.labelTxt, { color: isConn ? GREEN : AMBER }]}>{isConn ? 'ONLINE' : 'OFFLINE'}</Text>
+    <Animated.View style={[chat.root, { transform: [{ scale: scaleA }] }]}>
+      {/* ── SHIMMER OVERLAY ── */}
+      <Animated.View
+        pointerEvents="none"
+        style={[chat.shimmer, { left: shimA as any }]}
+      />
+
+      {/* ── COLLAPSED BAR (always visible) ── */}
+      <Pressable onPress={toggleExpand} style={({ pressed }) => [chat.collapsedBar, pressed && { opacity: 0.88 }]}>
+        {/* Left: robot icon + terminal prompt */}
+        <View style={chat.promptLeft}>
+          <View style={[chat.botIcon, { borderColor: connColor + '55', backgroundColor: connColor + '10' }]}>
+            <MaterialCommunityIcons name="robot-happy-outline" size={14} color={connColor} />
+            <View style={[chat.connOrb, { backgroundColor: connColor }]} />
+          </View>
+          <Text style={chat.promptPrefix}>$&gt;</Text>
+          {sending ? (
+            <ActivityIndicator size="small" color={CYAN} style={{ marginLeft: 4 }} />
+          ) : (
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', overflow: 'hidden' }}>
+              <Text style={chat.promptText} numberOfLines={1}>
+                {text.length > 0 ? text : 'run command or ask butler...'}
+              </Text>
+              {!expanded && (
+                <Animated.Text style={[chat.cursorChar, { opacity: cursorA }]}>▊</Animated.Text>
+              )}
+            </View>
+          )}
+        </View>
+        {/* Right: status + expand chevron */}
+        <View style={chat.promptRight}>
+          <View style={chat.statusRow}>
+            <PulseDot color={connColor} size={5} />
+            <Text style={[chat.statusLabel, { color: connColor }]}>{isConn ? 'ONLINE' : 'OFFLINE'}</Text>
+          </View>
+          <TouchableOpacity onPress={openFullChat} hitSlop={{ top:8,bottom:8,left:8,right:8 }} activeOpacity={0.8}
+            style={[chat.openChatBtn, { borderColor: PURPLE + '50', backgroundColor: PURPLE + '12' }]}>
+            <Text style={{ fontFamily: MONO, fontSize: 8, fontWeight: '900', color: PURPLE }}>FULL</Text>
+          </TouchableOpacity>
+          <MaterialIcons name={expanded ? 'expand-less' : 'expand-more'} size={16} color={CYAN + '80'} />
+        </View>
+      </Pressable>
+
+      {/* ── META BAR (under prompt) ── */}
+      <View style={chat.metaBar}>
+        <Text style={chat.metaTxt}>BUTLER_AI</Text>
+        <View style={chat.metaDot} />
+        <Text style={chat.metaTxt}>LOCAL_LLM</Text>
+        <View style={chat.metaDot} />
+        <Text style={chat.metaTxt}>ZERO_CLOUD</Text>
+        <View style={chat.metaDot} />
+        <Text style={chat.metaTxt}>AES-256</Text>
+        <View style={{ flex: 1 }} />
+        <TouchableOpacity onPress={openFullChat} activeOpacity={0.8}>
+          <Text style={{ fontFamily: MONO, fontSize: 8, color: CYAN + '80', fontWeight: '700', letterSpacing: 0.5 }}>OPEN_CHAT {'>'}</Text>
+        </TouchableOpacity>
       </View>
-      <View style={chat.inputRow}>
-        <Animated.View style={[chat.inputWrap, { borderColor, backgroundColor: glowColor }]}>
-          <Text style={chat.cursor}>Ψ</Text>
+
+      {/* ── EXPANDED SECTION ── */}
+      <Animated.View style={[chat.expandBody, { maxHeight: expandedH, overflow: 'hidden' }]}>
+        {/* Input row */}
+        <Animated.View style={[chat.inputRow, { borderColor: borderGlow }]}>
+          <Text style={chat.inputPrompt}>$&gt;</Text>
           <TextInput
             value={text}
-            onChangeText={t => { setText(t); Animated.timing(borderA, { toValue: t.length > 0 ? 1 : 0, duration: 180, useNativeDriver: false }).start(); }}
+            onChangeText={setText}
             placeholder={isConn ? 'Ask Butler AI anything...' : 'Ask anything (pair PC for full AI)...'}
             placeholderTextColor={DIM}
             style={chat.input}
             returnKeyType="send"
-            onSubmitEditing={send}
+            onSubmitEditing={() => send()}
             blurOnSubmit={false}
             editable={!sending}
-            maxLength={400}
+            maxLength={500}
+            autoFocus={expanded}
           />
-          {text.length > 0 && (
-            <Text style={[chat.charCount, { color: CYAN + '60' }]}>{text.length}</Text>
+          {text.trim().length > 0 && (
+            <TouchableOpacity onPress={() => send()} activeOpacity={0.85}
+              style={[chat.sendBtn, { backgroundColor: CYAN }]}>
+              {sending
+                ? <ActivityIndicator size="small" color={BG} />
+                : <MaterialIcons name="send" size={16} color={BG} />}
+            </TouchableOpacity>
           )}
         </Animated.View>
-        <TouchableOpacity onPress={send} disabled={!text.trim() || sending} activeOpacity={0.82}
-          style={[chat.sendBtn, { backgroundColor: text.trim() && !sending ? CYAN : DIM + '60', borderColor: text.trim() ? CYAN + '60' : 'transparent' }]}>
-          {sending
-            ? <ActivityIndicator size="small" color={text.trim() ? BG : MID} />
-            : <MaterialIcons name="send" size={17} color={text.trim() ? BG : MID} />
-          }
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => { haptics.light(); (global as any).__butlerSwitchTab?.('butler'); }} activeOpacity={0.8}
-          style={[chat.moreBtn, { borderColor: PURPLE + '45', backgroundColor: PURPLE + '0C' }]}>
-          <MaterialCommunityIcons name="robot-happy-outline" size={16} color={PURPLE} />
-        </TouchableOpacity>
-      </View>
-      {!!reply && (
-        <Pressable onPress={() => setReply('')} style={chat.replyBubble}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-            <View style={[chat.replyIcon, { backgroundColor: CYAN + '14', borderColor: CYAN + '40' }]}>
-              <MaterialCommunityIcons name="robot-happy" size={12} color={CYAN} />
+
+        {/* Reply bubble */}
+        {!!reply && (
+          <Pressable onPress={() => setReply('')} style={chat.replyBubble}>
+            <View style={chat.replyInner}>
+              <View style={[chat.replyIcon, { borderColor: CYAN + '50', backgroundColor: CYAN + '10' }]}>
+                <MaterialCommunityIcons name="robot-happy" size={12} color={CYAN} />
+              </View>
+              <Text style={chat.replyTxt} numberOfLines={4}>{reply}</Text>
+              <MaterialIcons name="close" size={12} color={DIM} />
             </View>
-            <Text style={chat.replyTxt} numberOfLines={3}>{reply}</Text>
-            <MaterialIcons name="close" size={11} color={DIM} />
-          </View>
-        </Pressable>
-      )}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 7, paddingHorizontal: 1, paddingBottom: 2 }}>
-        {['System stats', 'Clean temp files', 'Show top procs', 'Network info', 'Disk usage'].map(c => (
-          <TouchableOpacity key={c} onPress={() => { haptics.light(); setText(c); }} activeOpacity={0.8}
-            style={[chat.chip, { borderColor: CYAN + '30', backgroundColor: CYAN + '08' }]}>
-            <Text style={[chat.chipTxt, { color: CYAN + 'BB' }]}>{c}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
+          </Pressable>
+        )}
+
+        {/* Quick command chips */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 7, paddingVertical: 8, paddingHorizontal: 2 }}>
+          {QUICK_CMDS.map((c, i) => (
+            <TouchableOpacity key={i} onPress={() => { haptics.light(); send(c.prompt); }} activeOpacity={0.8}
+              style={[chat.chip, { borderColor: c.color + '45', backgroundColor: c.color + '0E' }]}>
+              <MaterialCommunityIcons name={c.icon as any} size={12} color={c.color} />
+              <Text style={[chat.chipTxt, { color: c.color }]}>{c.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </Animated.View>
+    </Animated.View>
   );
 }
 const chat = StyleSheet.create({
-  root:        { backgroundColor: SURF3, borderBottomWidth: 1, borderBottomColor: CYAN + '18', paddingHorizontal: PAD, paddingTop: 9, paddingBottom: 10, gap: 9 },
-  labelBar:    { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  labelTxt:    { fontFamily: MONO, fontSize: 8.5, color: MID, letterSpacing: 0.5, fontWeight: '700' },
-  inputRow:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  inputWrap:   { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1.5, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 9, minHeight: 46 },
-  cursor:      { fontSize: 15, color: CYAN + '80', fontFamily: MONO, fontWeight: '900', marginTop: -1 },
-  input:       { flex: 1, fontFamily: MONO, fontSize: 13, color: TEXT, padding: 0 },
-  charCount:   { fontFamily: MONO, fontSize: 9, flexShrink: 0 },
-  sendBtn:     { width: 46, height: 46, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  moreBtn:     { width: 46, height: 46, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  replyBubble: { backgroundColor: SURFACE, borderRadius: 12, borderWidth: 1, borderColor: CYAN + '28', padding: 10 },
-  replyIcon:   { width: 24, height: 24, borderRadius: 7, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  replyTxt:    { fontFamily: MONO, fontSize: 11.5, color: TEXT, flex: 1, lineHeight: 17 },
-  chip:        { paddingHorizontal: 11, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
-  chipTxt:     { fontFamily: MONO, fontSize: 10, fontWeight: '700' },
+  root: {
+    backgroundColor: SURF3, borderBottomWidth: 1.5, borderBottomColor: CYAN + '25',
+    overflow: 'hidden', position: 'relative',
+  },
+  shimmer: {
+    position: 'absolute', top: 0, bottom: 0, width: 80,
+    backgroundColor: 'rgba(0,200,220,0.05)', zIndex: 0,
+    transform: [{ skewX: '-20deg' }],
+  },
+  collapsedBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4, gap: 8, zIndex: 1,
+  },
+  promptLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  botIcon: {
+    width: 28, height: 28, borderRadius: 9, borderWidth: 1.5,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0, position: 'relative',
+  },
+  connOrb: {
+    position: 'absolute', bottom: 1, right: 1, width: 7, height: 7, borderRadius: 3.5,
+    borderWidth: 1.5, borderColor: SURF3,
+  },
+  promptPrefix: { fontFamily: MONO, fontSize: 13, color: CYAN, fontWeight: '900', flexShrink: 0 },
+  promptText:   { fontFamily: MONO, fontSize: 12, color: TEXT + 'BB', flex: 1, letterSpacing: 0.2 },
+  cursorChar:   { fontFamily: MONO, fontSize: 13, color: CYAN, marginLeft: 2 },
+  promptRight:  { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 },
+  statusRow:    { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  statusLabel:  { fontFamily: MONO, fontSize: 8, fontWeight: '900', letterSpacing: 0.4 },
+  openChatBtn:  { borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
+  metaBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingBottom: 8, zIndex: 1,
+  },
+  metaTxt:  { fontFamily: MONO, fontSize: 8, color: MID + 'A0', letterSpacing: 0.5, fontWeight: '700' },
+  metaDot:  { width: 3, height: 3, borderRadius: 1.5, backgroundColor: DIM },
+  expandBody: {},
+  inputRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: 12, marginBottom: 6,
+    borderWidth: 1.5, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10,
+    backgroundColor: '#060D18',
+  },
+  inputPrompt:{ fontFamily: MONO, fontSize: 13, color: CYAN + '70', fontWeight: '900', flexShrink: 0 },
+  input:      { flex: 1, fontFamily: MONO, fontSize: 13, color: TEXT, padding: 0, minHeight: 20 },
+  sendBtn:    { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  replyBubble:{ marginHorizontal: 12, marginBottom: 8, borderRadius: 12, borderWidth: 1.5, borderColor: CYAN + '30', backgroundColor: SURFACE, padding: 10 },
+  replyInner: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  replyIcon:  { width: 26, height: 26, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  replyTxt:   { fontFamily: MONO, fontSize: 11, color: TEXT, flex: 1, lineHeight: 17 },
+  chip:       { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5 },
+  chipTxt:    { fontFamily: MONO, fontSize: 10, fontWeight: '700' },
 });
 
 // ══════════════════════════════════════════════════════════════════
