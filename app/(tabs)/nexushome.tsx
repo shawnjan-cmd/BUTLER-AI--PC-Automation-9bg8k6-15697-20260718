@@ -2811,23 +2811,29 @@ function QuickNav4({ isConn, onPair, goToTab }: { isConn: boolean; onPair: () =>
               onPressOut={() => po(i)}
               style={{ flex: 1 }}
             >
-              <Animated.View style={[qn4.cell, {
-                backgroundColor: bgCol,
-                borderColor: brCol,
-                borderTopColor: item.color,
-                transform: [{ scale: scales[i] }],
-                ...Platform.select({
+              {/* Outer: native-driver scale only — NO color props here */}
+              <Animated.View style={[
+                qn4.scaleWrap,
+                { transform: [{ scale: scales[i] }] },
+                Platform.select({
                   ios: { shadowColor: item.color, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8 },
                   android: { elevation: 4 },
                 }),
-              }]}>
-                <HUDCorners color={item.color + '25'} size={6} t={1.2} />
-                <View style={[qn4.iconWrap, { backgroundColor: item.color + '18', borderColor: item.color + '50' }]}>
-                  <MaterialCommunityIcons name={item.icon as any} size={26} color={item.color} />
-                </View>
-                <Text style={[qn4.label, { color: item.color + 'CC' }]}>{item.label}</Text>
-                <Text style={qn4.sub} numberOfLines={1}>{item.sub}</Text>
-                <View style={[qn4.bottomLine, { backgroundColor: item.color }]} />
+              ]}>
+                {/* Inner: JS-driver color interpolations only — NO transform here */}
+                <Animated.View style={[qn4.cell, {
+                  backgroundColor: bgCol,
+                  borderColor: brCol,
+                  borderTopColor: item.color,
+                }]}>
+                  <HUDCorners color={item.color + '25'} size={6} t={1.2} />
+                  <View style={[qn4.iconWrap, { backgroundColor: item.color + '18', borderColor: item.color + '50' }]}>
+                    <MaterialCommunityIcons name={item.icon as any} size={26} color={item.color} />
+                  </View>
+                  <Text style={[qn4.label, { color: item.color + 'CC' }]}>{item.label}</Text>
+                  <Text style={qn4.sub} numberOfLines={1}>{item.sub}</Text>
+                  <View style={[qn4.bottomLine, { backgroundColor: item.color }]} />
+                </Animated.View>
               </Animated.View>
             </Pressable>
           );
@@ -2839,6 +2845,8 @@ function QuickNav4({ isConn, onPair, goToTab }: { isConn: boolean; onPair: () =>
 
 const qn4 = StyleSheet.create({
   row:       { flexDirection: 'row', gap: 8 },
+  // scaleWrap: receives ONLY transform (native driver) — no color props ever
+  scaleWrap: { flex: 1 },
   cell:      {
     alignItems: 'center', paddingTop: 18, paddingBottom: 14, gap: 6,
     borderRadius: 16, borderWidth: 1.5, borderTopWidth: 3,
