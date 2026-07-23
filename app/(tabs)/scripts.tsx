@@ -31,6 +31,8 @@ import { loadFavorites, toggleFavorite, removeFavorite, FavoriteScript } from '@
 import { analyzeScript } from '@/services/scriptSafetyGuard';
 import { useCosmetic } from '@/contexts/CosmeticContext';
 import SafeSchedulePanel from '@/components/scripts/SafeSchedulePanel';
+import { useButlerDeferred, useButlerStaggerMount, ButlerSkeleton } from '@/utils/ButlerRenderGuard';
+import { BTLR_L } from '@/utils/ButlerLayoutEngine';
 
 const MONO: any = FONT.mono;
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -1283,6 +1285,10 @@ function ScriptsInner() {
 
   const [mode,         setMode]         = useState<'scripts' | 'library' | 'favorites' | 'schedule'>('scripts');
   const [search,       setSearch]       = useState('');
+  // BUTLER AI: deferred search value — filters only after 200ms of inactivity
+  // This prevents filtering on every keystroke for 250+ scripts.
+  // utils/ButlerRenderGuard.ts — © 2024-2026 Andrej Sladkovic
+  const deferredSearch = useButlerDeferred(search, 200);
   const [category,     setCategory]     = useState('All');
   const [isConn,       setIsConn]       = useState(false);
   const [addr,         setAddr]         = useState('');
@@ -1340,18 +1346,19 @@ function ScriptsInner() {
     return [...sys, ...net, ...fil].slice(0, 8);
   }, []);
 
+  // BUTLER AI: uses deferredSearch so filter only fires after typing pauses
   const allScripts = useMemo(() => PYTHON_AUTOMATION_SCRIPTS.filter(s => {
     if (category !== 'All' && s.category !== category) return false;
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
+    if (!deferredSearch.trim()) return true;
+    const q = deferredSearch.toLowerCase();
     return s.title.toLowerCase().includes(q) || s.description.toLowerCase().includes(q);
-  }), [category, search]);
+  }), [category, deferredSearch]);
 
   const filteredButler = useMemo(() => butlerScripts.filter(s => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
+    if (!deferredSearch.trim()) return true;
+    const q = deferredSearch.toLowerCase();
     return s.title.toLowerCase().includes(q) || s.description.toLowerCase().includes(q);
-  }), [butlerScripts, search]);
+  }), [butlerScripts, deferredSearch]);
 
   const favIds = useMemo(() => new Set(favorites.map(f => f.id)), [favorites]);
   const CATS   = useMemo(() => ['All', ...Array.from(new Set(PYTHON_AUTOMATION_SCRIPTS.map(s => s.category)))].slice(0, 14), []);

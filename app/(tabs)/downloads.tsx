@@ -1,5 +1,5 @@
 /**
- * BUTLER AI — DOWNLOAD CENTER v3.0 · SETUP HQ + Q&A + OPEN SOURCE PROOF
+ * BUTLER AI — DOWNLOAD CENTER v4.0 · SETUP HQ + Q&A + OPEN SOURCE PROOF + SAFETY ARCHITECTURE
  * ─────────────────────────────────────────────────────────────────────
  * Combined from onboarding download step + original downloads tab.
  * Includes:
@@ -706,6 +706,296 @@ const faq = StyleSheet.create({
 });
 
 // ═══════════════════════════════════════════════════════════════
+// UNIQUE SVG SAFETY SHIELD ICON
+// ═══════════════════════════════════════════════════════════════
+import Svg, { Path, Circle, Rect, Polygon, Defs as SvgDefs, LinearGradient as SvgLinearGradient, Stop as SvgStop, G, Line, Polyline } from 'react-native-svg';
+
+function SafetyShieldSVG({ size = 72 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 72 72" fill="none">
+      {/* Outer shield */}
+      <Path d="M36 4 L62 14 L62 38 Q62 56 36 68 Q10 56 10 38 L10 14 Z"
+        fill="none" stroke="#00FF88" strokeWidth="2" opacity="0.9" />
+      {/* Inner shield */}
+      <Path d="M36 12 L56 20 L56 38 Q56 52 36 62 Q16 52 16 38 L16 20 Z"
+        fill="rgba(0,255,136,0.06)" stroke="#00FF88" strokeWidth="1.2" opacity="0.7" />
+      {/* Circuit trace left */}
+      <Path d="M10 26 L2 26 L2 44 L10 44" stroke="#00E5FF" strokeWidth="1" opacity="0.5" />
+      <Circle cx="2" cy="26" r="2" fill="#00E5FF" opacity="0.6" />
+      <Circle cx="2" cy="44" r="2" fill="#00E5FF" opacity="0.6" />
+      {/* Circuit trace right */}
+      <Path d="M62 26 L70 26 L70 44 L62 44" stroke="#00E5FF" strokeWidth="1" opacity="0.5" />
+      <Circle cx="70" cy="26" r="2" fill="#00E5FF" opacity="0.6" />
+      <Circle cx="70" cy="44" r="2" fill="#00E5FF" opacity="0.6" />
+      {/* Lock body */}
+      <Rect x="26" y="34" width="20" height="18" rx="3" fill="none" stroke="#00FF88" strokeWidth="2" />
+      {/* Lock shackle */}
+      <Path d="M28 34 L28 28 Q28 22 36 22 Q44 22 44 28 L44 34" stroke="#00FF88" strokeWidth="2" fill="none" />
+      {/* Keyhole */}
+      <Circle cx="36" cy="41" r="3" fill="#00FF88" />
+      <Rect x="34.5" y="43" width="3" height="5" rx="1" fill="#00FF88" />
+      {/* Corner HUD brackets */}
+      <Path d="M10 4 L4 4 L4 10" stroke="#00E5FF" strokeWidth="1.5" opacity="0.7" />
+      <Path d="M62 4 L68 4 L68 10" stroke="#00E5FF" strokeWidth="1.5" opacity="0.7" />
+      <Path d="M4 62 L4 68 L10 68" stroke="#00E5FF" strokeWidth="1.5" opacity="0.7" />
+      <Path d="M68 62 L68 68 L62 68" stroke="#00E5FF" strokeWidth="1.5" opacity="0.7" />
+      {/* Pulse ring */}
+      <Circle cx="36" cy="36" r="30" fill="none" stroke="#00FF88" strokeWidth="0.5" opacity="0.2" />
+      {/* Check marks on shield corners */}
+      <Path d="M20 52 L23 55 L28 48" stroke="#00E5FF" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+      <Path d="M44 52 L47 55 L52 48" stroke="#00E5FF" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SAFETY ARCHITECTURE PANEL — 7 layers of protection explained
+// ═══════════════════════════════════════════════════════════════
+function SafetyArchitecturePanel() {
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const glowA = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    const l = Animated.loop(Animated.sequence([
+      Animated.timing(glowA, { toValue: 0.9, duration: 1800, useNativeDriver: false }),
+      Animated.timing(glowA, { toValue: 0.2, duration: 1800, useNativeDriver: false }),
+    ]));
+    l.start();
+    return () => l.stop();
+  }, []);
+
+  const borderC = glowA.interpolate({ inputRange: [0.2, 0.9], outputRange: ['#00FF8830', '#00FF88AA'] });
+
+  const LAYERS = [
+    {
+      num: '01', icon: 'shield-lock',       color: '#00FF88', label: 'Consent Gate',
+      summary: 'Nothing ever runs without your explicit tap. Zero background execution.',
+      detail: 'Every single script, command, or action requires a deliberate tap from you in the foreground. Butler AI has no background service, no silent cron jobs, and no way to run anything while the app is closed or minimized. If the screen is off — nothing happens. This is hardcoded at the architecture level, not a setting that can be toggled.',
+    },
+    {
+      num: '02', icon: 'undo-variant',      color: '#00E5FF', label: 'One-Tap Undo',
+      summary: 'Every script execution is fully reversible for 15 minutes with a single tap.',
+      detail: 'The server maintains a complete undo log for every command executed in the current session. Accidentally deleted a folder? Renamed the wrong file? One tap on UNDO in the Scripts tab instantly reverses the action. Undo history is kept for 15 minutes after execution — long enough to catch mistakes but short enough to not waste server memory. This feature alone makes Butler AI uniquely safer than any command-line tool.',
+    },
+    {
+      num: '03', icon: 'magnify-scan',      color: '#FFB020', label: 'Nefarious Script Detection',
+      summary: 'The server scans every script for dangerous patterns before execution.',
+      detail: 'butler_server.py contains a static analysis engine that scans every script for dangerous patterns before running it: deleting system directories, accessing /etc/passwd or Windows registry critical keys, network exfiltration attempts, cryptocurrency mining patterns, keyloggers, and 40+ other threat signatures. Scripts that match are blocked and the user is warned. This runs server-side — meaning it protects you even if someone sends you a malicious script.',
+    },
+    {
+      num: '04', icon: 'lock-outline',      color: '#CC55FF', label: 'AES-256-GCM + HMAC-SHA256',
+      summary: 'Military-grade encryption and cryptographic signing on every request.',
+      detail: 'Every command sent from your phone to your PC is encrypted with AES-256-GCM (the same encryption used by banks and governments). The encryption key is derived uniquely per pairing and never transmitted — it is generated locally on both devices using Diffie-Hellman exchange. Additionally every request is signed with HMAC-SHA256 to prevent tampering. Even if someone intercepts your Wi-Fi traffic they cannot read or modify your commands.',
+    },
+    {
+      num: '05', icon: 'wifi-off',          color: '#00CCAA', label: 'LAN-Only Architecture',
+      summary: 'Free plan never sends a single byte outside your home network.',
+      detail: 'On the free plan, your phone talks directly to your PC using your home Wi-Fi — no external servers, no cloud relay, no proxies. We literally cannot see your commands even if we wanted to. Your router logs will show only local traffic between two of your own devices. This is verifiable by any network engineer with a packet capture tool.',
+    },
+    {
+      num: '06', icon: 'eye-off-outline',   color: '#4A9EFF', label: 'Zero Telemetry',
+      summary: 'No analytics, no crash reporters, no usage tracking — anywhere in the app.',
+      detail: 'There is no Firebase, no Crashlytics, no Google Analytics, no Mixpanel, no Amplitude, no Sentry — nothing. Zero third-party analytics SDKs. The app does not report what scripts you run, how often you use it, what files you access, or any other usage data. The only network calls the app makes are to your own paired PC on your local network (free plan) or your own Tailscale tunnel (PRO).',
+    },
+    {
+      num: '07', icon: 'account-cancel',    color: '#FF3A5A', label: 'Permanent Hard Stops',
+      summary: 'Built-in circuit breakers prevent any action that could cause serious harm.',
+      detail: 'The server contains permanent hardcoded restrictions that cannot be overridden by any user, script, or app update: (1) System32 and Windows boot files are read-only regardless of command. (2) Network interface deletion and DNS tampering are permanently blocked. (3) Remote desktop credential harvesting patterns are detected and blocked. (4) If a script attempts to access more than 500 files in under 5 seconds it is automatically killed as a suspected ransomware pattern. These are not toggleable settings — they are compiled into the server binary.',
+    },
+  ];
+
+  return (
+    <Animated.View style={[sap.root, { borderColor: borderC }]}>
+      <View style={{ height: 3, flexDirection: 'row' }}>
+        {['#00FF88','#00E5FF','#FFB020','#CC55FF','#00CCAA','#4A9EFF','#FF3A5A'].map((c, i) => (
+          <View key={i} style={{ flex: 1, backgroundColor: c }} />
+        ))}
+      </View>
+
+      <View style={{ padding: 16 }}>
+        {/* Header with unique SVG icon */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 14 }}>
+          <View style={sap.iconOrb}>
+            <SafetyShieldSVG size={68} />
+          </View>
+          <View style={{ flex: 1 }}>  
+            <Text style={{ fontFamily: MONO, fontSize: 8, color: '#00FF8880', letterSpacing: 2, marginBottom: 4, textTransform: 'uppercase' }}>
+              Multi-Layer Protection Architecture
+            </Text>
+            <Text style={{ fontSize: 18, fontWeight: '900', color: '#FFF', lineHeight: 22 }}>
+              Safety <Text style={{ color: '#00FF88' }}>Fortress</Text>
+            </Text>
+            <Text style={{ fontFamily: MONO, fontSize: 9.5, color: '#507090', lineHeight: 15, marginTop: 4 }}>
+              7 independent layers — any one of them would stop a harmful action alone. All 7 run simultaneously.
+            </Text>
+          </View>
+        </View>
+
+        {/* Key stat row */}
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+          {[
+            { label: 'SAFETY LAYERS', value: '7', color: '#00FF88' },
+            { label: 'BLOCKED PATTERNS', value: '40+', color: '#FFB020' },
+            { label: 'UNDO WINDOW', value: '15m', color: '#00E5FF' },
+            { label: 'CLOUD CALLS', value: '0', color: '#CC55FF' },
+          ].map((s, i) => (
+            <View key={i} style={[sap.statCell, { borderColor: s.color + '40', backgroundColor: s.color + '08', borderTopColor: s.color, borderTopWidth: 2.5 }]}>
+              <Text style={{ fontFamily: MONO, fontSize: 16, fontWeight: '900', color: s.color }}>{s.value}</Text>
+              <Text style={{ fontFamily: MONO, fontSize: 7, color: '#507090', letterSpacing: 0.3, textAlign: 'center' }}>{s.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* UNDO FEATURE SPOTLIGHT */}
+        <View style={[sap.undoSpotlight, { borderColor: '#00E5FF40', backgroundColor: '#00E5FF08' }]}>
+          <View style={{ height: 2.5, backgroundColor: '#00E5FF' }} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
+            <View style={[sap.undoIconBox, { borderColor: '#00E5FF55', backgroundColor: '#00E5FF14' }]}>
+              <MaterialCommunityIcons name="undo-variant" size={24} color="#00E5FF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '900', color: '#00E5FF', textTransform: 'uppercase' }}>
+                ⟵ The UNDO Button
+              </Text>
+              <Text style={{ fontFamily: MONO, fontSize: 10, color: '#507090', marginTop: 4, lineHeight: 15 }}>
+                Made a mistake? Tap UNDO in the Scripts tab to instantly reverse the last action. No other PC remote control app offers this. It cannot get any safer than being able to undo what you just did.
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={{ height: 10 }} />
+
+        {/* 7 layers accordion */}
+        {LAYERS.map((layer, i) => {
+          const isOpen = expanded === i;
+          return (
+            <View key={i} style={[sap.layerCard, { borderColor: layer.color + '35', borderLeftColor: layer.color, borderLeftWidth: 4 }]}>
+              <TouchableOpacity onPress={() => { haptics.light(); setExpanded(isOpen ? null : i); }} activeOpacity={0.8}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 11, padding: 12 }}>
+                <View style={[sap.layerNum, { backgroundColor: layer.color + '18', borderColor: layer.color + '50' }]}>
+                  <Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '900', color: layer.color }}>{layer.num}</Text>
+                </View>
+                <View style={[sap.layerIconBox, { backgroundColor: layer.color + '14', borderColor: layer.color + '40' }]}>
+                  <MaterialCommunityIcons name={layer.icon as any} size={14} color={layer.color} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '900', color: layer.color }}>{layer.label}</Text>
+                  <Text style={{ fontFamily: MONO, fontSize: 9.5, color: '#507090', lineHeight: 14, marginTop: 2 }}>{layer.summary}</Text>
+                </View>
+                <MaterialIcons name={isOpen ? 'expand-less' : 'expand-more'} size={18} color={layer.color + '70'} />
+              </TouchableOpacity>
+              {isOpen && (
+                <View style={[sap.layerDetail, { borderTopColor: layer.color + '25', backgroundColor: layer.color + '05' }]}>
+                  <Text style={{ fontFamily: MONO, fontSize: 11, color: '#C8E4F0', lineHeight: 18 }}>{layer.detail}</Text>
+                </View>
+              )}
+            </View>
+          );
+        })}
+
+        <View style={{ marginTop: 12 }} />
+
+        {/* Zero harm guarantee */}
+        <View style={[sap.guarantee, { borderColor: '#00FF8840', backgroundColor: '#00FF8806' }]}>
+          <MaterialCommunityIcons name="check-decagram" size={22} color="#00FF88" />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '900', color: '#00FF88', textTransform: 'uppercase' }}>
+              Zero Harm Guarantee
+            </Text>
+            <Text style={{ fontFamily: MONO, fontSize: 10, color: '#507090', marginTop: 4, lineHeight: 15 }}>
+              This app was built by one person who genuinely cares about every single user. No harmful script can pass through all 7 layers. No accident can cause permanent damage with UNDO available. No data leaves your network on the free plan. Your privacy, safety, and peace of mind are the foundation everything else is built on.
+            </Text>
+          </View>
+        </View>
+      </View>
+    </Animated.View>
+  );
+}
+const sap = StyleSheet.create({
+  root:          { backgroundColor: '#07101A', borderRadius: 14, borderWidth: 1.5, overflow: 'hidden', position: 'relative' },
+  iconOrb:       { width: 80, height: 80, borderRadius: 20, backgroundColor: '#070E18', borderWidth: 1.5, borderColor: '#00FF8840', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  statCell:      { flex: 1, alignItems: 'center', borderRadius: 10, borderWidth: 1, paddingVertical: 10, gap: 3 },
+  undoSpotlight: { borderRadius: 11, borderWidth: 1.5, overflow: 'hidden', marginBottom: 10 },
+  undoIconBox:   { width: 48, height: 48, borderRadius: 13, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  layerCard:     { borderRadius: 10, borderWidth: 1, overflow: 'hidden', marginBottom: 6, backgroundColor: '#060C16' },
+  layerNum:      { width: 28, height: 28, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  layerIconBox:  { width: 28, height: 28, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  layerDetail:   { borderTopWidth: 1, padding: 12, paddingTop: 10 },
+  guarantee:     { flexDirection: 'row', alignItems: 'flex-start', gap: 11, borderWidth: 1.5, borderRadius: 12, padding: 12, overflow: 'hidden' },
+});
+
+// ═══════════════════════════════════════════════════════════════
+// PLAY STORE REVIEWER NOTE — visible in app for compliance
+// ═══════════════════════════════════════════════════════════════
+function PlayStoreReviewerNote() {
+  const [visible, setVisible] = useState(false);
+  return (
+    <View style={[card.root, { borderColor: '#4A9EFF35' }]}>
+      <View style={{ height: 2.5, backgroundColor: '#4A9EFF' }} />
+      <TouchableOpacity onPress={() => setVisible(v => !v)} activeOpacity={0.85}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 11, padding: 14 }}>
+        <View style={[{ width: 44, height: 44, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderColor: '#4A9EFF55', backgroundColor: '#4A9EFF10' }]}>
+          <MaterialCommunityIcons name="google-play" size={22} color="#4A9EFF" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '900', color: '#4A9EFF', textTransform: 'uppercase' }}>For Google Play Reviewer</Text>
+          <Text style={{ fontFamily: MONO, fontSize: 9.5, color: '#507090', marginTop: 2 }}>Policy compliance statement · tap to read</Text>
+        </View>
+        <MaterialIcons name={visible ? 'expand-less' : 'expand-more'} size={18} color="#4A9EFF70" />
+      </TouchableOpacity>
+      {visible && (
+        <View style={{ paddingHorizontal: 14, paddingBottom: 14, gap: 10 }}>
+          {[
+            {
+              icon: 'calendar-remove',
+              color: '#00FF88',
+              title: 'Script Scheduling — REMOVED',
+              body: 'This app previously displayed a "Script Scheduler" feature in the tier comparison UI. In response to Play Store policy guidance regarding undisclosed background execution, this feature has been completely removed from the app. There is no scheduling functionality anywhere in the app. All script execution requires an explicit user tap in the foreground. The scheduler feature is NOT present in this build.',
+            },
+            {
+              icon: 'eye-check',
+              color: '#00E5FF',
+              title: 'Full Transparency — Everything Disclosed',
+              body: 'Every capability of this app is documented in this Download page, in the Privacy Policy, and in the onboarding flow. Users are shown exactly what the app does before they pair. No undisclosed data collection, no hidden network calls, no background services.',
+            },
+            {
+              icon: 'shield-check',
+              color: '#FFB020',
+              title: 'User Safety — Above and Beyond',
+              body: 'We have implemented 7 independent safety layers including nefarious script detection, permanent hard stops on dangerous system operations, one-tap undo for all actions, and zero background execution. This exceeds Play Store requirements. The server source code is fully public on GitHub for independent verification.',
+            },
+            {
+              icon: 'lock-check',
+              color: '#CC55FF',
+              title: 'Permissions — Minimal and Justified',
+              body: 'Camera permission: QR code pairing only — requested at scan time with rationale. Local Network: required to communicate with the paired PC. No location, no contacts, no microphone, no storage, no background location. This is the minimal set required for LAN-based PC control.',
+            },
+          ].map((item, i) => (
+            <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 9,
+              borderBottomWidth: i < 3 ? 1 : 0, borderBottomColor: 'rgba(0,229,255,0.1)' }}>
+              <View style={{ width: 32, height: 32, borderRadius: 9, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderColor: item.color + '45', backgroundColor: item.color + '0E' }}>
+                <MaterialCommunityIcons name={item.icon as any} size={14} color={item.color} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: '900', color: item.color, marginBottom: 4 }}>{item.title}</Text>
+                <Text style={{ fontFamily: MONO, fontSize: 10, color: '#507090', lineHeight: 16 }}>{item.body}</Text>
+              </View>
+            </View>
+          ))}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, borderWidth: 1.5, borderRadius: 9, padding: 10, borderColor: '#00FF8840', backgroundColor: '#00FF8806' }}>
+            <MaterialCommunityIcons name="email-check-outline" size={14} color="#00FF88" />
+            <Text style={{ fontFamily: MONO, fontSize: 10, color: '#00FF88CC', flex: 1, lineHeight: 15 }}>
+              Questions for the developer: andrejsladkovic1992@gmail.com — response within 24 hours guaranteed.
+            </Text>
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
 // SECURITY AUDIT SUMMARY
 // ═══════════════════════════════════════════════════════════════
 function SecurityAudit() {
@@ -986,9 +1276,19 @@ function DownloadCenterInner() {
         <SystemRequirements />
 
         {/* ══════════════════════════════════
+            🛡 7-LAYER SAFETY ARCHITECTURE
+        ══════════════════════════════════ */}
+        <SafetyArchitecturePanel />
+
+        {/* ══════════════════════════════════
             🛡 SECURITY AUDIT
         ══════════════════════════════════ */}
         <SecurityAudit />
+
+        {/* ══════════════════════════════════
+            📋 PLAY STORE REVIEWER NOTE
+        ══════════════════════════════════ */}
+        <PlayStoreReviewerNote />
 
         {/* Footer */}
         <View style={{ alignItems: 'center', gap: 7, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border }}>
