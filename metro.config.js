@@ -7,7 +7,7 @@ try { require('./tools/postinstall.js'); } catch (e) {}
 const config = getDefaultConfig(__dirname);
 
 // Bump cache to force full rebuild.
-config.cacheVersion = 'butler-ai-v5.2.0-render-guard-layout-engine';
+config.cacheVersion = 'butler-ai-v5.2.1-render-guard-tsx-fix';
 
 // ── COPYRIGHT NOTICE SERIALIZER ───────────────────────────────────────
 // Prepends a copyright banner to the COMPILED bundle. This banner

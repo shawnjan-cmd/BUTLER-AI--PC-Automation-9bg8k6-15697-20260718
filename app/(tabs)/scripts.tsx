@@ -1287,7 +1287,7 @@ function ScriptsInner() {
   const [search,       setSearch]       = useState('');
   // BUTLER AI: deferred search value — filters only after 200ms of inactivity
   // This prevents filtering on every keystroke for 250+ scripts.
-  // utils/ButlerRenderGuard.ts — © 2024-2026 Andrej Sladkovic
+  // utils/ButlerRenderGuard.tsx — © 2024-2026 Andrej Sladkovic
   const deferredSearch = useButlerDeferred(search, 200);
   const [category,     setCategory]     = useState('All');
   const [isConn,       setIsConn]       = useState(false);
