@@ -27,6 +27,7 @@ import { notifyOnboardingReset } from './_layout';
 import { resetOnboarding } from '@/services/onboardingState';
 import { TabErrorBoundary } from '@/components/ui/TabErrorBoundary';
 import { LiveWidgetStudio } from '@/components/ui/LiveWidgetStudio';
+import { AppVersionCard } from '@/components/ui/AppVersionGuard';
 import { usePurchase } from '@/contexts/PurchaseContext';
 import { TabSwipeOverlay } from '@/components/ui/TabSwipeOverlay';
 import { logger } from '@/utils/logger';
@@ -893,6 +894,9 @@ function WidgetStudioSection() {
       <Sec icon="widgets" label="WIDGET STUDIO" color="#BB33FF"
         sub="Write code → preview live → pin to any tab page permanently." />
       <LiveWidgetStudio />
+
+      {/* App Version Guard Card — version check + changelog */}
+      <AppVersionCard />
     </View>
   );
 }
@@ -1491,6 +1495,69 @@ function SettingsScreenInner() {
               <MaterialIcons name="chevron-right" size={20} color={C.cyan + '70'} />
             </View>
           </TouchableOpacity>
+        </View>
+
+        {/* ═══════════════════════════════════════
+            📋 PLAY STORE COMPLIANCE
+        ═══════════════════════════════════════ */}
+        <View>
+          <Sec icon="google-play" label="PLAY STORE COMPLIANCE"
+            sub="Policy compliance notes — visible for reviewers and users alike." color={C.blue} />
+          <View style={[ic.root, { borderColor: C.blue + '35' }]}>
+            <View style={{ height: 3, backgroundColor: C.blue }} />
+            <View style={{ padding: 14, gap: 0 }}>
+              {[
+                {
+                  icon: 'calendar-remove-outline',
+                  color: C.green,
+                  title: 'Script Scheduling — Not Present',
+                  body: 'Script scheduling has been fully removed from this app. No automated background execution exists anywhere. Every script requires an explicit user tap in the foreground. This is hardcoded at the architecture level, not a setting.',
+                },
+                {
+                  icon: 'run-fast',
+                  color: C.amber,
+                  title: 'Foreground Only — Always',
+                  body: 'Butler AI has zero background services, zero silent cron jobs, and zero deferred execution. When the app is minimized or the screen is off, absolutely nothing runs on your PC. Full stop.',
+                },
+                {
+                  icon: 'shield-check-outline',
+                  color: C.cyan,
+                  title: '7-Layer Safety Architecture',
+                  body: 'Consent Gate → One-Tap Undo → Nefarious Script Detection → AES-256-GCM → LAN-Only → Zero Telemetry → Permanent Hard Stops. All 7 layers run simultaneously on every command. See the Downloads tab for full details.',
+                },
+                {
+                  icon: 'camera-off',
+                  color: C.purple,
+                  title: 'Minimal Permissions',
+                  body: 'Camera: QR pairing only, requested at scan time. Local Network: required for LAN connection. No location, no contacts, no background location, no microphone, no storage.',
+                },
+                {
+                  icon: 'eye-off-outline',
+                  color: C.teal,
+                  title: 'Zero Data Collection',
+                  body: 'No analytics SDK. No Firebase. No Crashlytics. No third-party tracking. No usage reports. The only network calls are to your own paired PC on your own local network.',
+                },
+              ].map((item, i, arr) => (
+                <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 11, paddingVertical: 10,
+                  borderBottomWidth: i < arr.length - 1 ? 1 : 0, borderBottomColor: C.border }}>
+                  <View style={{ width: 34, height: 34, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderColor: item.color + '45', backgroundColor: item.color + '0E' }}>
+                    <MaterialCommunityIcons name={item.icon as any} size={15} color={item.color} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '900', color: item.color, marginBottom: 3 }}>{item.title}</Text>
+                    <Text style={{ fontFamily: MONO, fontSize: 10, color: C.mid, lineHeight: 15 }}>{item.body}</Text>
+                  </View>
+                </View>
+              ))}
+              <View style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1.5, borderRadius: 9, padding: 10,
+                borderColor: C.green + '40', backgroundColor: C.green + '06' }}>
+                <MaterialCommunityIcons name="email-check-outline" size={13} color={C.green} />
+                <Text style={{ fontFamily: MONO, fontSize: 10, color: C.green + 'CC', flex: 1, lineHeight: 15 }}>
+                  Play Store reviewer questions: andrejsladkovic1992@gmail.com — 24h response guaranteed.
+                </Text>
+              </View>
+            </View>
+          </View>
         </View>
 
         {/* ═══════════════════════════════════════

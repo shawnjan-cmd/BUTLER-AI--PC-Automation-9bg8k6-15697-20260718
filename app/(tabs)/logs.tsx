@@ -22,6 +22,7 @@ import { knowledgeAccumulator } from '@/services/knowledgeAccumulator';
 import { PC_ACTION_SCRIPTS, PC_SCAN_SCRIPT } from '@/services/pcActionScripts';
 import { performanceHistory } from '@/services/performanceHistory';
 import { COLOR, FONT, glow, SHADOW } from '@/constants/tokens';
+import { PerformanceMonitorWidget, PerformanceStrip } from '@/components/ui/PerformanceMonitorWidget';
 
 const MONO: any = FONT.mono;
 const SANS: any = FONT.sans;
@@ -931,6 +932,9 @@ function PCIntelInner() {
             progressBackgroundColor={SURFACE} />
         }
       >
+        {/* Performance Strip — compact always-visible bar */}
+        <PerformanceStrip isConnected={isConnected} />
+
         {/* Today's stat strip */}
         <TodayStrip
           isConn={isConnected} kbCount={kbCount} scripts={scanData.scriptsRun}
@@ -970,6 +974,9 @@ function PCIntelInner() {
 
         {/* Undo journal */}
         <UndoJournal isConn={isConnected} undoList={undoList} rollingId={rollingId} onRollback={rollback} />
+
+        {/* Performance Monitor Widget — detailed graphs */}
+        <PerformanceMonitorWidget isConnected={isConnected} cpu={metrics.cpu} ram={metrics.ram} disk={metrics.disk} />
       </ScrollView>
     </View>
   );

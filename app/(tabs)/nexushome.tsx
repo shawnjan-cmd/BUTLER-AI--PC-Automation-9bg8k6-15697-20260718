@@ -52,6 +52,18 @@ import { NexusHeroCard } from '@/components/home/NexusHeroCard';
 import { NetworkTopologyCard } from '@/components/home/NetworkTopologyCard';
 import { NexusCommandCenter } from '@/components/home/NexusCommandCenter';
 import AutomationFeed from '@/components/home/AutomationFeed';
+import { TitanProtocolCard } from '@/components/ui/TitanProtocolCard';
+import { AppVersionBanner } from '@/components/ui/AppVersionGuard';
+import {
+  NexusLiveStatusBar,
+  NexusButlerHeaderCard,
+  CrawlerGraphCard,
+  KnowledgeGraphCard,
+  ScriptForgeCard,
+  FileShareCard,
+  OmegaLoopCard,
+  SecurityProtocolsCard,
+} from '@/components/ui/NexusHomeExtras';
 
 // ─── PALETTE ──────────────────────────────────────────────────────
 const BG      = '#04080F';
@@ -4045,13 +4057,37 @@ function NexusHomeInner() {
             onPair={() => setShowQR(true)} goToTab={goToTab}
           />
 
+          {/* ── APP VERSION BANNER ── */}
+          <View style={{ paddingHorizontal: PAD, paddingTop: 4 }}>
+            <AppVersionBanner />
+          </View>
+
+          {/* ── NEXUS BUTLER HEADER CARD + LIVE STATUS BAR ── */}
+          <View style={{ paddingHorizontal: PAD, paddingTop: 8 }}>
+            <NexusButlerHeaderCard isConnected={isConn} goToTab={goToTab} />
+          </View>
+          <View style={{ height: 4 }} />
+          <NexusLiveStatusBar
+            isConnected={isConn}
+            kbArticles={kbCount}
+            scriptsRunTotal={scripts}
+            goToTab={goToTab}
+          />
+          <View style={{ height: 8 }} />
+
           {/* ── PAIR PROMPT ── */}
-          {!isConn && <><View style={{ height: 10 }} /><PairPrompt onPair={() => setShowQR(true)} /></>}
+          {!isConn && <><View style={{ height: 6 }} /><PairPrompt onPair={() => setShowQR(true)} /></>}
           <View style={{ height: 10 }} />
 
           {/* ── REMOTE ACCESS + TAILSCALE — right below header ── */}
           <View style={{ paddingHorizontal: PAD }}>
             <RemoteAccessMonetizationCard onConnected={loadData} />
+          </View>
+          <View style={{ height: 10 }} />
+
+          {/* ── TITAN PROTOCOL CARD — HMAC security scoring ── */}
+          <View style={{ paddingHorizontal: PAD }}>
+            <TitanProtocolCard />
           </View>
           <View style={{ height: 10 }} />
 
@@ -4090,6 +4126,19 @@ function NexusHomeInner() {
             <RotatingTips />
           </View>
           <View style={{ height: 10 }} />
+
+          {/* ── NEXUS HOME EXTRAS: Crawler + Knowledge + Script Forge + File Share ── */}
+          <View style={{ paddingHorizontal: PAD }}>
+            <View style={{ flexDirection: 'row', gap: 9, marginBottom: 9 }}>
+              <CrawlerGraphCard kbArticles={kbCount} isConnected={isConn} />
+              <KnowledgeGraphCard kbArticles={kbCount} />
+            </View>
+            <View style={{ flexDirection: 'row', gap: 9 }}>
+              <ScriptForgeCard scriptsRunTotal={scripts} goToTab={goToTab} />
+              <FileShareCard goToTab={goToTab} />
+            </View>
+          </View>
+          <View style={{ height: 12 }} />
 
           {/* ── NETWORK METRICS BAR — real data first ── */}
           <NetworkMetricsBar isConn={isConn} latency={latency} cpu={metrics.cpu} disk={metrics.disk} />
@@ -4131,6 +4180,20 @@ function NexusHomeInner() {
           <AIMemoryPanel isConn={isConn} kbCount={kbCount} />
           <View style={{ height: 12 }} />
           <SpectrumDivider colors={[PURPLE, CYAN]} />
+
+          {/* ── OMEGA LOOP + SECURITY PROTOCOLS CARD (NexusHomeExtras) ── */}
+          <View style={{ paddingHorizontal: PAD }}>
+            <View style={{ flexDirection: 'row', gap: 9, marginBottom: 9 }}>
+              <OmegaLoopCard isConnected={isConn} />
+              <View style={{ flex: 1, backgroundColor: SURFACE, borderRadius: 14, borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center', padding: 12 }}>
+                <MaterialCommunityIcons name="security-network" size={28} color={TEAL} />
+                <Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '900', color: TEAL, marginTop: 8, letterSpacing: 1 }}>NEXUS CORE</Text>
+                <Text style={{ fontFamily: MONO, fontSize: 8, color: MID, marginTop: 4, textAlign: 'center' }}>All systems{isConn ? ' online' : ' standby'}</Text>
+              </View>
+            </View>
+            <SecurityProtocolsCard isConnected={isConn} />
+          </View>
+          <View style={{ height: 12 }} />
 
           {/* ── SMART ALERTS + OMEGA LOOP ── */}
           <SmartAlertsOmegaRow isConn={isConn} goToTab={goToTab} />
