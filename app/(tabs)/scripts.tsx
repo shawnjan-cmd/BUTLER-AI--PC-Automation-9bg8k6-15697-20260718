@@ -30,6 +30,7 @@ import { ALL_CATEGORIES, CategoryDef } from '@/services/scriptLibraryData';
 import { loadFavorites, toggleFavorite, removeFavorite, FavoriteScript } from '@/services/scriptFavorites';
 import { analyzeScript } from '@/services/scriptSafetyGuard';
 import { useCosmetic } from '@/contexts/CosmeticContext';
+import SafeSchedulePanel from '@/components/scripts/SafeSchedulePanel';
 
 const MONO: any = FONT.mono;
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -272,8 +273,8 @@ interface ForgeHeaderProps {
   safeTop: number;
   isConn: boolean;
   addr: string;
-  mode: 'scripts' | 'library' | 'favorites';
-  onModeChange: (m: 'scripts' | 'library' | 'favorites') => void;
+  mode: 'scripts' | 'library' | 'favorites' | 'schedule';
+  onModeChange: (m: 'scripts' | 'library' | 'favorites' | 'schedule') => void;
   onAdd: () => void;
   accent: string;
 }
@@ -298,6 +299,7 @@ function ForgeHeader({ safeTop, isConn, addr, mode, onModeChange, onAdd, accent 
     { id: 'scripts'   as const, icon: 'code',          lib: 'm' as const, label: 'SCRIPTS', color: accent           },
     { id: 'library'   as const, icon: 'library-books',  lib: 'm' as const, label: 'LIBRARY', color: COLOR.magenta   },
     { id: 'favorites' as const, icon: 'star',           lib: 'm' as const, label: 'SAVED',   color: COLOR.yellow    },
+    { id: 'schedule'  as const, icon: 'shield-lock',    lib: 'm' as const, label: 'SAFE',    color: '#00CCBB'       },
   ];
 
   return (
@@ -1279,7 +1281,7 @@ function ScriptsInner() {
   const { T } = useCosmetic();
   const accent = T.primary || COLOR.cyan;
 
-  const [mode,         setMode]         = useState<'scripts' | 'library' | 'favorites'>('scripts');
+  const [mode,         setMode]         = useState<'scripts' | 'library' | 'favorites' | 'schedule'>('scripts');
   const [search,       setSearch]       = useState('');
   const [category,     setCategory]     = useState('All');
   const [isConn,       setIsConn]       = useState(false);
@@ -1478,6 +1480,17 @@ function ScriptsInner() {
             </View>
           )}
         />
+      )}
+
+      {/* ── SAFE SCHEDULE MODE ── */}
+      {mode === 'schedule' && (
+        <ScrollView
+          style={{ flex: 1 }}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 130, paddingTop: 4 }}
+        >
+          <SafeSchedulePanel isConn={isConn} />
+        </ScrollView>
       )}
 
       {/* ── FAVORITES MODE ── */}
