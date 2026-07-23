@@ -40,6 +40,7 @@ import { performanceHistory } from '@/services/performanceHistory';
 import { TabErrorBoundary } from '@/components/ui/TabErrorBoundary';
 import { RemoteAccessMonetizationCard } from '@/components/home/RemoteAccessMonetizationCard';
 import { NexusVaultCard } from '@/components/ui/NexusVaultCard';
+import SecurityShowcase from '@/components/ui/SecurityShowcase';
 
 // ─── PALETTE ──────────────────────────────────────────────────────
 const BG      = '#04080F';
@@ -329,148 +330,219 @@ function PowerDivider({ color = AMBER }: { color?: string }) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// HEADER — COMPACT PROFESSIONAL (70% smaller, elegant)
+// HOME HEADER — AI COMMAND CENTER v2
+// Matches reference image 2: mascot left, BUTLER AI title, status pills,
+// SCAN QR + OPEN AI CHAT + NEXUS buttons, scrolling ticker below.
+// Backend disabled — all state comes from props only.
 // ══════════════════════════════════════════════════════════════════
-function HomeHeader({ safeTop, isConn, addr, onPair }: {
-  safeTop: number; isConn: boolean; addr: string; onPair: () => void;
+function HomeHeader({ safeTop, isConn, addr, onPair, goToTab }: {
+  safeTop: number; isConn: boolean; addr: string;
+  onPair: () => void; goToTab?: (t: string) => void;
 }) {
-  const [time, setTime] = useState('');
-  const [secs, setSecs] = useState('');
-  const [dateStr, setDate] = useState('');
-  // JS-driver animation (border/bg color)
-  const glowA  = useRef(new Animated.Value(0.4)).current;
-  // Native-driver animations (transform)
-  const floatA = useRef(new Animated.Value(0)).current;
-  const ringScA = useRef(new Animated.Value(0.7)).current;
+  const [time, setTime]   = useState('');
+  const [secs, setSecs]   = useState('');
+  const tickerAnim = useRef(new Animated.Value(0)).current;  // JS — translateX
+  const glowA      = useRef(new Animated.Value(0.4)).current; // JS — opacity
+  const scanA      = useRef(new Animated.Value(0)).current;   // native — translateX scan
+
+  const TICKER_TEXT = ' > BUTLER AI · PC AUTOMATION · LOCAL AI · ZERO CLOUD · HMAC-SHA256 · AES-256 · LAN ONLY · ';
+  const TICKER_W    = TICKER_TEXT.length * 6.8;
 
   useEffect(() => {
-    const update = () => {
+    const t = setInterval(() => {
       const n = new Date();
       setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`);
       setSecs(String(n.getSeconds()).padStart(2,'0'));
-      setDate(n.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase());
-    };
-    update(); const t = setInterval(update, 1000); return () => clearInterval(t);
+    }, 1000);
+    const n2 = new Date();
+    setTime(`${String(n2.getHours()).padStart(2,'0')}:${String(n2.getMinutes()).padStart(2,'0')}`);
+    setSecs(String(n2.getSeconds()).padStart(2,'0'));
+    return () => clearInterval(t);
   }, []);
 
   useEffect(() => {
-    // JS driver
-    const gl = Animated.loop(Animated.sequence([
-      Animated.timing(glowA, { toValue: 1.0, duration: 1500, useNativeDriver: false }),
-      Animated.timing(glowA, { toValue: 0.15, duration: 1500, useNativeDriver: false }),
+    // Ticker scroll — JS driver (translateX)
+    const ticker = Animated.loop(
+      Animated.timing(tickerAnim, { toValue: -TICKER_W, duration: 14000, useNativeDriver: false })
+    );
+    // Border glow — JS driver
+    const glow = Animated.loop(Animated.sequence([
+      Animated.timing(glowA, { toValue: 1.0, duration: 1400, useNativeDriver: false }),
+      Animated.timing(glowA, { toValue: 0.2, duration: 1400, useNativeDriver: false }),
     ]));
-    // Native driver
-    const fl = Animated.loop(Animated.sequence([
-      Animated.timing(floatA, { toValue: 1, duration: 2800, useNativeDriver: true }),
-      Animated.timing(floatA, { toValue: 0, duration: 2800, useNativeDriver: true }),
+    // Scan line — native driver
+    const scan = Animated.loop(Animated.sequence([
+      Animated.timing(scanA, { toValue: 1, duration: 2200, useNativeDriver: true }),
+      Animated.timing(scanA, { toValue: 0, duration: 0, useNativeDriver: true }),
+      Animated.delay(3000),
     ]));
-    const rn = Animated.loop(Animated.sequence([
-      Animated.timing(ringScA, { toValue: 1.0, duration: 1100, useNativeDriver: true }),
-      Animated.timing(ringScA, { toValue: 0.4, duration: 1100, useNativeDriver: true }),
-    ]));
-    gl.start(); fl.start(); rn.start();
-    return () => { gl.stop(); fl.stop(); rn.stop(); };
+    ticker.start(); glow.start(); scan.start();
+    return () => { ticker.stop(); glow.stop(); scan.stop(); };
   }, []);
 
-  const connCol     = isConn ? GREEN : AMBER;
-  const floatY      = floatA.interpolate({ inputRange: [0, 1], outputRange: [0, -4] });
-  // JS-driven border (cannot use native driver)
-  const glowBorder  = glowA.interpolate({ inputRange: [0, 1], outputRange: [connCol + '25', connCol + 'CC'] });
-  const glowBg      = glowA.interpolate({ inputRange: [0, 1], outputRange: [connCol + '08', connCol + '1C'] });
+  const cc         = isConn ? GREEN : RED;
+  const scanX      = scanA.interpolate({ inputRange: [0, 1], outputRange: [-60, SW + 60] });
+  const outerBorder= glowA.interpolate({ inputRange: [0.2, 1], outputRange: [cc + '30', cc + '90'] });
+
+  const STATUS_PILLS = [
+    { label: isConn ? 'ONLINE' : 'OFFLINE',  color: cc },
+    { label: 'LOCAL AI',                     color: PURPLE },
+    { label: 'AES-256',                      color: AMBER },
+  ];
 
   return (
-    <View style={[hdr.root, { paddingTop: safeTop }]}>
-      {/* Animated circuit grid background — robot themed */}
-      <CircuitGridBg color={connCol} opacity={isConn ? 0.08 : 0.04} />
-      {/* Top accent stripe */}
-      <View style={{ height: 3, backgroundColor: connCol }} />
-      <View style={{ height: 1, backgroundColor: connCol + '40' }} />
+    <Animated.View style={[hdr.root, { borderColor: outerBorder, paddingTop: safeTop }]}>
+      {/* Animated scan line — native driver */}
+      <Animated.View pointerEvents="none"
+        style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 60,
+          backgroundColor: cc + '08', transform: [{ translateX: scanX }] }} />
 
+      {/* Top HUD bracket line */}
+      <View style={{ height: 3, backgroundColor: CYAN }} />
+
+      {/* ── MAIN BODY ── */}
       <View style={hdr.body}>
-        {/* ── Mascot with JS-driven outer ring + native float ── */}
-        <Animated.View style={{ transform: [{ translateY: floatY }], flexShrink: 0 }}>
-          {/* Outer ring — JS driver for border color */}
-          <Animated.View style={[hdr.outerRing, { borderColor: glowBorder, backgroundColor: glowBg }]}>
-            {MASCOT_IMG ? (
-              <Image source={MASCOT_IMG} style={hdr.mascotImg} resizeMode="cover" />
-            ) : (
-              <MaterialCommunityIcons name="robot-happy" size={24} color={connCol} />
-            )}
-          </Animated.View>
-          {/* Status orb — native scale pulse */}
-          <Animated.View style={[hdr.statusOrb, { backgroundColor: connCol, transform: [{ scale: ringScA }] }]} />
-        </Animated.View>
-
-        {/* ── SVG logo ── */}
-        <View style={hdr.logoBox}>
-          <ButlerAILogo size={44} />
-        </View>
-
-        {/* ── Brand + pills ── */}
-        <View style={{ flex: 1, gap: 4 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 3 }}>
-            <Text style={hdr.brand}>BUTLER AI</Text>
-            <Text style={hdr.brandSep}>·</Text>
-            <Text style={hdr.brandSub}>PC AUTOMATION</Text>
+        {/* LEFT: Mascot */}
+        {MASCOT_IMG ? (
+          <View style={[hdr.mascotWrap, { borderColor: CYAN + '80' }]}>
+            <HUDCorners color={CYAN + '60'} size={8} />
+            <Image source={MASCOT_IMG} style={hdr.mascotImg} resizeMode="cover" />
+            <View style={[hdr.liveOrb, { backgroundColor: cc }]} />
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
-            <TouchableOpacity onPress={() => { haptics.heavy(); onPair(); }} activeOpacity={0.8}
-              style={[hdr.pill, { borderColor: connCol + '60', backgroundColor: connCol + '0E' }]}>
-              <PulseDot color={connCol} size={4} />
-              <Text style={[hdr.pillTxt, { color: connCol }]}>
-                {isConn ? (addr.split(':')[0] || 'ONLINE') : 'PAIR PC'}
-              </Text>
-            </TouchableOpacity>
-            <View style={[hdr.pill, { borderColor: BORDER }]}>
-              <MaterialCommunityIcons name="lock-check" size={8} color={MID} />
-              <Text style={[hdr.pillTxt, { color: MID }]}>AES-256</Text>
-            </View>
-            <View style={[hdr.pill, { borderColor: BORDER }]}>
-              <MaterialCommunityIcons name="lan-connect" size={8} color={MID} />
-              <Text style={[hdr.pillTxt, { color: MID }]}>LAN</Text>
-            </View>
+        ) : (
+          <View style={[hdr.mascotWrap, { borderColor: CYAN + '80', alignItems: 'center', justifyContent: 'center' }]}>
+            <MaterialCommunityIcons name="robot-happy" size={40} color={CYAN} />
           </View>
-          <Text style={hdr.versionLine}>v9.1 · HMAC-SHA256 · ZERO CLOUD · LOCAL LLM</Text>
-        </View>
+        )}
 
-        {/* ── Clock + QR ── */}
-        <View style={{ alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
+        {/* RIGHT: Brand + status + buttons */}
+        <View style={{ flex: 1, gap: 7 }}>
+          {/* Eyebrow */}
+          <Text style={hdr.eyebrow}>AI COMMAND CENTER</Text>
+
+          {/* Main title row */}
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 1 }}>
-            <Text style={hdr.clockMain}>{time}</Text>
-            <Text style={[hdr.clockSecs, { color: connCol }]}>{secs}</Text>
+            <Text style={hdr.titleWhite}>BUTLER </Text>
+            <Text style={[hdr.titleCyan, { color: CYAN }]}>AI</Text>
+            <View style={{ flex: 1 }} />
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={hdr.clockMain}>{time}<Text style={{ color: CYAN, fontSize: 13 }}>{secs}</Text></Text>
+            </View>
           </View>
-          <Text style={hdr.dateTxt}>{dateStr}</Text>
-          <TouchableOpacity onPress={() => { haptics.heavy(); onPair(); }} activeOpacity={0.8}
-            style={[hdr.qrBtn, { borderColor: connCol + '55', backgroundColor: connCol + '0C' }]}>
-            <MaterialIcons name="qr-code-scanner" size={14} color={connCol} />
-          </TouchableOpacity>
+
+          {/* Subtitle */}
+          <Text style={hdr.subtitle}>PC Automation · Local AI · Zero Cloud</Text>
+
+          {/* Status pills row */}
+          <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+            {STATUS_PILLS.map((p, i) => (
+              <View key={i} style={[hdr.statusPill, { borderColor: p.color + '60', backgroundColor: p.color + '12' }]}>
+                <PulseDot color={p.color} size={5} />
+                <Text style={[hdr.pillTxt, { color: p.color }]}>{p.label}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Action buttons */}
+          <View style={{ gap: 6 }}>
+            {/* SCAN QR TO PAIR — primary full-width cyan */}
+            <TouchableOpacity onPress={() => { haptics.heavy(); onPair(); }} activeOpacity={0.85}
+              style={hdr.primaryBtn}>
+              <MaterialIcons name="qr-code-scanner" size={17} color="#000" />
+              <Text style={hdr.primaryBtnTxt}>SCAN QR TO PAIR</Text>
+            </TouchableOpacity>
+
+            {/* OPEN AI CHAT — secondary dark */}
+            <TouchableOpacity
+              onPress={() => { haptics.medium(); goToTab?.('butler'); }}
+              activeOpacity={0.85}
+              style={hdr.secondaryBtn}>
+              <MaterialCommunityIcons name="robot-happy-outline" size={17} color={CYAN} />
+              <Text style={[hdr.secondaryBtnTxt, { color: CYAN }]}>OPEN AI CHAT</Text>
+            </TouchableOpacity>
+
+            {/* NEXUS small button */}
+            <TouchableOpacity
+              onPress={() => { haptics.light(); goToTab?.('nexushome'); }}
+              activeOpacity={0.85}
+              style={hdr.nexusBtn}>
+              <Text style={hdr.nexusBtnTxt}>NEXUS</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
-      {/* Bottom accent */}
-      <View style={{ height: 1.5, backgroundColor: connCol + '45' }} />
-      <View style={{ height: 1, backgroundColor: connCol + '18' }} />
-    </View>
+      {/* ── SCROLLING TICKER ── */}
+      <View style={hdr.tickerWrap}>
+        <View style={[hdr.tickerDot, { backgroundColor: isConn ? GREEN : AMBER }]} />
+        <View style={{ flex: 1, overflow: 'hidden', height: 20 }}>
+          <Animated.View style={{ flexDirection: 'row', transform: [{ translateX: tickerAnim }] }}>
+            <Text style={hdr.tickerTxt}>{TICKER_TEXT.repeat(4)}</Text>
+          </Animated.View>
+        </View>
+        <View style={[hdr.tickerDot, { backgroundColor: isConn ? GREEN : AMBER }]} />
+      </View>
+
+      {/* Bottom accent lines */}
+      <View style={{ height: 1.5, backgroundColor: CYAN + '50' }} />
+    </Animated.View>
   );
 }
 
 const hdr = StyleSheet.create({
-  root:        { backgroundColor: SURF3, overflow: 'hidden', position: 'relative' },
-  body:        { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: PAD, paddingTop: 10, paddingBottom: 9 },
-  outerRing:   { width: 48, height: 48, borderRadius: 13, borderWidth: 2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 },
-  mascotImg:   { width: 44, height: 44 },
-  statusOrb:   { position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, borderRadius: 5, borderWidth: 2, borderColor: SURF3 },
-  logoBox:     { width: 44, height: 44, borderRadius: 11, overflow: 'hidden', flexShrink: 0 },
-  brand:       { fontSize: 15, fontWeight: '900', color: '#FFFFFF', letterSpacing: 0.5 },
-  brandSep:    { fontSize: 13, fontWeight: '700', color: MID },
-  brandSub:    { fontSize: 10, fontWeight: '700', color: CYAN + 'CC', letterSpacing: 0.4 },
-  pill:        { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 3 },
-  pillTxt:     { fontFamily: MONO, fontSize: 7.5, fontWeight: '900', letterSpacing: 0.3 },
-  versionLine: { fontFamily: MONO, fontSize: 6.5, color: DIM, letterSpacing: 0.5 },
-  clockMain:   { fontFamily: MONO, fontSize: 18, fontWeight: '900', color: TEXT, letterSpacing: 0.6 },
-  clockSecs:   { fontFamily: MONO, fontSize: 10, fontWeight: '900' },
-  dateTxt:     { fontFamily: MONO, fontSize: 7, color: DIM, letterSpacing: 0.5 },
-  qrBtn:       { width: 30, height: 30, borderRadius: 9, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  root: {
+    backgroundColor: '#04080F',
+    borderWidth: 1,
+    borderTopWidth: 0,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.6, shadowRadius: 16 },
+      android: { elevation: 10 },
+    }),
+  },
+  body: {
+    flexDirection: 'row',
+    gap: 14,
+    paddingHorizontal: PAD,
+    paddingTop: 12,
+    paddingBottom: 10,
+  },
+  mascotWrap: {
+    width: 110,
+    height: 160,
+    borderRadius: 18,
+    borderWidth: 2,
+    overflow: 'hidden',
+    flexShrink: 0,
+    position: 'relative',
+    backgroundColor: '#050D18',
+    ...Platform.select({
+      ios: { shadowColor: CYAN, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 14 },
+      android: { elevation: 7 },
+    }),
+  },
+  mascotImg: { width: 110, height: 160 },
+  liveOrb: {
+    position: 'absolute', bottom: 8, right: 8,
+    width: 10, height: 10, borderRadius: 5,
+    borderWidth: 2, borderColor: '#04080F',
+  },
+  eyebrow:   { fontFamily: MONO, fontSize: 9, fontWeight: '900', color: TEAL, letterSpacing: 2 },
+  titleWhite:{ fontSize: 28, fontWeight: '900', color: '#FFFFFF', letterSpacing: 0.5 },
+  titleCyan: { fontSize: 28, fontWeight: '900', letterSpacing: 0.5 },
+  subtitle:  { fontFamily: MONO, fontSize: 9.5, color: TEXT + '90', lineHeight: 14 },
+  clockMain: { fontFamily: MONO, fontSize: 16, fontWeight: '900', color: TEXT },
+  statusPill:{ flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 9, paddingVertical: 4 },
+  pillTxt:   { fontFamily: MONO, fontSize: 9.5, fontWeight: '900', letterSpacing: 0.3 },
+  primaryBtn:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: CYAN, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14 },
+  primaryBtnTxt: { fontFamily: MONO, fontSize: 12, fontWeight: '900', color: '#000', letterSpacing: 0.5 },
+  secondaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, borderWidth: 1.5, borderColor: CYAN + '50', backgroundColor: CYAN + '0E' },
+  secondaryBtnTxt: { fontFamily: MONO, fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
+  nexusBtn: { alignSelf: 'flex-start', borderWidth: 1.5, borderRadius: 10, paddingVertical: 6, paddingHorizontal: 14, borderColor: MID + '60', backgroundColor: MID + '10' },
+  nexusBtnTxt: { fontFamily: MONO, fontSize: 10, fontWeight: '900', color: MID },
+  tickerWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: PAD, paddingVertical: 7, borderTopWidth: 1, borderTopColor: CYAN + '20', backgroundColor: '#030608' },
+  tickerDot: { width: 6, height: 6, borderRadius: 3, flexShrink: 0 },
+  tickerTxt: { fontFamily: MONO, fontSize: 9.5, color: CYAN + '90', letterSpacing: 1 },
 });
 
 // ══════════════════════════════════════════════════════════════════
@@ -3104,7 +3176,7 @@ function NexusHomeInner() {
 
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
-      <HomeHeader safeTop={insets.top} isConn={isConn} addr={addr} onPair={() => setShowQR(true)} />
+      <HomeHeader safeTop={insets.top} isConn={isConn} addr={addr} onPair={() => setShowQR(true)} goToTab={goToTab} />
       <MiniChatBar isConn={isConn} />
       <Animated.View style={{ flex: 1, opacity: enterOpacity, transform: [{ translateY: enterY }] }}>
         <ScrollView
@@ -3167,7 +3239,12 @@ function NexusHomeInner() {
           <View style={{ height: 12 }} />
           <PowerDivider color={RED} />
 
-          {/* ── SECURITY PROTOCOLS ── */}
+          {/* ── SECURITY SHOWCASE — HUD tile style ── */}
+          <View style={{ paddingHorizontal: PAD }}>
+            <SecurityShowcase mode="full" />
+          </View>
+          <View style={{ height: 12 }} />
+          {/* ── SECURITY PROTOCOLS — animated 6-module row ── */}
           <SecurityProtocols />
           <View style={{ height: 12 }} />
           <NeuralDivider color={GREEN} />
