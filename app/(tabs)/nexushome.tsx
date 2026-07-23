@@ -338,9 +338,10 @@ function PowerDivider({ color = AMBER }: { color?: string }) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// HOME HEADER — COMPACT v3
-// Matches all other page headers: eyebrow · title · clock · status pills
-// Scrolls with content (NOT fixed/sticky)
+// HOME HEADER — NEXUS TERMINAL v4
+// Full-width terminal-style command header
+// Pure CYAN/GREEN/PURPLE palette — zero AMBER/yellow
+// No robot circle — clean monospace terminal identity
 // ══════════════════════════════════════════════════════════════════
 function HomeHeader({ safeTop, isConn, addr, onPair, goToTab }: {
   safeTop: number; isConn: boolean; addr: string;
@@ -348,13 +349,17 @@ function HomeHeader({ safeTop, isConn, addr, onPair, goToTab }: {
 }) {
   const [time, setTime] = useState('');
   const [secs, setSecs] = useState('');
-  const scanA = useRef(new Animated.Value(0)).current; // native — scan sweep
+  const [tick, setTick] = useState(0);
+  const scanA   = useRef(new Animated.Value(0)).current;  // native — scan X
+  const glowA   = useRef(new Animated.Value(0.4)).current; // JS — border glow
+  const cursorA = useRef(new Animated.Value(1)).current;   // native — cursor blink
 
   useEffect(() => {
     const upd = () => {
       const n = new Date();
       setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`);
       setSecs(String(n.getSeconds()).padStart(2,'0'));
+      setTick(t => t + 1);
     };
     upd();
     const t = setInterval(upd, 1000);
@@ -363,58 +368,181 @@ function HomeHeader({ safeTop, isConn, addr, onPair, goToTab }: {
 
   useEffect(() => {
     const scan = Animated.loop(Animated.sequence([
-      Animated.timing(scanA, { toValue: 1, duration: 2400, useNativeDriver: true }),
-      Animated.timing(scanA, { toValue: 0, duration: 0, useNativeDriver: true }),
-      Animated.delay(4800),
+      Animated.timing(scanA, { toValue: 1, duration: 3200, useNativeDriver: true }),
+      Animated.timing(scanA, { toValue: 0, duration: 0,    useNativeDriver: true }),
+      Animated.delay(5000),
     ]));
-    scan.start();
-    return () => scan.stop();
+    const glow = Animated.loop(Animated.sequence([
+      Animated.timing(glowA, { toValue: 1.0, duration: 1800, useNativeDriver: false }),
+      Animated.timing(glowA, { toValue: 0.2, duration: 1800, useNativeDriver: false }),
+    ]));
+    const cur = Animated.loop(Animated.sequence([
+      Animated.timing(cursorA, { toValue: 0, duration: 550, useNativeDriver: true }),
+      Animated.timing(cursorA, { toValue: 1, duration: 550, useNativeDriver: true }),
+    ]));
+    scan.start(); glow.start(); cur.start();
+    return () => { scan.stop(); glow.stop(); cur.stop(); };
   }, []);
 
-  const cc    = isConn ? GREEN : AMBER;
-  const scanX = scanA.interpolate({ inputRange: [0, 1], outputRange: [-80, SW + 80] });
+  // Pure cyan palette — no amber/yellow anywhere
+  const cc     = isConn ? GREEN  : CYAN;
+  const cc2    = isConn ? TEAL   : CYAN;
+  const scanX  = scanA.interpolate({ inputRange: [0, 1], outputRange: [-100, SW + 100] });
+  const borderC= glowA.interpolate({ inputRange: [0, 1], outputRange: [CYAN + '18', CYAN + '55'] });
+
+  // Rotating status messages at the bottom of the header
+  const STATUS_MSGS = [
+    isConn ? `BRIDGE · ${addr || 'NEXUS-CORE'}` : 'AWAITING HANDSHAKE',
+    'AES-256-GCM · HMAC-SHA256',
+    'ZERO CLOUD · LAN ONLY',
+    isConn ? 'PYTHON ENGINE ARMED' : 'RUN butler_server.py',
+    'OLLAMA LOCAL AI BRIDGE',
+  ];
+  const statusMsg = STATUS_MSGS[tick % STATUS_MSGS.length];
 
   return (
     <View style={hdr.root}>
-      {/* 3px top accent — matches scripts/butler/settings pages */}
-      <View style={{ height: 3, backgroundColor: CYAN }} />
-      {/* Subtle scan sweep */}
+      {/* Circuit grid background */}
+      <CircuitGridBg color={CYAN} opacity={0.05} />
+
+      {/* Top segmented accent bar */}
+      <View style={{ flexDirection: 'row', height: 3 }}>
+        {[4, 1, 6, 1, 3, 1, 8, 1, 2].map((flex, i) => (
+          <View key={i} style={{
+            flex,
+            backgroundColor: [CYAN, CYAN + '20', GREEN, CYAN + '10', CYAN + '60', CYAN + '10', PURPLE + '40', CYAN + '08', CYAN + '30'][i],
+          }} />
+        ))}
+      </View>
+
+      {/* Subtle animated scan sweep — native driver only */}
       <Animated.View pointerEvents="none"
-        style={[hdr.scanLine, { transform: [{ translateX: scanX }] }]} />
-      <View style={[hdr.body, { paddingTop: safeTop + 11 }]}>
-        {/* LEFT: eyebrow + title + pills */}
+        style={[hdr.scanSweep, { transform: [{ translateX: scanX }] }]} />
+
+      {/* HUD corner brackets */}
+      <View style={hdr.cornerTL} />
+      <View style={hdr.cornerTR} />
+
+      {/* MAIN BODY */}
+      <View style={[hdr.body, { paddingTop: safeTop + 10 }]}>
+
+        {/* ── LEFT COLUMN: Terminal identity ── */}
         <View style={{ flex: 1, gap: 5 }}>
-          <Text style={hdr.eyebrow}>SELF-HOSTED · PRIVATE</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <MaterialCommunityIcons name="robot-happy" size={18} color={CYAN} />
+
+          {/* Terminal prompt line */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
+            <Text style={hdr.promptUser}>root</Text>
+            <Text style={hdr.promptAt}>@</Text>
+            <Text style={hdr.promptHost}>nexus</Text>
+            <Text style={hdr.promptColon}>:~</Text>
+            <Text style={hdr.promptHash}>#</Text>
+            <View style={{ width: 6 }} />
+            <Text style={hdr.promptCmd}>butler_ai --start</Text>
+            <Animated.View style={[hdr.cursor, { opacity: cursorA }]} />
+          </View>
+
+          {/* Large title */}
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
             <Text style={hdr.title}>
-              <Text style={{ color: '#FFF' }}>BUTLER </Text>
-              <Text style={{ color: CYAN }}>AI</Text>
+              <Text style={{ color: TEXT }}>BUTLER</Text>
+              <Text style={{ color: CYAN }}> AI</Text>
+            </Text>
+            <View style={[hdr.versionBadge, { borderColor: CYAN + '35', backgroundColor: CYAN + '08' }]}>
+              <Text style={{ fontFamily: MONO, fontSize: 7.5, color: CYAN + '80', fontWeight: '900' }}>v9.1</Text>
+            </View>
+          </View>
+
+          {/* Sub tagline */}
+          <Text style={hdr.tagline}>NEXUS COMMAND CENTER · LOCAL-FIRST · ZERO CLOUD</Text>
+
+          {/* Action buttons row — pure CYAN theme, no yellow */}
+          <View style={{ flexDirection: 'row', gap: 7, marginTop: 4 }}>
+            {/* CONNECT / PAIR — uses CYAN, never amber */}
+            <TouchableOpacity
+              onPress={() => { haptics.heavy(); onPair(); }}
+              activeOpacity={0.82}
+              style={[hdr.actionBtn, {
+                borderColor: cc + '80',
+                backgroundColor: cc + '14',
+                borderLeftColor: cc,
+              }]}>
+              <PulseDot color={cc} size={5} />
+              <Text style={[hdr.actionBtnTxt, { color: cc }]}>
+                {isConn ? '⬡ CONNECTED' : '⊞ SCAN QR'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* RUNTIME */}
+            <TouchableOpacity
+              onPress={() => { haptics.medium(); goToTab?.('butler'); }}
+              activeOpacity={0.82}
+              style={[hdr.actionBtn, {
+                borderColor: PURPLE + '55',
+                backgroundColor: PURPLE + '0D',
+                borderLeftColor: PURPLE,
+              }]}>
+              <MaterialCommunityIcons name="robot-outline" size={10} color={PURPLE} />
+              <Text style={[hdr.actionBtnTxt, { color: PURPLE }]}>LOCAL AI</Text>
+            </TouchableOpacity>
+
+            {/* SCRIPTS shortcut */}
+            <TouchableOpacity
+              onPress={() => { haptics.light(); goToTab?.('scripts'); }}
+              activeOpacity={0.82}
+              style={[hdr.actionBtn, {
+                borderColor: GREEN + '50',
+                backgroundColor: GREEN + '0A',
+                borderLeftColor: GREEN,
+              }]}>
+              <Text style={[hdr.actionBtnTxt, { color: GREEN }]}>FORGE</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ── RIGHT COLUMN: Live clock ── */}
+        <View style={{ alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+          {/* Big clock */}
+          <View style={{ alignItems: 'flex-end' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+              <Text style={hdr.clockHH}>{time}</Text>
+              <Text style={[hdr.clockSS, { color: CYAN }]}>{secs}</Text>
+            </View>
+            <Text style={hdr.clockLabel}>LOCAL · SECURE</Text>
+          </View>
+          {/* Connection status badge */}
+          <View style={[hdr.statusBadge, {
+            borderColor: cc + '55',
+            backgroundColor: cc + '0C',
+          }]}>
+            <PulseDot color={cc} size={4} />
+            <Text style={[hdr.statusTxt, { color: cc }]}>
+              {isConn ? 'LIVE' : 'OFFLINE'}
             </Text>
           </View>
-          <View style={{ flexDirection: 'row', gap: 6, marginTop: 1 }}>
-            <TouchableOpacity onPress={() => { haptics.heavy(); onPair(); }} activeOpacity={0.85}
-              style={[hdr.pill, { borderColor: cc + '70', backgroundColor: cc + '12' }]}>
-              <PulseDot color={cc} size={5} />
-              <Text style={[hdr.pillTxt, { color: cc }]}>{isConn ? 'ONLINE' : 'PAIR PC'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => { haptics.medium(); goToTab?.('butler'); }} activeOpacity={0.85}
-              style={[hdr.pill, { borderColor: PURPLE + '50', backgroundColor: PURPLE + '0C' }]}>
-              <Text style={[hdr.pillTxt, { color: PURPLE }]}>LOCAL RUNTIME</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-        {/* RIGHT: live clock */}
-        <View style={{ alignItems: 'flex-end', gap: 3 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 1 }}>
-            <Text style={hdr.clockBig}>{time}</Text>
-            <Text style={[hdr.clockSec, { color: CYAN }]}>{secs}</Text>
-          </View>
-          <Text style={hdr.clockSub}>LOCAL · SECURE</Text>
+          {/* Uptime / latency row */}
+          <Text style={hdr.clockSub2}>UTC+0 · LAN</Text>
         </View>
       </View>
-      {/* Bottom thin accent */}
-      <View style={hdr.bottomLine} />
+
+      {/* SCROLLING STATUS LINE */}
+      <View style={hdr.statusRow}>
+        <View style={[hdr.statusDot, { backgroundColor: cc }]} />
+        <Text style={[hdr.statusLine, { color: cc + 'AA' }]} numberOfLines={1}>
+          {statusMsg}
+        </Text>
+        <View style={{ flex: 1 }} />
+        <Text style={hdr.statusRight}>BUTLER_OS v7.3</Text>
+      </View>
+
+      {/* Bottom segmented accent */}
+      <View style={{ flexDirection: 'row', height: 2.5 }}>
+        {[3, 1, 5, 1, 2, 1, 4].map((flex, i) => (
+          <View key={i} style={{
+            flex,
+            backgroundColor: [CYAN + '60', CYAN + '10', GREEN + '40', CYAN + '08', PURPLE + '30', CYAN + '06', CYAN + '20'][i],
+          }} />
+        ))}
+      </View>
     </View>
   );
 }
@@ -424,32 +552,59 @@ const hdr = StyleSheet.create({
     backgroundColor: SURF3,
     overflow: 'hidden',
     borderBottomWidth: 1,
-    borderBottomColor: CYAN + '22',
+    borderBottomColor: CYAN + '25',
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.4, shadowRadius: 8 },
-      android: { elevation: 5 },
+      ios: { shadowColor: CYAN, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.18, shadowRadius: 12 },
+      android: { elevation: 6 },
     }),
   },
-  scanLine: {
-    position: 'absolute', top: 0, bottom: 0, width: 80,
-    backgroundColor: CYAN + '07', zIndex: 0,
+  scanSweep: {
+    position: 'absolute', top: 0, bottom: 0, width: 100,
+    backgroundColor: CYAN + '05', zIndex: 0,
+    transform: [{ skewX: '-8deg' }],
   },
+  cornerTL: { position: 'absolute', top: 6, left: 8, width: 14, height: 14, borderTopWidth: 2, borderLeftWidth: 2, borderColor: CYAN + '70', zIndex: 2 },
+  cornerTR: { position: 'absolute', top: 6, right: 8, width: 14, height: 14, borderTopWidth: 2, borderRightWidth: 2, borderColor: CYAN + '50', zIndex: 2 },
   body: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     paddingHorizontal: PAD,
-    paddingBottom: 13,
+    paddingBottom: 10,
     gap: 10,
     zIndex: 1,
   },
-  eyebrow:  { fontFamily: MONO, fontSize: 8, fontWeight: '700', color: CYAN + '65', letterSpacing: 1.8 },
-  title:    { fontSize: 24, fontWeight: '900', letterSpacing: 0.3, lineHeight: 28 },
-  pill:     { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
-  pillTxt:  { fontFamily: MONO, fontSize: 9.5, fontWeight: '900', letterSpacing: 0.3 },
-  clockBig: { fontFamily: MONO, fontSize: 22, fontWeight: '900', color: TEXT, letterSpacing: 1 },
-  clockSec: { fontFamily: MONO, fontSize: 14, fontWeight: '900', letterSpacing: 0.5 },
-  clockSub: { fontFamily: MONO, fontSize: 8, color: MID, letterSpacing: 1, fontWeight: '700' },
-  bottomLine: { height: 2, backgroundColor: CYAN + '30' },
+  // Terminal prompt
+  promptUser:   { fontFamily: MONO, fontSize: 9, fontWeight: '900', color: GREEN,           lineHeight: 14 },
+  promptAt:     { fontFamily: MONO, fontSize: 9, fontWeight: '900', color: TEXT + '50',    lineHeight: 14 },
+  promptHost:   { fontFamily: MONO, fontSize: 9, fontWeight: '900', color: CYAN,            lineHeight: 14 },
+  promptColon:  { fontFamily: MONO, fontSize: 9, fontWeight: '900', color: TEXT + '40',    lineHeight: 14 },
+  promptHash:   { fontFamily: MONO, fontSize: 9, fontWeight: '900', color: GREEN + 'AA',   lineHeight: 14 },
+  promptCmd:    { fontFamily: MONO, fontSize: 9, fontWeight: '700', color: TEXT + '70',    lineHeight: 14 },
+  cursor:       { width: 6, height: 11, borderRadius: 1, backgroundColor: CYAN, marginLeft: 2, alignSelf: 'center' },
+  // Title
+  title:        { fontSize: 26, fontWeight: '900', letterSpacing: -0.2, lineHeight: 30 },
+  versionBadge: { borderWidth: 1, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
+  tagline:      { fontFamily: MONO, fontSize: 8.5, color: MID + 'AA', letterSpacing: 0.6, lineHeight: 13 },
+  // Action buttons
+  actionBtn:    {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    borderWidth: 1.5, borderLeftWidth: 3, borderRadius: 9,
+    paddingHorizontal: 10, paddingVertical: 6,
+  },
+  actionBtnTxt: { fontFamily: MONO, fontSize: 9.5, fontWeight: '900', letterSpacing: 0.4 },
+  // Clock
+  clockHH:      { fontFamily: MONO, fontSize: 22, fontWeight: '900', color: TEXT, letterSpacing: 1.5 },
+  clockSS:      { fontFamily: MONO, fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
+  clockLabel:   { fontFamily: MONO, fontSize: 7.5, color: MID, letterSpacing: 1.5, fontWeight: '700', textAlign: 'right' },
+  clockSub2:    { fontFamily: MONO, fontSize: 7, color: DIM + 'AA', letterSpacing: 0.5, textAlign: 'right' },
+  // Status badge
+  statusBadge:  { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 4 },
+  statusTxt:    { fontFamily: MONO, fontSize: 8.5, fontWeight: '900', letterSpacing: 0.5 },
+  // Status row
+  statusRow:    { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: PAD, paddingBottom: 8, paddingTop: 2 },
+  statusDot:    { width: 5, height: 5, borderRadius: 2.5 },
+  statusLine:   { fontFamily: MONO, fontSize: 9, letterSpacing: 0.8, fontWeight: '700', maxWidth: SW * 0.5 },
+  statusRight:  { fontFamily: MONO, fontSize: 8, color: DIM, letterSpacing: 0.5 },
 });
 
 // ══════════════════════════════════════════════════════════════════
@@ -986,7 +1141,7 @@ function PairPrompt({ onPair }: { onPair: () => void }) {
 
   return (
     <View style={pq.root}>
-      <View style={{ height: 3, backgroundColor: AMBER + 'A0' }} />
+      <View style={{ height: 3, backgroundColor: CYAN + '80' }} />
       <View style={{ flexDirection: 'row', gap: 16, padding: 16, paddingTop: 14, alignItems: 'center' }}>
         <Animated.View style={{ transform: [{ translateY }] }}>
           <Animated.View style={[pq.robotBox, {
@@ -1028,7 +1183,7 @@ function PairPrompt({ onPair }: { onPair: () => void }) {
               { label: 'PYTHON', col: CYAN   },
               { label: 'LAN ONLY', col: GREEN  },
               { label: 'AES-256', col: PURPLE },
-              { label: 'HMAC', col: AMBER  },
+              { label: 'HMAC', col: TEAL  },
             ].map(t => (
               <View key={t.label} style={[pq.tag, { borderColor: t.col + '35', backgroundColor: t.col + '08' }]}>
                 <Text style={{ fontFamily: MONO, fontSize: 8, fontWeight: '900', color: t.col + 'AA', letterSpacing: 0.5 }}>{t.label}</Text>
@@ -1047,12 +1202,12 @@ function PairPrompt({ onPair }: { onPair: () => void }) {
   );
 }
 const pq = StyleSheet.create({
-  root:    { backgroundColor: SURFACE, borderRadius: 18, borderWidth: 1.5, borderColor: AMBER + '30', overflow: 'hidden', marginHorizontal: PAD },
+  root:    { backgroundColor: SURFACE, borderRadius: 18, borderWidth: 1.5, borderColor: CYAN + '30', overflow: 'hidden', marginHorizontal: PAD },
   robotBox:{ width: 68, height: 68, borderRadius: 18, borderWidth: 2, alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden', position: 'relative' },
   title:   { fontSize: 17, fontWeight: '700', color: TEXT },
   body:    { fontFamily: MONO, fontSize: 10.5, color: MID, lineHeight: 16 },
   tag:     { borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
-  btn:     { margin: 16, marginTop: 4, backgroundColor: AMBER, borderRadius: 14, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  btn:     { margin: 16, marginTop: 4, backgroundColor: CYAN, borderRadius: 14, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   btnTxt:  { fontFamily: MONO, fontSize: 14, fontWeight: '900', color: BG },
   downloadBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: 16, marginTop: 8, marginBottom: 4, backgroundColor: '#00CC88', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, justifyContent: 'center' },
   downloadTxt: { fontFamily: MONO, fontSize: 11, fontWeight: '900', color: '#000', letterSpacing: 0.5, flex: 1, textAlign: 'center' },
