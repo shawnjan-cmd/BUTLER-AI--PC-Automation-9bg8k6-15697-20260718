@@ -41,7 +41,10 @@ import { TabErrorBoundary } from '@/components/ui/TabErrorBoundary';
 import { RemoteAccessMonetizationCard } from '@/components/home/RemoteAccessMonetizationCard';
 import { NexusVaultCard } from '@/components/ui/NexusVaultCard';
 import SecurityShowcase from '@/components/ui/SecurityShowcase';
-// NexusHero, CoreSurfaces, RotatingTips replaced by inline QuickNav4 + StatusCards4
+// NexusHero, CoreSurfaces, RotatingTips wired back in alongside QuickNav4 + StatusCards4
+import { NexusHero } from '@/components/home/NexusHero';
+import { CoreSurfaces } from '@/components/home/CoreSurfaces';
+import { RotatingTips } from '@/components/home/RotatingTips';
 
 // ─── PALETTE ──────────────────────────────────────────────────────
 const BG      = '#04080F';
@@ -745,7 +748,7 @@ function MiniChatBar({ isConn }: { isConn: boolean }) {
     (global as any).__butlerSwitchTab?.('butler');
   };
 
-  const cc         = isConn ? CYAN : AMBER;
+  const cc         = isConn ? GREEN : CYAN;  // GREEN = connected (terminal aesthetic)
   const borderCol  = accentA.interpolate({ inputRange: [0, 1], outputRange: [cc + '22', cc + '80'] });
   const replyColor = replyType === 'err' ? RED : replyType === 'ok' ? CYAN : MID;
 
@@ -3436,22 +3439,55 @@ function NexusHomeInner() {
           {!isConn && <><View style={{ height: 10 }} /><PairPrompt onPair={() => setShowQR(true)} /></>}
           <View style={{ height: 12 }} />
 
+          {/* ── NEXUS HERO — status chips + gradient title + stat tiles + CTAs ── */}
+          <NexusHero
+            isConnected={isConn}
+            serverAddr={addr}
+            kbCount={kbCount}
+            scripts={scripts}
+            onPair={() => setShowQR(true)}
+            goToTab={goToTab}
+          />
+          <View style={{ height: 10 }} />
+
           {/* ── QUICK NAV 4 — Pair · Chat · Run · Files ── */}
           <QuickNav4 isConn={isConn} onPair={() => setShowQR(true)} goToTab={goToTab} />
+          <View style={{ height: 12 }} />
+
+          {/* ── SECURITY SHOWCASE — hero visual, HUD tile grid (AES-256/LAN/NO TELEMETRY/64C/SHA) ── */}
+          <View style={{ paddingHorizontal: PAD }}>
+            <SecurityShowcase mode="full" />
+          </View>
           <View style={{ height: 10 }} />
+
+          {/* ── SECURITY PROTOCOLS — animated 6-module row ── */}
+          <SecurityProtocols />
+          <View style={{ height: 12 }} />
+          <NeuralDivider color={GREEN} />
 
           {/* ── STATUS CARDS 4 — Executed · Vectors · Latency · Status ── */}
           <StatusCards4 isConn={isConn} scripts={scripts} kbCount={kbCount} latency={latency} />
           <View style={{ height: 12 }} />
 
+          {/* ── ROTATING TIPS ── */}
+          <View style={{ paddingHorizontal: PAD }}>
+            <RotatingTips />
+          </View>
+          <View style={{ height: 10 }} />
+
           {/* ── NETWORK METRICS BAR — real data first ── */}
           <NetworkMetricsBar isConn={isConn} latency={latency} cpu={metrics.cpu} disk={metrics.disk} />
           <View style={{ height: 12 }} />
 
+          {/* ── CORE SURFACES — 3×3 tab launcher (Chat/Flows/Scripts/KB/Files/Logs/PC/Theme/System) ── */}
+          <CoreSurfaces goToTab={goToTab} />
+          <View style={{ height: 12 }} />
+          <CircuitDivider color={isConn ? CYAN : DIM} />
+
           {/* ── SYSTEM TELEMETRY 2×2 ── */}
           <SystemTelemetryGrid isConn={isConn} addr={addr} cpu={metrics.cpu} ram={metrics.ram} disk={metrics.disk} kbCount={kbCount} />
           <View style={{ height: 10 }} />
-          <CircuitDivider color={isConn ? CYAN : DIM} />
+          <SpectrumDivider colors={[CYAN, GREEN]} />
 
           {/* ── LIVE GAUGES — hero metrics ── */}
           <LiveGauges isConn={isConn} cpu={metrics.cpu} ram={metrics.ram} disk={metrics.disk} cpuH={cpuH} ramH={ramH} diskH={diskH} />
@@ -3485,15 +3521,7 @@ function NexusHomeInner() {
           <View style={{ height: 12 }} />
           <PowerDivider color={RED} />
 
-          {/* ── SECURITY SHOWCASE — HUD tile style ── */}
-          <View style={{ paddingHorizontal: PAD }}>
-            <SecurityShowcase mode="full" />
-          </View>
-          <View style={{ height: 12 }} />
-          {/* ── SECURITY PROTOCOLS — animated 6-module row ── */}
-          <SecurityProtocols />
-          <View style={{ height: 12 }} />
-          <NeuralDivider color={GREEN} />
+          {/* SecurityShowcase + SecurityProtocols moved to hero position above */
 
           {/* ── SYS ACTIVITY 24H ── */}
           <SysActivityFeed isConn={isConn} />
