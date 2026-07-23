@@ -32,9 +32,6 @@ import { TabSwipeOverlay } from '@/components/ui/TabSwipeOverlay';
 import { logger } from '@/utils/logger';
 import { serverConnection } from '@/services/serverConnection';
 import { autoErrorLogger } from '@/services/autoErrorLogger';
-import { logger } from '@/utils/logger';
-import { serverConnection } from '@/services/serverConnection';
-import { autoErrorLogger } from '@/services/autoErrorLogger';
 
 const { width: SW } = Dimensions.get('window');
 const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
