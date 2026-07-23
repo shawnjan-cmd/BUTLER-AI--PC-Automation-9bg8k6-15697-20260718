@@ -922,9 +922,10 @@ export function RemoteAccessMonetizationCard({ onConnected }: { onConnected?: ()
     { icon: 'vpn',                 label: 'Tailscale Remote Tunnel', detail: isPro ? 'READY' : 'PRO+',  active: isPro,   color: C.green,  badge: isPro ? undefined : 'PRO' },
     { icon: 'cloud-braces',        label: 'Cloudflare Tunnel',       detail: isPro ? 'READY' : 'PRO+',  active: isPro,   color: C.amber,  badge: isPro ? undefined : 'PRO' },
     { icon: 'server-network',      label: 'Multi-PC Profiles',       detail: isElite ? `${savedPCs.length}/${maxPCs}` : 'ELITE+', active: isElite, color: C.purple, badge: isElite ? undefined : 'ELITE' },
-    { icon: 'calendar-check',      label: 'Script Scheduler',        detail: isElite ? 'ACTIVE' : 'ELITE+', active: isElite, color: C.teal, badge: isElite ? undefined : 'ELITE' },
     { icon: 'shield-lock',         label: 'HMAC-SHA256 Auth',        detail: 'ALWAYS ON',               active: true,    color: C.green  },
     { icon: 'lock-outline',        label: 'AES-256-GCM Encryption',  detail: 'ALWAYS ON',               active: true,    color: C.cyan   },
+    { icon: 'undo-variant',        label: 'One-Tap Undo',            detail: '15 MIN WINDOW',           active: true,    color: C.teal   },
+    { icon: 'magnify-scan',        label: 'Nefarious Script Guard',  detail: '40+ PATTERNS',            active: true,    color: C.blue   },
   ];
 
   return (

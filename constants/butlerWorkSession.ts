@@ -252,7 +252,32 @@
  *  [ ] Onboarding permission list reads from app.json dynamically
  */
 
-export const BUTLER_WORK_SESSION_VERSION = '2026-07-23-v4';
+export const BUTLER_WORK_SESSION_VERSION = '2026-07-23-v5';
+// COMPLETED 2026-07-23-v5:
+//  [x] Script Scheduling REMOVED from app UI (Play Store compliance)
+//      - Scheduler capability row in RemoteAccessMonetizationCard now removed
+//        from CAPS array — scheduler is NOT present in this build anywhere
+//      - PlayStoreReviewerNote added to downloads.tsx with full compliance statement
+//      - PlayStoreCompliance section added to settings.tsx
+//  [x] SafetyArchitecturePanel added to downloads.tsx with:
+//      - Unique custom SVG SafetyShieldSVG icon (circuit traces + lock + HUD corners)
+//      - 7 expandable safety layer accordion (Consent Gate / Undo / Nefarious Detection
+//        / AES-256 / LAN-Only / Zero Telemetry / Hard Stops)
+//      - UNDO feature spotlight card
+//      - 4 stat cells (7 layers / 40+ blocked patterns / 15m undo / 0 cloud)
+//      - Zero Harm Guarantee statement
+//  [x] SecurityAudit + PlayStoreReviewerNote in downloads.tsx below safety panel
+//
+// SCHEDULING POLICY DECISION (permanent):
+//  Google Play rejected scheduling because it looked like undisclosed background
+//  execution. Decision: scheduler feature REMOVED permanently from free/pro/elite UI.
+//  FUTURE: Only locked, non-editable, pre-approved curated scripts (e.g. "Move
+//  Downloads folder to Recycle Bin") COULD be schedulable IF:
+//    (a) Server-side script is hardcoded and unmodifiable by user
+//    (b) A persistent notification is shown while scheduled task is pending
+//    (c) User can one-tap cancel at any time from notification
+//    (d) Full disclosure added to Play Store listing and privacy policy
+//  This requires a separate compliance review before implementing.
 // COMPLETED 2026-07-23:
 //  [x] HomeHeader replaced with AI COMMAND CENTER v2 (image 2 style)
 //      - Robot mascot tall (110x160) on left with HUD corners + live orb
