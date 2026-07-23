@@ -53,7 +53,7 @@ const { width: SW, height: SH } = Dimensions.get('window');
 const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
 const ND = false; // useNativeDriver always false for safety
 
-const TOTAL = 10;
+const TOTAL = 11;
 
 // ─── PER-PAGE TIP DATA ────────────────────────────────────────────
 const PAGE_TIPS: { title: string; body: string; icon: string; iconLib: 'material' | 'community' }[] = [
@@ -67,6 +67,7 @@ const PAGE_TIPS: { title: string; body: string; icon: string; iconLib: 'material
   { title: 'LOCAL SERVER',  body: 'butler_server.py runs on YOUR PC. We host zero servers.', icon: 'server', iconLib: 'community' },
   { title: 'PAIR IN 60s',   body: 'GitHub → install → run → scan QR. Most users done in 90 seconds.', icon: 'qr-code-scanner', iconLib: 'material' },
   { title: 'ALL SYSTEMS GO',body: 'Tap any tab icon below to enter your Nexus command center.', icon: 'rocket-launch', iconLib: 'community' },
+  { title: 'DOWNLOAD CENTER', body: 'Get Butler Server, Ollama, Python — every tool in one place.', icon: 'download-circle', iconLib: 'community' },
 ];
 
 // ─── DESIGN TOKENS ─────────────────────────────────────────────────
@@ -102,6 +103,7 @@ const PAGES = [
   { accent: T.green,  icon: 'server',                iconLib: 'community', label: 'SERVER',      title: 'SERVER PRIVACY',    sub: '100% local · transparent architecture' },
   { accent: T.purple, icon: 'robot-industrial',      iconLib: 'community', label: 'PC SETUP',    title: 'CONNECT YOUR PC',   sub: 'Three steps to pair in under 60 seconds' },
   { accent: T.green,  icon: 'rocket-launch',         iconLib: 'community', label: 'LAUNCH',      title: 'YOU ARE READY',     sub: 'All agreements saved · tap FINISH' },
+  { accent: T.blue,   icon: 'download-circle-outline', iconLib: 'community', label: 'DOWNLOADS',   title: 'DOWNLOAD CENTER',   sub: 'Get Butler Server, Ollama, Python — all links here' },
 ];
 
 // ─── PERSIST + COMPLETE ────────────────────────────────────────────
@@ -1517,6 +1519,64 @@ const sig = StyleSheet.create({
   stripBar: { height:3 },
 });
 
+function DownloadCenterStep({ accent }: { accent: string }) {
+  const openURL = (url: string) => {
+    try { haptics.medium(); } catch {}
+    import('react-native').then(({ Linking }) => Linking.openURL(url).catch(() => {}));
+  };
+  const ITEMS = [
+    { icon:'download-circle-outline', color:T.cyan,   title:'BUTLER SERVER', sub:'Latest release · official source', url:'https://github.com/shawnjan-cmd/butler-server/releases/latest' },
+    { icon:'robot-happy-outline',     color:T.purple, title:'OLLAMA AI',     sub:'Run LLMs locally on your PC',     url:'https://ollama.com/download' },
+    { icon:'language-python',         color:T.amber,  title:'PYTHON 3.12+',  sub:'python.org · all platforms',       url:'https://www.python.org/downloads/' },
+    { icon:'github',                  color:T.cyan,   title:'SOURCE CODE',   sub:'Browse · issues · changelog',     url:'https://github.com/shawnjan-cmd/butler-server' },
+  ];
+  return (
+    <View style={{ gap: 10 }}>
+      <NeonCard color={accent}>
+        <Text style={{ fontSize:12, fontWeight:'900', fontFamily:MONO, color:accent, marginBottom:4 }}>EVERYTHING YOU NEED — ONE PLACE</Text>
+        <Text style={{ fontSize:11, fontFamily:MONO, color:T.textMid, lineHeight:17 }}>Official links to all components. All free, all open source, all run 100% on your PC.</Text>
+      </NeonCard>
+      <SectionHdr label="DOWNLOAD ALL COMPONENTS" color={accent} icon="download" />
+      {ITEMS.map((item, i) => (
+        <TouchableOpacity key={i} onPress={() => openURL(item.url)} activeOpacity={0.85}
+          style={[ps.qrBtn, { backgroundColor: item.color + '14', borderWidth:1.5, borderColor:item.color+'55', borderRadius:14, marginBottom:0 }]}>
+          <MaterialCommunityIcons name={item.icon as any} size={24} color={item.color} />
+          <View style={{ flex:1 }}>
+            <Text style={{ fontFamily:MONO, fontSize:13, fontWeight:'900', color:item.color }}>{item.title}</Text>
+            <Text style={{ fontFamily:MONO, fontSize:10, color:T.textMid, marginTop:2 }}>{item.sub}</Text>
+          </View>
+          <MaterialIcons name="open-in-new" size={15} color={item.color+'70'} />
+        </TouchableOpacity>
+      ))}
+      <SectionHdr label="QUICK START" color={T.green} icon="console" />
+      <View style={[ps.stepCard, { borderColor:T.cyan+'50', borderLeftColor:T.cyan }]}>
+        <View style={[ps.topAccent, { backgroundColor:T.cyan }]} />
+        <View style={{ padding:14, gap:6 }}>
+          {[
+            '1. Download butler_server.py from GitHub',
+            '2. Run: python butler_server.py',
+            '3. A QR code appears in your terminal',
+            '4. Tap HOME tab → tap SCAN QR TO PAIR',
+            '5. Done — Butler AI is live on your LAN!',
+          ].map((step, si) => (
+            <View key={si} style={{ flexDirection:'row', gap:8, alignItems:'flex-start' }}>
+              <View style={{ width:5, height:5, borderRadius:2.5, backgroundColor:T.cyan, marginTop:5, flexShrink:0 }} />
+              <Text style={{ fontFamily:MONO, fontSize:11, color:T.text, lineHeight:17, flex:1 }}>{step}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+      <View style={{ borderWidth:1.5, borderRadius:14, borderColor:T.green+'40', backgroundColor:'#030F0A', padding:14 }}>
+        <View style={{ flexDirection:'row', alignItems:'center', gap:8, marginBottom:8 }}>
+          <MaterialCommunityIcons name="shield-check" size={14} color={T.green} />
+          <Text style={{ fontFamily:MONO, fontSize:10, fontWeight:'900', color:T.green, letterSpacing:1 }}>ZERO CLOUD GUARANTEE</Text>
+        </View>
+        <Text style={{ fontFamily:MONO, fontSize:11, color:T.textMid, lineHeight:17 }}>Every download above is open source. The server runs entirely on YOUR PC — we host zero infrastructure.</Text>
+      </View>
+    </View>
+  );
+}
+
 function LaunchPage({ accent }: { accent: string }) {
   const engageGlow  = useRef(new Animated.Value(0.35)).current;
   const engageScale = useRef(new Animated.Value(1)).current;
@@ -1980,7 +2040,7 @@ function OnboardingScreenInner() {
   useEffect(() => {
     (global as any).__butlerOnboardingStepIdx = idx;
     try { (global as any).__butlerUpdateOnboardingStep?.(idx); } catch {}
-    if (idx === 9) {
+    if (idx === 10) {
       setTimeout(() => {
         try { (global as any).__butlerRevealTabBar?.(); } catch {}
       }, 500);
@@ -2166,7 +2226,8 @@ function OnboardingScreenInner() {
               {idx === 6 && <QAPage accent={page.accent} />}
               {idx === 7 && <ServerPrivacyPage accent={page.accent} />}
               {idx === 8 && <PCSetupPage accent={page.accent} onScanQR={() => setShowQR(true)} />}
-              {idx === 9 && <LaunchPage accent={page.accent} />}
+      {idx === 9 && <LaunchPage accent={page.accent} />}
+              {idx === 10 && <DownloadCenterStep accent={page.accent} />}
             </Animated.View>
           </ScrollView>
         </View>

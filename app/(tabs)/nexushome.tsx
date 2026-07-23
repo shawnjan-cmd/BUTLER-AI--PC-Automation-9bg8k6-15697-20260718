@@ -41,9 +41,7 @@ import { TabErrorBoundary } from '@/components/ui/TabErrorBoundary';
 import { RemoteAccessMonetizationCard } from '@/components/home/RemoteAccessMonetizationCard';
 import { NexusVaultCard } from '@/components/ui/NexusVaultCard';
 import SecurityShowcase from '@/components/ui/SecurityShowcase';
-import { NexusHero } from '@/components/home/NexusHero';
-import { CoreSurfaces } from '@/components/home/CoreSurfaces';
-import { RotatingTips } from '@/components/home/RotatingTips';
+// NexusHero, CoreSurfaces, RotatingTips replaced by inline QuickNav4 + StatusCards4
 
 // ─── PALETTE ──────────────────────────────────────────────────────
 const BG      = '#04080F';
@@ -2768,6 +2766,175 @@ function SysActivityFeed({ isConn }: { isConn: boolean }) {
   );
 }
 
+// ══════════════════════════════════════════════════════════════════
+// QUICK NAV 4 — Pair · Chat · Run · Files (matches reference image)
+// ══════════════════════════════════════════════════════════════════
+const QN4_ITEMS = [
+  { icon: 'qrcode-scan',        label: 'Pair',    sub: 'Scan & Connect',  color: CYAN,   onPress: (onPair: () => void) => onPair() },
+  { icon: 'robot-happy',        label: 'Chat',    sub: 'Local AI',        color: GREEN,  tab: 'butler'    },
+  { icon: 'play-circle-outline',label: 'Run',     sub: 'Execute Script',  color: AMBER,  tab: 'scripts'   },
+  { icon: 'folder-network',     label: 'Files',   sub: 'Send & Receive',  color: PURPLE, tab: 'fileshare' },
+];
+
+function QuickNav4({ isConn, onPair, goToTab }: { isConn: boolean; onPair: () => void; goToTab: (t: string) => void }) {
+  const scales = useRef(QN4_ITEMS.map(() => new Animated.Value(1))).current;
+  const glows  = useRef(QN4_ITEMS.map(() => new Animated.Value(0))).current;
+
+  const pi = (i: number) => {
+    Animated.parallel([
+      Animated.spring(scales[i], { toValue: 0.89, tension: 380, friction: 11, useNativeDriver: true }),
+      Animated.timing(glows[i],  { toValue: 1, duration: 80,  useNativeDriver: false }),
+    ]).start();
+  };
+  const po = (i: number) => {
+    Animated.parallel([
+      Animated.spring(scales[i], { toValue: 1, tension: 260, friction: 10, useNativeDriver: true }),
+      Animated.timing(glows[i],  { toValue: 0, duration: 320, useNativeDriver: false }),
+    ]).start();
+  };
+
+  return (
+    <View style={{ paddingHorizontal: PAD }}>
+      <View style={qn4.row}>
+        {QN4_ITEMS.map((item, i) => {
+          const bgCol = glows[i].interpolate({ inputRange: [0, 1], outputRange: [item.color + '0C', item.color + '22'] });
+          const brCol = glows[i].interpolate({ inputRange: [0, 1], outputRange: [item.color + '30', item.color + 'AA'] });
+          return (
+            <Pressable
+              key={item.label}
+              onPress={() => {
+                haptics.medium();
+                if (item.tab) goToTab(item.tab);
+                else onPair();
+              }}
+              onPressIn={() => pi(i)}
+              onPressOut={() => po(i)}
+              style={{ flex: 1 }}
+            >
+              <Animated.View style={[qn4.cell, {
+                backgroundColor: bgCol,
+                borderColor: brCol,
+                borderTopColor: item.color,
+                transform: [{ scale: scales[i] }],
+                ...Platform.select({
+                  ios: { shadowColor: item.color, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8 },
+                  android: { elevation: 4 },
+                }),
+              }]}>
+                <HUDCorners color={item.color + '25'} size={6} t={1.2} />
+                <View style={[qn4.iconWrap, { backgroundColor: item.color + '18', borderColor: item.color + '50' }]}>
+                  <MaterialCommunityIcons name={item.icon as any} size={26} color={item.color} />
+                </View>
+                <Text style={[qn4.label, { color: item.color + 'CC' }]}>{item.label}</Text>
+                <Text style={qn4.sub} numberOfLines={1}>{item.sub}</Text>
+                <View style={[qn4.bottomLine, { backgroundColor: item.color }]} />
+              </Animated.View>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const qn4 = StyleSheet.create({
+  row:       { flexDirection: 'row', gap: 8 },
+  cell:      {
+    alignItems: 'center', paddingTop: 18, paddingBottom: 14, gap: 6,
+    borderRadius: 16, borderWidth: 1.5, borderTopWidth: 3,
+    overflow: 'hidden', position: 'relative', backgroundColor: SURFACE,
+  },
+  iconWrap:  { width: 54, height: 54, borderRadius: 15, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  label:     { fontFamily: MONO, fontSize: 11, fontWeight: '900', letterSpacing: 0.4 },
+  sub:       { fontFamily: MONO, fontSize: 8, color: MID, letterSpacing: 0.2, paddingHorizontal: 4, textAlign: 'center' },
+  bottomLine:{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, opacity: 0.7 },
+});
+
+// ══════════════════════════════════════════════════════════════════
+// STATUS CARDS 4 — Executed · Vectors · Latency · Status
+// ══════════════════════════════════════════════════════════════════
+function StatusCards4({ isConn, scripts, kbCount, latency }: {
+  isConn: boolean; scripts: number; kbCount: number; latency: number;
+}) {
+  const CARDS = [
+    {
+      icon: 'play-circle-outline', label: 'EXECUTED',
+      value: scripts > 0 ? String(scripts) : '0',
+      sub: 'scripts run', color: CYAN,
+    },
+    {
+      icon: 'database-outline', label: 'VECTORS',
+      value: kbCount > 0 ? fmtCompact(kbCount * 1000) : '—',
+      sub: 'kb vectors', color: PURPLE,
+    },
+    {
+      icon: 'speedometer-medium', label: 'LATENCY',
+      value: isConn ? (latency > 0 ? `${latency}ms` : '—') : '—',
+      sub: 'lan ping', color: latency > 200 ? AMBER : GREEN,
+    },
+    {
+      icon: isConn ? 'check-circle-outline' : 'circle-outline', label: 'STATUS',
+      value: isConn ? 'LIVE' : 'IDLE',
+      sub: isConn ? 'connected' : 'no pc', color: isConn ? GREEN : MID,
+    },
+  ];
+
+  const pulseAnims = useRef(CARDS.map(() => new Animated.Value(0.6))).current;
+  useEffect(() => {
+    CARDS.forEach((_, i) => {
+      const loop = Animated.loop(Animated.sequence([
+        Animated.delay(i * 200),
+        Animated.timing(pulseAnims[i], { toValue: 1.0, duration: 1400, useNativeDriver: true }),
+        Animated.timing(pulseAnims[i], { toValue: 0.35, duration: 1400, useNativeDriver: true }),
+      ]));
+      loop.start();
+    });
+    return () => pulseAnims.forEach(a => a.stopAnimation());
+  }, []);
+
+  return (
+    <View style={{ paddingHorizontal: PAD }}>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {CARDS.map((c, i) => (
+          <View key={c.label} style={[sc4.card, {
+            backgroundColor: SURFACE,
+            borderColor: c.color + '30',
+            borderTopColor: c.color,
+          }]}>
+            <HUDCorners color={c.color + '25'} size={6} t={1} />
+            <View style={[sc4.iconBox, { backgroundColor: c.color + '14', borderColor: c.color + '40' }]}>
+              <Animated.View style={{ opacity: pulseAnims[i] }}>
+                <MaterialCommunityIcons name={c.icon as any} size={18} color={c.color} />
+              </Animated.View>
+            </View>
+            <Text style={[sc4.value, { color: isConn ? c.color : DIM }]} adjustsFontSizeToFit numberOfLines={1}>
+              {c.value}
+            </Text>
+            <Text style={sc4.label}>{c.label}</Text>
+            <Text style={[sc4.sub, { color: c.color + '50' }]}>{c.sub}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const sc4 = StyleSheet.create({
+  card: {
+    flex: 1, alignItems: 'center', paddingTop: 14, paddingBottom: 12, gap: 4,
+    borderRadius: 14, borderWidth: 1, borderTopWidth: 2.5,
+    overflow: 'hidden', position: 'relative',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 8 },
+      android: { elevation: 3 },
+    }),
+  },
+  iconBox: { width: 38, height: 38, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
+  value:   { fontFamily: MONO, fontSize: 17, fontWeight: '900', lineHeight: 20 },
+  label:   { fontFamily: MONO, fontSize: 7.5, color: MID, fontWeight: '900', letterSpacing: 1 },
+  sub:     { fontFamily: MONO, fontSize: 7, letterSpacing: 0.3 },
+});
+
 function ZeroCloudBanner() {
   return (
     <View style={{ paddingHorizontal: PAD }}>
@@ -3099,37 +3266,20 @@ function NexusHomeInner() {
               tintColor={CYAN} colors={[CYAN, GREEN, AMBER]} progressBackgroundColor={SURFACE} />
           }
         >
-          {/* ── NEXUS HERO ── */}
-          <NexusHero
-            isConnected={isConn}
-            serverAddr={addr}
-            kbCount={kbCount}
-            scripts={scripts}
-            onPair={() => setShowQR(true)}
-            goToTab={goToTab}
-          />
-          <View style={{ height: 10 }} />
-
-          {/* ── ROTATING TIPS ── */}
-          <View style={{ paddingHorizontal: PAD }}>
-            <RotatingTips />
-          </View>
-          <View style={{ height: 12 }} />
-
-          {/* ── CORE SURFACES 3×3 ── */}
-          <CoreSurfaces goToTab={goToTab} />
-          <View style={{ height: 12 }} />
-
-          {/* ── COMPACT HEADER — scrolls with content ── */}
-          <HomeHeader safeTop={0} isConn={isConn} addr={addr} onPair={() => setShowQR(true)} goToTab={goToTab} />
-          <View style={{ height: 10 }} />
+          {/* ── COMPACT HEADER — TOP with real safe area ── */}
+          <HomeHeader safeTop={insets.top} isConn={isConn} addr={addr} onPair={() => setShowQR(true)} goToTab={goToTab} />
 
           {/* ── PAIR PROMPT ── */}
-          {!isConn && <><PairPrompt onPair={() => setShowQR(true)} /><View style={{ height: 12 }} /></>}
+          {!isConn && <><View style={{ height: 10 }} /><PairPrompt onPair={() => setShowQR(true)} /></>}
+          <View style={{ height: 12 }} />
 
-          {/* ── QUICK START BAR ── */}
-          <QuickStartBar goToTab={goToTab} />
+          {/* ── QUICK NAV 4 — Pair · Chat · Run · Files ── */}
+          <QuickNav4 isConn={isConn} onPair={() => setShowQR(true)} goToTab={goToTab} />
           <View style={{ height: 10 }} />
+
+          {/* ── STATUS CARDS 4 — Executed · Vectors · Latency · Status ── */}
+          <StatusCards4 isConn={isConn} scripts={scripts} kbCount={kbCount} latency={latency} />
+          <View style={{ height: 12 }} />
 
           {/* ── NETWORK METRICS BAR — real data first ── */}
           <NetworkMetricsBar isConn={isConn} latency={latency} cpu={metrics.cpu} disk={metrics.disk} />

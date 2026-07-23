@@ -76,7 +76,7 @@ const ICON_MAP: Record<string, IconFn> = {
   connect:        (c, s) => <MaterialCommunityIcons name="server-network" size={s} color={c} />,
   settings:       (c, s) => <MaterialIcons name="tune" size={s} color={c} />,
   cosmetic:       (c, s) => <MaterialCommunityIcons name="palette-swatch" size={s} color={c} />,
-
+  downloads:       (c, s) => <MaterialCommunityIcons name="download-circle" size={s} color={c} />,
 };
 
 const TAB_LABELS: Record<string, string> = {
@@ -89,6 +89,7 @@ const TAB_LABELS: Record<string, string> = {
   fileshare:      'VAULT',
   settings:       'CFG',
   cosmetic:       'SKINS',
+  downloads:       'GET',
 
   connect:        'PAIR',
 };
@@ -283,6 +284,9 @@ export default function TabsLayout() {
       {/* ── SKINS tab before Settings so Settings is the rightmost/last tab ── */}
       <Tabs.Screen name="cosmetic"  options={{ title: 'SKINS',               tabBarLabel: 'SKINS'              }} />
       <Tabs.Screen name="settings"  options={{ title: TAB_LABELS.settings,   tabBarLabel: TAB_LABELS.settings  }} />
+
+      {/* ── DOWNLOAD CENTER — visible tab ── */}
+      <Tabs.Screen name="downloads" options={{ title: TAB_LABELS.downloads, tabBarLabel: TAB_LABELS.downloads }} />
 
       {/* ── PAIR PC — visible tab ── */}
       <Tabs.Screen name="connect"  options={{ title: TAB_LABELS.connect,  tabBarLabel: TAB_LABELS.connect  }} />
