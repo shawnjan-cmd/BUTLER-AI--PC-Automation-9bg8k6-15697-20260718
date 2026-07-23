@@ -3521,7 +3521,7 @@ function NexusHomeInner() {
           <View style={{ height: 12 }} />
           <PowerDivider color={RED} />
 
-          {/* SecurityShowcase + SecurityProtocols moved to hero position above */
+          {/* SecurityShowcase + SecurityProtocols moved to hero position above */}
 
           {/* ── SYS ACTIVITY 24H ── */}
           <SysActivityFeed isConn={isConn} />
