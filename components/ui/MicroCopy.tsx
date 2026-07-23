@@ -1,11 +1,13 @@
 /**
- * MicroCopy — the small-print layer.
+ * MicroCopy — the small-print layer. GlowWave-X upgraded.
  * Three locked-down text roles: SectionKicker, TipLine, FootNote.
+ * © 2024-2026 Andrej Sladkovic. All Rights Reserved.
  */
 import React from 'react';
 import { Text, View, Platform, TextStyle, ViewStyle } from 'react-native';
+import { FontFamily } from '@/constants/typography';
 
-const MONO: any = Platform.OS === 'ios' ? 'Menlo' : 'monospace';
+const MONO: any = FontFamily.mono;
 const MUTED = '#5A6880';
 const TEXT  = '#8fa3bd';
 

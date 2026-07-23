@@ -3,6 +3,8 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
+// Font loading — GlowWave-X Orbitron + ShareTechMono + Inter stack
+import { useAppFonts } from '@/hooks/useAppFonts';
 
 import { theme } from '@/constants/theme';
 import { installBootGuard, BootErrorBoundary } from '@/services/bootGuard';
@@ -145,6 +147,10 @@ if (typeof global !== 'undefined') {
 
 
 export default function RootLayout() {
+  // Load GlowWave-X font stack (Orbitron + ShareTechMono + Inter)
+  // Falls back to system fonts gracefully if packages not yet installed
+  const [fontsLoaded] = useAppFonts();
+  // We always render — fonts fall back to system defaults if not loaded
   return (
     <BootErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.bg }}>

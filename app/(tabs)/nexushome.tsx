@@ -54,11 +54,12 @@ import { NexusCommandCenter } from '@/components/home/NexusCommandCenter';
 import AutomationFeed from '@/components/home/AutomationFeed';
 import { TitanProtocolCard } from '@/components/ui/TitanProtocolCard';
 import { AppVersionBanner } from '@/components/ui/AppVersionGuard';
+import { CommandHeader } from '@/components/home/CommandHeader';
 import {
   NexusLiveStatusBar,
   NexusButlerHeaderCard,
-  CrawlerGraphCard,
-  KnowledgeGraphCard,
+  CrawlerGraphCard as NexusCrawlerCard,
+  KnowledgeGraphCard as NexusKBGraphCard,
   ScriptForgeCard,
   FileShareCard,
   OmegaLoopCard,
@@ -4050,11 +4051,17 @@ function NexusHomeInner() {
               tintColor={CYAN} colors={[CYAN, GREEN, AMBER]} progressBackgroundColor={SURFACE} />
           }
         >
-          {/* ── NEXUS MEGA HEADER — replaces HomeHeader + NexusCommandCenter ── */}
-          <NexusMegaHeader
-            safeTop={insets.top} isConn={isConn} addr={addr}
-            latency={latency} metrics={metrics}
-            onPair={() => setShowQR(true)} goToTab={goToTab}
+          {/* ── COMMAND HEADER — full merged hero (robot + 3D title + metrics + twin panel + caps grid) ── */}
+          <CommandHeader
+            safeTop={insets.top}
+            isConn={isConn}
+            addr={addr}
+            latency={latency}
+            metrics={metrics}
+            scripts={scripts}
+            kbCount={kbCount}
+            onPair={() => setShowQR(true)}
+            goToTab={goToTab}
           />
 
           {/* ── APP VERSION BANNER ── */}
@@ -4130,8 +4137,8 @@ function NexusHomeInner() {
           {/* ── NEXUS HOME EXTRAS: Crawler + Knowledge + Script Forge + File Share ── */}
           <View style={{ paddingHorizontal: PAD }}>
             <View style={{ flexDirection: 'row', gap: 9, marginBottom: 9 }}>
-              <CrawlerGraphCard kbArticles={kbCount} isConnected={isConn} />
-              <KnowledgeGraphCard kbArticles={kbCount} />
+              <NexusCrawlerCard kbArticles={kbCount} isConnected={isConn} />
+              <NexusKBGraphCard kbArticles={kbCount} />
             </View>
             <View style={{ flexDirection: 'row', gap: 9 }}>
               <ScriptForgeCard scriptsRunTotal={scripts} goToTab={goToTab} />
