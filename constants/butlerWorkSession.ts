@@ -252,7 +252,21 @@
  *  [ ] Onboarding permission list reads from app.json dynamically
  */
 
-export const BUTLER_WORK_SESSION_VERSION = '2026-07-22-v3';
+export const BUTLER_WORK_SESSION_VERSION = '2026-07-23-v4';
+// COMPLETED 2026-07-23:
+//  [x] HomeHeader replaced with AI COMMAND CENTER v2 (image 2 style)
+//      - Robot mascot tall (110x160) on left with HUD corners + live orb
+//      - 'AI COMMAND CENTER' eyebrow, 'BUTLER AI' 28px title, subtitle
+//      - Status pills: OFFLINE/ONLINE + LOCAL AI + AES-256
+//      - SCAN QR TO PAIR (cyan full-width), OPEN AI CHAT (dark border), NEXUS
+//      - Scrolling ticker at bottom (JS driver translateX)
+//      - Animated scan line (native driver)
+//      - Backend code DISABLED — state from props only
+//  [x] SecurityShowcase HUD tile grid added to homepage (above SecurityProtocols)
+//  [x] SecurityShowcase added to first onboarding page (WelcomePage idx===0)
+//  [x] ButlerIcons.tsx created with 10 custom SVG icons
+//  [x] All uploads checked: master playbook + UI overhaul = docs only, no new components
+//      ButlerIcon SVG code extracted and saved to components/ui/ButlerIcons.tsx
 
 export const DELETED_WIRING = [
   'RuntimeDiagnosticsHUD — app/_layout.tsx',

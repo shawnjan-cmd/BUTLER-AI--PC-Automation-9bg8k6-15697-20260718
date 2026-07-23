@@ -37,6 +37,7 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { notifyOnboardingComplete } from './_layout';
 import { markOnboardingDone } from '@/services/onboardingState';
+import SecurityShowcase from '@/components/ui/SecurityShowcase';
 import {
   ONBOARDING_DONE_KEY, CONSENT_KEY, TERMS_ACCEPTED_KEY,
   PRIVACY_ACCEPTED_KEY, AGE_CONFIRMED_KEY, LAN_CONSENT_KEY,
@@ -825,6 +826,10 @@ function WelcomePage({ accent }: { accent: string }) {
       {/* Circuit accent — WELCOME step only */}
       <WelcomeCircuitAccent accent={accent} />
       <Suspense fallback={null}><OnboardingHeroStep onBegin={() => {}} /></Suspense>
+      {/* Security showcase — HUD tiles matching image 1 */}
+      <View style={{ marginBottom: 6 }}>
+        <SecurityShowcase mode="full" />
+      </View>
       <View style={{ flexDirection:'row', flexWrap:'wrap', gap:8 }}>
         {[
           { icon:'wifi-off', color:T.green, label:'LAN ONLY', sub:'ZERO CLOUD' },

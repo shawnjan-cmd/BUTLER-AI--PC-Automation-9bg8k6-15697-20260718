@@ -599,6 +599,257 @@ function CfgFooter() {
   );
 }
 
+// ─── GITHUB SYNC SECTION ────────────────────────────────────────
+function GitHubSyncSection() {
+  const [showZipGuide, setShowZipGuide] = useState(false);
+  const [showGhGuide,  setShowGhGuide]  = useState(false);
+  const [copied,       setCopied]       = useState<string | null>(null);
+
+  const copyText = async (text: string, key: string) => {
+    haptics.success();
+    try {
+      const Clipboard = await import('expo-clipboard');
+      await Clipboard.setStringAsync(text);
+      setCopied(key);
+      setTimeout(() => setCopied(null), 2200);
+    } catch {}
+  };
+
+  const openURL = (url: string) => {
+    Linking.openURL(url).catch(() =>{});
+  };
+
+  const STEP_ROWS: Array<{ n: string; icon: string; title: string; body: string; color: string }> = [
+    { n:'1', icon:'github', title:'Push to GitHub',      body:'Click the GitHub button (top-right of OnSpace editor) → connect your repo → push all files.', color: C.cyan   },
+    { n:'2', icon:'folder-zip-outline', title:'OR — Download ZIP', body:'Click Download → Export Source Code. You get a .zip with the full folder structure.', color: C.amber  },
+    { n:'3', icon:'folder-open-outline', title:'Edit Locally',    body:'Unzip, make changes, keep identical folder/file names (app/(tabs)/, components/, services/, etc.).', color: C.green  },
+    { n:'4', icon:'upload-outline',      title:'Re-import',       body:'Re-zip with same structure → open OnSpace project → GitHub push, OR drag-drop individual files via the Code View panel.', color: C.purple },
+  ];
+
+  const ZIP_RULES = [
+    'Keep folder structure identical — app/, components/, services/, constants/, hooks/, contexts/',
+    'File names must match exactly (case-sensitive)',
+    'Do NOT include node_modules/ or .expo/ in your zip',
+    'Do NOT modify package.json or react-native.config.js',
+    'Use UTF-8 encoding for all .ts/.tsx files',
+    'After upload, OnSpace rebuilds automatically',
+  ];
+
+  return (
+    <View>
+      <Sec icon="source-repository" label="FILE SYNC & UPDATES"
+        sub="Two ways to update your app files efficiently." color={C.cyan} />
+
+      {/* ── GITHUB METHOD ── */}
+      <View style={[gs.card, { borderColor: C.cyan + '38' }]}>
+        <View style={{ height: 3, backgroundColor: C.cyan }} />
+        <TouchableOpacity
+          onPress={() => { haptics.light(); setShowGhGuide(v => !v); }}
+          activeOpacity={0.88}
+          style={gs.cardHdr}>
+          <View style={[gs.iconBox, { borderColor: C.cyan + '55', backgroundColor: C.cyan + '10' }]}>
+            <MaterialCommunityIcons name="github" size={20} color={C.cyan} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[gs.cardTitle, { color: C.cyan }]}>GITHUB SYNC</Text>
+            <Text style={gs.cardSub}>Recommended · push/pull entire project</Text>
+          </View>
+          <View style={[gs.badge, { borderColor: C.green + '55', backgroundColor: C.green + '0A' }]}>
+            <Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '900', color: C.green }}>EASIEST</Text>
+          </View>
+          <MaterialIcons name={showGhGuide ? 'expand-less' : 'expand-more'} size={20} color={C.cyan + '80'} />
+        </TouchableOpacity>
+
+        {showGhGuide && (
+          <View style={{ paddingHorizontal: 14, paddingBottom: 14, gap: 10 }}>
+            {STEP_ROWS.map(s => (
+              <View key={s.n} style={[gs.stepRow, { borderLeftColor: s.color }]}>
+                <View style={[gs.stepNum, { backgroundColor: s.color + '20', borderColor: s.color + '60' }]}>
+                  <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '900', color: s.color }}>{s.n}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                    <MaterialCommunityIcons name={s.icon as any} size={12} color={s.color} />
+                    <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '900', color: s.color }}>{s.title}</Text>
+                  </View>
+                  <Text style={{ fontFamily: MONO, fontSize: 11, color: C.mid, lineHeight: 17 }}>{s.body}</Text>
+                </View>
+              </View>
+            ))}
+
+            <View style={[gs.tipBox, { borderColor: C.cyan + '30', backgroundColor: C.cyan + '07' }]}>
+              <MaterialCommunityIcons name="lightbulb-on-outline" size={13} color={C.cyan} />
+              <Text style={{ fontFamily: MONO, fontSize: 11, color: C.cyan + 'DD', flex: 1, lineHeight: 16 }}>
+                After connecting GitHub, any future git push from your local editor instantly reflects in OnSpace — no manual steps needed.
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => openURL('https://github.com')}
+              activeOpacity={0.85}
+              style={[gs.openBtn, { backgroundColor: C.cyan }]}>
+              <MaterialCommunityIcons name="github" size={16} color="#000" />
+              <Text style={gs.openBtnTxt}>OPEN GITHUB.COM</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
+      <View style={{ height: 8 }} />
+
+      {/* ── ZIP UPLOAD METHOD ── */}
+      <View style={[gs.card, { borderColor: C.amber + '38' }]}>
+        <View style={{ height: 3, backgroundColor: C.amber }} />
+        <TouchableOpacity
+          onPress={() => { haptics.light(); setShowZipGuide(v => !v); }}
+          activeOpacity={0.88}
+          style={gs.cardHdr}>
+          <View style={[gs.iconBox, { borderColor: C.amber + '55', backgroundColor: C.amber + '10' }]}>
+            <MaterialCommunityIcons name="folder-zip-outline" size={20} color={C.amber} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[gs.cardTitle, { color: C.amber }]}>ZIP FILE UPLOAD</Text>
+            <Text style={gs.cardSub}>Manual method · replace files via zip</Text>
+          </View>
+          <MaterialIcons name={showZipGuide ? 'expand-less' : 'expand-more'} size={20} color={C.amber + '80'} />
+        </TouchableOpacity>
+
+        {showZipGuide && (
+          <View style={{ paddingHorizontal: 14, paddingBottom: 14, gap: 10 }}>
+            {/* How to do it */}
+            <View style={[gs.infoBlock, { borderColor: C.amber + '30', backgroundColor: C.amber + '07' }]}>
+              <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '900', color: C.amber, letterSpacing: 1.2, marginBottom: 8 }}>HOW TO UPLOAD A ZIP</Text>
+              {[
+                { icon: 'download-outline',      txt: 'Download current project: OnSpace → Download → Export Source Code' },
+                { icon: 'folder-edit-outline',   txt: 'Edit files locally — keep EXACT same folder names and paths' },
+                { icon: 'zip-box-outline',        txt: 'Re-zip: right-click folder → Compress / Send to ZIP (include top-level folder)' },
+                { icon: 'cloud-upload-outline',  txt: 'OnSpace GitHub button → push your local edits, OR use Code View to paste files individually' },
+              ].map((r, i) => (
+                <View key={i} style={{ flexDirection: 'row', gap: 9, paddingVertical: 7,
+                  borderBottomWidth: i < 3 ? 1 : 0, borderBottomColor: C.amber + '18' }}>
+                  <MaterialCommunityIcons name={r.icon as any} size={14} color={C.amber} style={{ marginTop: 1, flexShrink: 0 }} />
+                  <Text style={{ fontFamily: MONO, fontSize: 11, color: C.mid, lineHeight: 17, flex: 1 }}>{r.txt}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Rules checklist */}
+            <View style={[gs.infoBlock, { borderColor: C.red + '30', backgroundColor: C.red + '06' }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={13} color={C.red} />
+                <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '900', color: C.red, letterSpacing: 1 }}>CRITICAL RULES</Text>
+              </View>
+              {ZIP_RULES.map((rule, i) => (
+                <View key={i} style={{ flexDirection: 'row', gap: 8, paddingVertical: 5,
+                  borderBottomWidth: i < ZIP_RULES.length - 1 ? 1 : 0, borderBottomColor: C.red + '15' }}>
+                  <MaterialCommunityIcons name="close-circle" size={11} color={C.red + '90'} style={{ marginTop: 2, flexShrink: 0 }} />
+                  <Text style={{ fontFamily: MONO, fontSize: 11, color: C.mid, lineHeight: 16, flex: 1 }}>{rule}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Folder structure cheat sheet */}
+            <View style={[gs.codeBlock]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+                <MaterialCommunityIcons name="file-tree-outline" size={12} color={C.green} />
+                <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '900', color: C.green, letterSpacing: 1 }}>REQUIRED FOLDER STRUCTURE</Text>
+                <TouchableOpacity
+                  onPress={() => copyText('app/\ncomponents/\nservices/\nconstants/\nhooks/\ncontexts/\nassets/', 'structure')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <MaterialIcons
+                    name={copied === 'structure' ? 'check' : 'content-copy'}
+                    size={12} color={copied === 'structure' ? C.green : C.dim} />
+                </TouchableOpacity>
+              </View>
+              {[
+                { path: 'app/', desc: 'Expo Router screens', col: C.cyan   },
+                { path: 'app/(tabs)/', desc: 'Tab screens', col: C.cyan   },
+                { path: 'components/', desc: 'UI components', col: C.green  },
+                { path: 'services/', desc: 'Data services', col: C.purple  },
+                { path: 'constants/', desc: 'Config & theme', col: C.amber  },
+                { path: 'hooks/', desc: 'Custom hooks', col: C.teal    },
+                { path: 'contexts/', desc: 'Global state', col: C.pink    },
+                { path: 'assets/', desc: 'Images & icons', col: C.blue    },
+              ].map((f, i) => (
+                <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 5,
+                  borderBottomWidth: i < 7 ? 1 : 0, borderBottomColor: 'rgba(0,229,255,0.06)' }}>
+                  <Text style={{ fontFamily: MONO, fontSize: 12, color: f.col, width: 130 }}>{f.path}</Text>
+                  <Text style={{ fontFamily: MONO, fontSize: 10, color: C.mid, flex: 1 }}>{f.desc}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={[gs.tipBox, { borderColor: C.green + '30', backgroundColor: C.green + '06' }]}>
+              <MaterialIcons name="tips-and-updates" size={13} color={C.green} />
+              <Text style={{ fontFamily: MONO, fontSize: 11, color: C.green + 'CC', flex: 1, lineHeight: 16 }}>
+                Fastest workflow: edit files → git commit → git push → OnSpace auto-syncs from GitHub. No zip needed at all.
+              </Text>
+            </View>
+          </View>
+        )}
+      </View>
+
+      <View style={{ height: 8 }} />
+
+      {/* ── QUICK LINKS ── */}
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <TouchableOpacity
+          onPress={() => openURL('https://github.com')}
+          activeOpacity={0.85}
+          style={[gs.quickBtn, { flex: 1, borderColor: C.cyan + '50', backgroundColor: C.cyan + '0C' }]}>
+          <MaterialCommunityIcons name="github" size={15} color={C.cyan} />
+          <Text style={[gs.quickBtnTxt, { color: C.cyan }]}>GITHUB</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => {
+            haptics.medium();
+            Alert.alert(
+              'Download Source Code',
+              'To export your project:\n\n1. Click the Download button (⬇) in the top-right toolbar\n2. Select "Export Source Code"\n3. You will get a complete ZIP of all files with the correct folder structure',
+              [{ text: 'Got It' }]
+            );
+          }}
+          activeOpacity={0.85}
+          style={[gs.quickBtn, { flex: 1, borderColor: C.amber + '50', backgroundColor: C.amber + '0C' }]}>
+          <MaterialIcons name="download" size={15} color={C.amber} />
+          <Text style={[gs.quickBtnTxt, { color: C.amber }]}>EXPORT ZIP</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => {
+            haptics.medium();
+            Alert.alert(
+              'Code View',
+              'To edit or paste individual files:\n\n1. Click the Code View toggle (</>) in the top-right toolbar\n2. Navigate to any file\n3. Paste your updated content directly',
+              [{ text: 'Got It' }]
+            );
+          }}
+          activeOpacity={0.85}
+          style={[gs.quickBtn, { flex: 1, borderColor: C.green + '50', backgroundColor: C.green + '0C' }]}>
+          <MaterialIcons name="code" size={15} color={C.green} />
+          <Text style={[gs.quickBtnTxt, { color: C.green }]}>CODE VIEW</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+const gs = StyleSheet.create({
+  card:       { backgroundColor: '#070F1C', borderRadius: 14, borderWidth: 1.5, overflow: 'hidden', marginBottom: 0 },
+  cardHdr:    { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
+  iconBox:    { width: 44, height: 44, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  cardTitle:  { fontFamily: MONO, fontSize: 14, fontWeight: '900', letterSpacing: 0.4 },
+  cardSub:    { fontFamily: MONO, fontSize: 10, color: '#5A8098', marginTop: 2 },
+  badge:      { borderWidth: 1, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 4 },
+  stepRow:    { flexDirection: 'row', gap: 11, paddingVertical: 5, borderLeftWidth: 3, paddingLeft: 11 },
+  stepNum:    { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  tipBox:     { flexDirection: 'row', gap: 8, alignItems: 'flex-start', borderWidth: 1, borderRadius: 10, padding: 11 },
+  openBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 11, paddingVertical: 13 },
+  openBtnTxt: { fontFamily: MONO, fontSize: 13, fontWeight: '900', color: '#000' },
+  infoBlock:  { borderWidth: 1, borderRadius: 11, padding: 11 },
+  codeBlock:  { backgroundColor: '#020810', borderRadius: 11, borderWidth: 1.5, borderColor: 'rgba(0,229,255,0.14)', padding: 12 },
+  quickBtn:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1.5, borderRadius: 11, paddingVertical: 12 },
+  quickBtnTxt:{ fontFamily: MONO, fontSize: 10, fontWeight: '900' },
+});
+
 // ─── MAIN SCREEN ─────────────────────────────────────────────────
 export default function SettingsScreen() {
   return (
@@ -853,6 +1104,11 @@ function SettingsScreenInner() {
           color={saved ? C.green : C.amber}
           onPress={onSave}
         />
+
+        {/* ═══════════════════════════════════════
+            🔄 GITHUB SYNC & FILE UPDATE
+        ═══════════════════════════════════════ */}
+        <GitHubSyncSection />
 
         {/* ═══════════════════════════════════════
             🎨 THEMES
