@@ -45,6 +45,13 @@ import SecurityShowcase from '@/components/ui/SecurityShowcase';
 import { NexusHero } from '@/components/home/NexusHero';
 import { CoreSurfaces } from '@/components/home/CoreSurfaces';
 import { RotatingTips } from '@/components/home/RotatingTips';
+import { AIBrainMasterpieceCard } from '@/components/home/AIBrainMasterpieceCard';
+import { SparklineWidget } from '@/components/home/SparklineWidget';
+import { LiveTerminalFeed } from '@/components/home/LiveTerminalFeed';
+import { NexusHeroCard } from '@/components/home/NexusHeroCard';
+import { NetworkTopologyCard } from '@/components/home/NetworkTopologyCard';
+import { NexusCommandCenter } from '@/components/home/NexusCommandCenter';
+import AutomationFeed from '@/components/home/AutomationFeed';
 
 // ─── PALETTE ──────────────────────────────────────────────────────
 const BG      = '#04080F';
@@ -115,6 +122,605 @@ function ButlerAILogo({ size = 46 }: { size?: number }) {
     </Svg>
   );
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// NEXUS COMMAND HEADER v2 — UNIFIED MEGA HEADER
+// Merges image-1 style (OFFLINE/LOCAL AI/AES-256 pills + giant BUTLER AI)
+// with image-2 NexusCommandCenter features (metrics strip, shell terminal,
+// LAN scan, capabilities grid, mini chat bar, rotating tips)
+// Replaces HomeHeader + NexusCommandCenter (no duplicate)
+// ══════════════════════════════════════════════════════════════════════
+const CRAWLER_LINES_H = [
+  { text: 'butler@nexus:~$ python -c "import psutil; print(psutil.cpu_percent())"', color: CYAN, type: 'cmd' },
+  { text: '> 23.4', color: GREEN, type: 'out' },
+  { text: 'butler@nexus:~$ scan --lan --discover', color: AMBER, type: 'cmd' },
+  { text: '> [NEXUS] Found 3 devices on 192.168.1.x', color: AMBER, type: 'out' },
+  { text: '> butler_server @ 192.168.1.100:8766', color: GREEN, type: 'out' },
+  { text: 'butler@nexus:~$ kb sync --ai --brief', color: PURPLE, type: 'cmd' },
+  { text: '> 847 vectors · 23 facts · SIGMA active', color: PURPLE, type: 'out' },
+  { text: 'butler@nexus:~$ auth --verify --hmac', color: CYAN, type: 'cmd' },
+  { text: '> HMAC-SHA256 VERIFIED · AES-256-GCM ACTIVE', color: GREEN, type: 'out' },
+];
+
+const LAN_NODES_H = [
+  { label: '192.168.1.1',   type: 'ROUTER',  col: AMBER  },
+  { label: '192.168.1.100', type: 'PC·HOST', col: GREEN  },
+  { label: '192.168.1.105', type: 'PHONE',   col: CYAN   },
+  { label: '192.168.1.200', type: 'SCAN…',   col: MID    },
+];
+
+const HEADER_CAPS = [
+  { icon: 'code-braces-box',       label: '250+\nSCRIPTS', color: PURPLE },
+  { icon: 'robot-happy',           label: 'LOCAL\nAI',     color: CYAN   },
+  { icon: 'brain',                 label: 'SIGMA\nNET KB', color: AMBER  },
+  { icon: 'shield-lock',           label: 'AES\n256',      color: GREEN  },
+  { icon: 'hammer-screwdriver',    label: 'PIPELINE\nBLDR',color: PINK   },
+  { icon: 'desktop-tower-monitor', label: 'PC\nHEALTH',    color: BLUE   },
+  { icon: 'wifi-off',              label: 'LAN\nONLY',     color: TEAL   },
+  { icon: 'lock',                  label: 'ZERO\nCLOUD',   color: GREEN  },
+];
+
+const HEADER_TIPS = [
+  'ZERO CLOUD · All commands stay on your local network',
+  'HMAC-SHA256 signs every single request automatically',
+  'AES-256-GCM encryption active on every data transfer',
+  'Ollama runs 100% locally — no API key, no usage limit',
+  'Script undo: every execution reversible for 15 minutes',
+  'Auto-reconnect: Butler finds your PC on every app launch',
+  '250+ automation scripts — one tap to run any of them',
+  'Zero telemetry: no analytics SDK, no crash reporters',
+];
+
+function NexusMegaHeader({ safeTop, isConn, addr, latency, metrics, onPair, goToTab }: {
+  safeTop: number; isConn: boolean; addr: string; latency: number;
+  metrics: { cpu: number; ram: number; disk: number };
+  onPair: () => void; goToTab: (t: string) => void;
+}) {
+  // ── NATIVE driver anims ──────────────────────────────────────────
+  const scanA      = useRef(new Animated.Value(0)).current;   // translateY
+  const logoScaleA = useRef(new Animated.Value(0.94)).current; // scale
+  const logoOpA    = useRef(new Animated.Value(0)).current;    // opacity
+  const pulseDotA  = useRef(new Animated.Value(0.4)).current;  // opacity
+  const crawlerOpA = useRef(new Animated.Value(0)).current;    // opacity
+  const featOpA    = useRef(new Animated.Value(0)).current;    // opacity
+  const cursorA    = useRef(new Animated.Value(1)).current;    // opacity blink
+  const rowScaleA  = useRef(new Animated.Value(1)).current;    // scale chatbar
+
+  // ── JS driver anims ─────────────────────────────────────────────
+  const glowA   = useRef(new Animated.Value(0.3)).current; // borderColor
+  const radarA  = useRef(new Animated.Value(0)).current;   // scanFill width
+
+  // ── Chat bar state ───────────────────────────────────────────────
+  const [chatExp,  setChatExp]  = useState(false);
+  const [chatText, setChatText] = useState('');
+  const [chatReply,setChatReply]= useState('');
+  const [chatBusy, setChatBusy] = useState(false);
+  const expandH = useRef(new Animated.Value(0)).current;
+  const chipSlideA = useRef(new Animated.Value(20)).current;
+
+  // ── Rotating tips ────────────────────────────────────────────────
+  const [tipIdx, setTipIdx] = useState(0);
+  const tipFadeA = useRef(new Animated.Value(1)).current;
+
+  // ── Crawler terminal ─────────────────────────────────────────────
+  const [visLines,  setVisLines]  = useState<number[]>([]);
+  const [crawlLine, setCrawlLine] = useState(0);
+  const [crawlChar, setCrawlChar] = useState(0);
+  const crawlRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
+
+  // ── Time ─────────────────────────────────────────────────────────
+  const [time, setTime] = useState('');
+  const [secs, setSecs] = useState('');
+
+  useEffect(() => {
+    const upd = () => {
+      const n = new Date();
+      setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`);
+      setSecs(String(n.getSeconds()).padStart(2,'0'));
+    };
+    upd();
+    const t = setInterval(upd, 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    // entrance
+    Animated.parallel([
+      Animated.spring(logoScaleA, { toValue: 1, tension: 110, friction: 10, useNativeDriver: true }),
+      Animated.timing(logoOpA,    { toValue: 1, duration: 500, useNativeDriver: true }),
+    ]).start();
+    Animated.timing(crawlerOpA, { toValue: 1, duration: 400, delay: 700, useNativeDriver: true }).start();
+    Animated.timing(featOpA,    { toValue: 1, duration: 400, delay: 1100, useNativeDriver: true }).start();
+
+    // native loops
+    const scanLoop = Animated.loop(Animated.sequence([
+      Animated.timing(scanA, { toValue: 1, duration: 3200, useNativeDriver: true }),
+      Animated.timing(scanA, { toValue: 0, duration: 0,    useNativeDriver: true }),
+      Animated.delay(5500),
+    ]));
+    const pulseLoop = Animated.loop(Animated.sequence([
+      Animated.timing(pulseDotA, { toValue: 1,   duration: 800, useNativeDriver: true }),
+      Animated.timing(pulseDotA, { toValue: 0.2, duration: 800, useNativeDriver: true }),
+    ]));
+    const cursorLoop = Animated.loop(Animated.sequence([
+      Animated.timing(cursorA, { toValue: 0, duration: 500, useNativeDriver: true }),
+      Animated.timing(cursorA, { toValue: 1, duration: 500, useNativeDriver: true }),
+    ]));
+    scanLoop.start(); pulseLoop.start(); cursorLoop.start();
+
+    // JS loops
+    const glowLoop = Animated.loop(Animated.sequence([
+      Animated.timing(glowA, { toValue: 1,   duration: 1800, useNativeDriver: false }),
+      Animated.timing(glowA, { toValue: 0.2, duration: 1800, useNativeDriver: false }),
+    ]));
+    const radarLoop = Animated.loop(
+      Animated.timing(radarA, { toValue: 1, duration: 4000, useNativeDriver: false })
+    );
+    glowLoop.start(); radarLoop.start();
+
+    // tips rotation
+    const tipInterval = setInterval(() => {
+      Animated.sequence([
+        Animated.timing(tipFadeA, { toValue: 0, duration: 250, useNativeDriver: true }),
+        Animated.timing(tipFadeA, { toValue: 1, duration: 250, useNativeDriver: true }),
+      ]).start();
+      setTimeout(() => setTipIdx(i => (i + 1) % HEADER_TIPS.length), 250);
+    }, 5500);
+
+    return () => {
+      mountedRef.current = false;
+      scanLoop.stop(); pulseLoop.stop(); cursorLoop.stop();
+      glowLoop.stop(); radarLoop.stop();
+      clearInterval(tipInterval);
+      if (crawlRef.current) clearTimeout(crawlRef.current);
+    };
+  }, []);
+
+  // Crawler tick
+  const advanceCrawler = useCallback(() => {
+    if (!mountedRef.current) return;
+    const target = CRAWLER_LINES_H[crawlLine];
+    if (!target) return;
+    if (crawlChar < target.text.length) {
+      setCrawlChar(c => c + 1);
+      crawlRef.current = setTimeout(advanceCrawler, 24);
+    } else {
+      setVisLines(prev => [...prev, crawlLine].slice(-5));
+      crawlRef.current = setTimeout(() => {
+        if (!mountedRef.current) return;
+        setCrawlLine(l => (l + 1) % CRAWLER_LINES_H.length);
+        setCrawlChar(0);
+      }, 700);
+    }
+  }, [crawlLine, crawlChar]);
+
+  useEffect(() => {
+    crawlRef.current = setTimeout(advanceCrawler, 1400);
+    return () => { if (crawlRef.current) clearTimeout(crawlRef.current); };
+  }, [advanceCrawler]);
+
+  // Chat expand/collapse
+  const toggleChat = () => {
+    haptics.light();
+    const next = !chatExp;
+    setChatExp(next);
+    if (!next) { setChatReply(''); }
+    Animated.parallel([
+      Animated.spring(expandH,   { toValue: next ? 180 : 0, tension: 85, friction: 14, useNativeDriver: false }),
+      Animated.spring(chipSlideA,{ toValue: next ? 0 : 20,  tension: 110, friction: 15, useNativeDriver: true }),
+    ]).start();
+    Animated.sequence([
+      Animated.timing(rowScaleA, { toValue: 0.97, duration: 60, useNativeDriver: true }),
+      Animated.spring(rowScaleA, { toValue: 1, tension: 280, friction: 10, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const sendChat = async (prompt?: string) => {
+    const t = (prompt || chatText).trim();
+    if (!t || chatBusy) return;
+    haptics.heavy(); setChatBusy(true); setChatText(''); setChatReply('');
+    try {
+      if (isConn) {
+        const ip = serverConnection.getIP(), port = serverConnection.getPort();
+        const tok = serverConnection.getToken?.() || '';
+        if (!ip || !port) throw new Error('Not connected');
+        const h: Record<string,string> = { 'Content-Type': 'application/json' };
+        if (tok) h['Authorization'] = 'Bearer ' + tok;
+        const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 22000);
+        const res = await fetch(`http://${ip}:${port}/api/butler/chat`, {
+          method: 'POST', headers: h,
+          body: JSON.stringify({ messages: [{ role: 'user', content: t }] }),
+          signal: ctrl.signal,
+        });
+        if (res.ok) {
+          const d = await res.json();
+          setChatReply(((d.reply || d.content || d.message || d.response || '').trim().slice(0, 220)) || 'Done.');
+          haptics.success();
+        } else throw new Error('HTTP ' + res.status);
+      } else {
+        const lc = t.toLowerCase();
+        const RESP = [
+          { test: /pair|connect|qr/, r: 'Run butler_server.py on your PC then tap SCAN QR.' },
+          { test: /script|python/,  r: 'Tap FORGE tab to browse 250+ automation scripts.' },
+          { test: /ai|ollama/,      r: 'Local Ollama AI runs 100% on your PC — no cloud.' },
+          { test: /privacy|cloud/,  r: 'Zero cloud. Everything stays on your LAN.' },
+        ];
+        const m = RESP.find(o => o.test.test(lc));
+        setChatReply(m?.r ?? 'Pair your PC first to unlock full Butler AI.');
+        haptics.success();
+      }
+    } catch (e: any) {
+      setChatReply('Error: ' + (e?.message?.slice(0,60) || 'Failed'));
+    }
+    setChatBusy(false);
+  };
+
+  // Interpolations
+  const scanY     = scanA.interpolate({ inputRange: [0,1], outputRange: [-8, 420] });
+  const glowBord  = glowA.interpolate({ inputRange: [0.2,1], outputRange: [CYAN+'20', CYAN+'70'] });
+  const radarBord = radarA.interpolate({ inputRange: [0,0.5,1], outputRange: [CYAN+'40', GREEN+'80', CYAN+'40'] });
+  const radarFill = radarA.interpolate({ inputRange: [0,1], outputRange: ['15%','88%'] });
+
+  const cc = isConn ? GREEN : RED;
+  const STRIPE = [CYAN, GREEN, PURPLE, AMBER, BLUE];
+
+  const CHAT_CHIPS = [
+    { icon: 'monitor-dashboard',  label: 'PC Stats', prompt: 'Show CPU, RAM, disk and top processes', color: CYAN   },
+    { icon: 'broom',              label: 'Clean',    prompt: 'Clean all temp files and show freed space', color: GREEN  },
+    { icon: 'network-outline',    label: 'Network',  prompt: 'Show all network interfaces and IPs', color: AMBER  },
+    { icon: 'code-braces',        label: 'Code',     prompt: 'Write a Python script to ', color: PURPLE },
+    { icon: 'shield-check',       label: 'Security', prompt: 'Run a quick security audit', color: TEAL   },
+    { icon: 'eye-circle-outline', label: 'Procs',    prompt: 'List top 8 CPU processes with PID', color: PINK   },
+  ];
+
+  return (
+    <View style={nmh.root}>
+      {/* Grid bg */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        {[0.12,0.25,0.38,0.52,0.65,0.78,0.91].map((p,i) => (
+          <View key={`h${i}`} style={[StyleSheet.absoluteFill, { top:`${p*100}%` as any, height: StyleSheet.hairlineWidth, backgroundColor:'rgba(0,200,220,0.04)' }]} />
+        ))}
+      </View>
+
+      {/* Scanline — native translateY */}
+      <Animated.View pointerEvents="none"
+        style={[nmh.scanline, { transform: [{ translateY: scanY }] }]} />
+
+      {/* 5-color top stripe */}
+      <View style={{ flexDirection: 'row', height: 3 }}>
+        {STRIPE.map((c,i) => <View key={i} style={{ flex: 1, backgroundColor: c }} />)}
+      </View>
+
+      {/* ━━━━ BLOCK 1: TITLE ROW ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <Animated.View style={[nmh.titleBlock, { opacity: logoOpA, transform: [{ scale: logoScaleA }], paddingTop: safeTop + 10 }]}>
+        <View style={{ flex: 1, gap: 6 }}>
+          {/* Status pills row — image 1 style */}
+          <View style={{ flexDirection: 'row', gap: 7, flexWrap: 'wrap' }}>
+            <View style={[nmh.pill, { borderColor: cc + '70', backgroundColor: cc + '0E' }]}>
+              <Animated.View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: cc, opacity: pulseDotA }} />
+              <Text style={[nmh.pillTxt, { color: cc }]}>{isConn ? 'ONLINE' : 'OFFLINE'}</Text>
+            </View>
+            <TouchableOpacity onPress={() => { haptics.light(); goToTab('butler'); }}
+              style={[nmh.pill, { borderColor: PURPLE + '70', backgroundColor: PURPLE + '0E' }]}>
+              <MaterialCommunityIcons name="robot-happy-outline" size={10} color={PURPLE} />
+              <Text style={[nmh.pillTxt, { color: PURPLE }]}>LOCAL AI</Text>
+            </TouchableOpacity>
+            <View style={[nmh.pill, { borderColor: GREEN + '60', backgroundColor: GREEN + '0A' }]}>
+              <MaterialIcons name="lock" size={9} color={GREEN} />
+              <Text style={[nmh.pillTxt, { color: GREEN }]}>AES-256</Text>
+            </View>
+            <View style={[nmh.pill, { borderColor: CYAN + '40', backgroundColor: CYAN + '06' }]}>
+              <Text style={[nmh.pillTxt, { color: CYAN + '90' }]}>HMAC</Text>
+            </View>
+          </View>
+
+          {/* Eyebrow */}
+          <Text style={nmh.eyebrow}>AI COMMAND CENTER · PC AUTOMATION</Text>
+
+          {/* Giant title — image 1 style */}
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+            <Text style={nmh.titleBig}>BUTLER</Text>
+            <Text style={[nmh.titleBig, { color: CYAN }]}> AI</Text>
+          </View>
+
+          {/* Sub tagline */}
+          <Text style={nmh.tagline}>◎ SELF-HOSTED · PRIVATE · ZERO CLOUD</Text>
+
+          {/* Quick action row */}
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 2 }}>
+            <TouchableOpacity onPress={() => { haptics.heavy(); onPair(); }} activeOpacity={0.85}
+              style={[nmh.actionBtn, { borderColor: cc + '80', backgroundColor: cc + '14' }]}>
+              <MaterialIcons name="qr-code-scanner" size={15} color={cc} />
+              <Text style={[nmh.actionBtnTxt, { color: cc }]}>{isConn ? 'CONNECTED' : 'QR PAIR'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { haptics.medium(); goToTab('butler'); }} activeOpacity={0.85}
+              style={[nmh.actionBtn, { borderColor: GREEN + '60', backgroundColor: GREEN + '10' }]}>
+              <MaterialCommunityIcons name="robot-happy-outline" size={15} color={GREEN} />
+              <Text style={[nmh.actionBtnTxt, { color: GREEN }]}>AI CHAT</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Right: clock + radar orb */}
+        <View style={{ alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+          {/* Clock */}
+          <View style={{ alignItems: 'flex-end' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+              <Text style={nmh.clockH}>{time}</Text>
+              <Text style={[nmh.clockS, { color: CYAN }]}>{secs}</Text>
+            </View>
+            <Text style={nmh.clockSub}>LOCAL · SECURE</Text>
+          </View>
+          {/* Animated radar orb */}
+          <Animated.View style={[nmh.radarOuter, { borderColor: radarBord }]}>
+            <View style={[nmh.radarInner, { borderColor: CYAN + '28' }]}>
+              <View style={{ position:'absolute', left:0, right:0, height: StyleSheet.hairlineWidth, backgroundColor: CYAN+'20', top:'50%' }} />
+              <View style={{ position:'absolute', top:0, bottom:0, width: StyleSheet.hairlineWidth, backgroundColor: CYAN+'20', left:'50%' }} />
+              <Animated.View style={{ width:8, height:8, borderRadius:4, backgroundColor: cc, opacity: pulseDotA }} />
+            </View>
+            <Text style={[nmh.radarLabel, { color: cc }]}>{isConn ? 'LIVE' : 'SCAN'}</Text>
+          </Animated.View>
+        </View>
+      </Animated.View>
+
+      {/* ━━━━ BLOCK 2: METRICS STRIP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <View style={nmh.metricsRow}>
+        {[
+          { l:'CPU',   v: isConn ? Math.round(metrics.cpu)+'%' : '--',  col: metrics.cpu > 80 ? RED : CYAN  },
+          { l:'RAM',   v: isConn ? Math.round(metrics.ram)+'%' : '--',  col: metrics.ram > 85 ? RED : GREEN },
+          { l:'DISK',  v: isConn ? Math.round(metrics.disk)+'%': '--',  col: metrics.disk>90 ? RED : AMBER },
+          { l:'ENC',   v: 'AES256', col: GREEN  },
+          { l:'AUTH',  v: 'HMAC',   col: CYAN   },
+          { l:'CLOUD', v: 'ZERO',   col: PURPLE },
+        ].map((m,i) => (
+          <View key={i} style={[nmh.metricCell, { borderColor: m.col+'30' }]}>
+            <Text style={[nmh.metricL, { color: m.col+'70' }]}>{m.l}</Text>
+            <Text style={[nmh.metricV, { color: isConn || i > 2 ? m.col : DIM }]}>{m.v}</Text>
+          </View>
+        ))}
+      </View>
+
+      {/* ━━━━ BLOCK 3: TWIN PANEL — Shell + LAN ━━━━━━━━━━━━━━━━━━━━━ */}
+      <Animated.View style={[nmh.twinPanel, { opacity: crawlerOpA }]}>
+        {/* Shell terminal */}
+        <View style={[nmh.shellPanel, { borderColor: CYAN+'22' }]}>
+          <View style={nmh.termChrome}>
+            {['#FF5F57','#FEBC2E','#28C840'].map((c,i) => (
+              <View key={i} style={{ width:6, height:6, borderRadius:3, backgroundColor:c }} />
+            ))}
+            <Text style={nmh.termTitle}>BUTLER_SHELL</Text>
+            <PulseDot color={GREEN} size={4} />
+          </View>
+          <View style={{ padding: 7, gap: 2 }}>
+            {visLines.map((ln,i) => {
+              const line = CRAWLER_LINES_H[ln];
+              if (!line) return null;
+              return (
+                <Text key={i} style={{ fontFamily: MONO, fontSize: 8, lineHeight: 12, color: line.color, opacity: 0.45 + i*0.12 }} numberOfLines={1}>
+                  {line.type==='cmd' ? '$ ' : '  '}{line.text}
+                </Text>
+              );
+            })}
+            <Text style={{ fontFamily: MONO, fontSize: 8, lineHeight: 12, color: CRAWLER_LINES_H[crawlLine]?.color ?? CYAN }} numberOfLines={1}>
+              {CRAWLER_LINES_H[crawlLine]?.type==='cmd' ? '$ ' : '  '}
+              {CRAWLER_LINES_H[crawlLine]?.text.slice(0, crawlChar)}
+              <Text style={{ color: CYAN }}>▌</Text>
+            </Text>
+          </View>
+        </View>
+
+        {/* LAN scanner */}
+        <View style={[nmh.lanPanel, { borderColor: AMBER+'22' }]}>
+          <View style={[nmh.termChrome, { borderBottomColor: AMBER+'18' }]}>
+            <MaterialCommunityIcons name="lan-connect" size={9} color={AMBER} />
+            <Text style={[nmh.termTitle, { color: AMBER+'80' }]}>LAN SCAN</Text>
+          </View>
+          <View style={{ padding: 7, gap: 5 }}>
+            {LAN_NODES_H.map((n,i) => (
+              <View key={i} style={{ flexDirection:'row', alignItems:'center', gap:5 }}>
+                <PulseDot color={n.col} size={4} />
+                <Text style={{ fontFamily:MONO, fontSize:8, color:n.col, flex:1 }} numberOfLines={1}>{n.label}</Text>
+                <View style={{ borderWidth:1, borderRadius:4, borderColor:n.col+'40', backgroundColor:n.col+'0A', paddingHorizontal:4, paddingVertical:1 }}>
+                  <Text style={{ fontFamily:MONO, fontSize:6.5, color:n.col, fontWeight:'900' }}>{n.type}</Text>
+                </View>
+              </View>
+            ))}
+            <View style={{ height:4, borderRadius:2, borderWidth:1, borderColor:AMBER+'30', backgroundColor:AMBER+'08', overflow:'hidden', marginTop:2 }}>
+              <Animated.View style={{ height:'100%', borderRadius:2, backgroundColor:AMBER, width: radarFill }} />
+            </View>
+            <Text style={{ fontFamily:MONO, fontSize:7, color:AMBER+'60', marginTop:1 }}>SCANNING 192.168.1.x…</Text>
+          </View>
+        </View>
+      </Animated.View>
+
+      {/* ━━━━ BLOCK 4: CAPABILITIES GRID ━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <Animated.View style={{ opacity: featOpA }}>
+        <View style={nmh.capHeader}>
+          <View style={{ width:3, height:12, borderRadius:2, backgroundColor:CYAN }} />
+          <Text style={nmh.capHeaderTxt}>CORE CAPABILITIES</Text>
+          <View style={{ flex:1, height:1, backgroundColor:CYAN+'18' }} />
+          <View style={[nmh.capBadge, { borderColor:GREEN+'50', backgroundColor:GREEN+'0A' }]}>
+            <PulseDot color={GREEN} size={4} />
+            <Text style={{ fontFamily:MONO, fontSize:7.5, fontWeight:'900', color:GREEN }}>8 MODULES</Text>
+          </View>
+        </View>
+        <View style={nmh.capGrid}>
+          {HEADER_CAPS.map((f,i) => (
+            <TouchableOpacity key={i} onPress={() => haptics.light()} activeOpacity={0.75}
+              style={[nmh.capCell, { borderColor: f.color+'30', borderTopColor: f.color }]}>
+              <View style={[nmh.capIconBox, { backgroundColor: f.color+'10', borderColor: f.color+'40' }]}>
+                <MaterialCommunityIcons name={f.icon as any} size={18} color={f.color} />
+              </View>
+              <Text style={[nmh.capLabel, { color: f.color }]}>{f.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </Animated.View>
+
+      {/* ━━━━ BLOCK 5: MINI CHAT BAR ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <View style={nmh.chatRoot}>
+        <Pressable onPress={toggleChat} style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}>
+          <Animated.View style={[nmh.chatBar, { transform: [{ scale: rowScaleA }] }]}>
+            <View style={[nmh.chatAvatar, { borderColor: isConn ? GREEN+'60' : CYAN+'50', backgroundColor: isConn ? GREEN+'0E' : CYAN+'0A' }]}>
+              {chatBusy
+                ? <ActivityIndicator size="small" color={isConn ? GREEN : CYAN} style={{ transform: [{ scale: 0.65 }] }} />
+                : <Text style={{ fontSize: 14 }}>🤖</Text>}
+              <Animated.View style={{ position:'absolute', bottom:1, right:1, width:6, height:6, borderRadius:3, backgroundColor: isConn?GREEN:CYAN, opacity: pulseDotA, borderWidth:1.5, borderColor:'#020810' }} />
+            </View>
+            <Text style={[nmh.chatPrompt, { color: chatBusy ? DIM : TEXT + 'B0' }]} numberOfLines={1}>
+              {chatBusy ? 'Thinking...' : (chatText || (isConn ? '$> run command or ask butler...' : '$> pair PC to activate AI...'))}
+            </Text>
+            <Animated.View style={{ width:2, height:13, borderRadius:1, backgroundColor: isConn?GREEN:CYAN, opacity: cursorA, marginLeft:2, flexShrink:0 }} />
+            <View style={{ flex:1 }} />
+            <View style={[nmh.chatPill, { borderColor: isConn?GREEN+'50':CYAN+'40', backgroundColor: isConn?GREEN+'0A':CYAN+'06' }]}>
+              <PulseDot color={isConn?GREEN:CYAN} size={4} />
+              <Text style={{ fontFamily:MONO, fontSize:7.5, fontWeight:'900', color: isConn?GREEN:CYAN }}>{isConn?'LIVE':'OFF'}</Text>
+            </View>
+            <TouchableOpacity onPress={(e) => { e?.stopPropagation?.(); haptics.medium(); goToTab('butler'); }}
+              hitSlop={{ top:8, bottom:8, left:8, right:8 }}
+              style={[nmh.chatOpenBtn, { borderColor:PURPLE+'50', backgroundColor:PURPLE+'0E' }]}>
+              <Text style={{ fontFamily:MONO, fontSize:8.5, fontWeight:'900', color:PURPLE }}>OPEN CHAT ›</Text>
+            </TouchableOpacity>
+            <MaterialIcons name={chatExp?'expand-less':'expand-more'} size={18} color={isConn?GREEN+'70':CYAN+'60'} />
+          </Animated.View>
+        </Pressable>
+        <View style={nmh.chatSubRow}>
+          {['BUTLER_AI','LOCAL_LLM','ZERO_CLOUD'].map((tag,i) => (
+            <React.Fragment key={i}>
+              {i > 0 && <View style={{ width:3, height:3, borderRadius:1.5, backgroundColor:DIM+'80' }} />}
+              <Text style={{ fontFamily:MONO, fontSize:7.5, color:MID, fontWeight:'700' }}>{tag}</Text>
+            </React.Fragment>
+          ))}
+        </View>
+
+        {/* Expandable chat panel */}
+        <Animated.View style={{ height: expandH, overflow:'hidden' }}>
+          <Animated.View style={{ transform: [{ translateY: chipSlideA }] }}>
+            <View style={[nmh.chatInputRow, { borderColor: isConn?GREEN+'60':CYAN+'50' }]}>
+              <MaterialCommunityIcons name="robot-happy-outline" size={13} color={isConn?GREEN:CYAN} />
+              <TextInput
+                value={chatText} onChangeText={setChatText}
+                placeholder={isConn ? 'Ask anything or run a command...' : 'Ask (pair PC for full AI)...'}
+                placeholderTextColor={DIM}
+                style={nmh.chatInput}
+                returnKeyType="send"
+                onSubmitEditing={() => sendChat()}
+                editable={!chatBusy}
+                maxLength={400}
+              />
+              <TouchableOpacity onPress={() => sendChat()} disabled={!chatText.trim() || chatBusy}
+                style={[nmh.chatSendBtn, { backgroundColor: chatText.trim()&&!chatBusy ? (isConn?GREEN:CYAN) : DIM+'30' }]}>
+                <MaterialIcons name="send" size={13} color={chatText.trim()&&!chatBusy ? BG : DIM} />
+              </TouchableOpacity>
+            </View>
+            {!!chatReply && (
+              <View style={[nmh.chatReply, { borderColor: CYAN+'30', backgroundColor: CYAN+'08' }]}>
+                <Text style={{ fontFamily:MONO, fontSize:10.5, color: CYAN+'DD', flex:1, lineHeight:16 }} numberOfLines={3}>{chatReply}</Text>
+                <TouchableOpacity onPress={() => setChatReply('')} hitSlop={{ top:8, bottom:8, left:8, right:8 }}>
+                  <MaterialIcons name="close" size={11} color={DIM} />
+                </TouchableOpacity>
+              </View>
+            )}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap:7, paddingHorizontal:12, paddingTop:6, paddingBottom:6 }}>
+              {CHAT_CHIPS.map((chip,i) => (
+                <TouchableOpacity key={i} onPress={() => sendChat(chip.prompt)} activeOpacity={0.8}
+                  style={[nmh.chatChip, { borderColor: chip.color+'45', backgroundColor: chip.color+'0D' }]}>
+                  <MaterialCommunityIcons name={chip.icon as any} size={11} color={chip.color} />
+                  <Text style={[nmh.chatChipTxt, { color: chip.color }]}>{chip.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </Animated.View>
+        </Animated.View>
+      </View>
+
+      {/* ━━━━ BLOCK 6: ROTATING TIPS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <View style={nmh.tipsRow}>
+        <MaterialCommunityIcons name="lightbulb-outline" size={10} color={AMBER+'90'} />
+        <Animated.Text style={[nmh.tipsTxt, { opacity: tipFadeA }]} numberOfLines={1}>
+          {HEADER_TIPS[tipIdx]}
+        </Animated.Text>
+        <View style={{ flex:1 }} />
+        <Text style={nmh.tipsVer}>BUTLER OS v9.1</Text>
+      </View>
+
+      {/* Bottom stripe */}
+      <View style={{ flexDirection:'row', height:2.5, opacity:0.6 }}>
+        {STRIPE.map((c,i) => <View key={i} style={{ flex:1, backgroundColor:c }} />)}
+      </View>
+    </View>
+  );
+}
+
+const nmh = StyleSheet.create({
+  root: {
+    backgroundColor: '#030709',
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: { shadowColor: CYAN, shadowOffset:{width:0,height:6}, shadowOpacity:0.18, shadowRadius:16 },
+      android: { elevation: 8 },
+    }),
+  },
+  scanline: { position:'absolute', left:0, right:0, height:1.5, backgroundColor:CYAN, opacity:0.05, zIndex:1 },
+  // Title block
+  titleBlock: { flexDirection:'row', alignItems:'flex-start', gap:10, paddingHorizontal:14, paddingBottom:10, zIndex:2 },
+  pill:    { flexDirection:'row', alignItems:'center', gap:5, borderWidth:1.5, borderRadius:20, paddingHorizontal:10, paddingVertical:5 },
+  pillTxt: { fontFamily:MONO as any, fontSize:9.5, fontWeight:'900', letterSpacing:0.3 },
+  eyebrow: { fontFamily:MONO as any, fontSize:9, color:CYAN+'70', letterSpacing:1.5, fontWeight:'700' },
+  titleBig:{ fontFamily:MONO as any, fontSize:34, fontWeight:'900', color:'#FFF', letterSpacing:-0.3, lineHeight:38 },
+  tagline: { fontFamily:MONO as any, fontSize:10, color:CYAN+'70', letterSpacing:0.8, fontWeight:'700' },
+  actionBtn:   { flexDirection:'row', alignItems:'center', gap:6, borderWidth:1.5, borderRadius:11, paddingHorizontal:12, paddingVertical:8 },
+  actionBtnTxt:{ fontFamily:MONO as any, fontSize:10.5, fontWeight:'900', letterSpacing:0.3 },
+  // Clock
+  clockH:   { fontFamily:MONO as any, fontSize:20, fontWeight:'900', color:TEXT, letterSpacing:1 },
+  clockS:   { fontFamily:MONO as any, fontSize:12, fontWeight:'900' },
+  clockSub: { fontFamily:MONO as any, fontSize:7.5, color:MID, letterSpacing:1, textAlign:'right' },
+  // Radar orb
+  radarOuter: { width:58, height:58, borderRadius:29, borderWidth:2, alignItems:'center', justifyContent:'center', flexShrink:0, backgroundColor:CYAN+'04', overflow:'hidden' },
+  radarInner: { width:44, height:44, borderRadius:22, borderWidth:1, alignItems:'center', justifyContent:'center', position:'relative' },
+  radarLabel: { fontFamily:MONO as any, fontSize:7, fontWeight:'900', letterSpacing:1, position:'absolute', bottom:4 },
+  // Metrics strip
+  metricsRow:  { flexDirection:'row', gap:5, paddingHorizontal:12, paddingVertical:7, backgroundColor:'#020508', borderTopWidth:1, borderBottomWidth:1, borderColor:'rgba(0,200,220,0.07)', zIndex:2 },
+  metricCell:  { flex:1, alignItems:'center', borderWidth:1, borderRadius:7, paddingVertical:5, gap:2 },
+  metricL:     { fontFamily:MONO as any, fontSize:7, fontWeight:'700', letterSpacing:0.5 },
+  metricV:     { fontFamily:MONO as any, fontSize:9, fontWeight:'900' },
+  // Twin panel
+  twinPanel:   { flexDirection:'row', gap:7, paddingHorizontal:10, paddingVertical:8, zIndex:2 },
+  shellPanel:  { flex:1.5, borderWidth:1, borderRadius:10, backgroundColor:'#010508', overflow:'hidden' },
+  lanPanel:    { flex:1, borderWidth:1, borderRadius:10, backgroundColor:'#010508', overflow:'hidden' },
+  termChrome:  { flexDirection:'row', alignItems:'center', gap:5, paddingHorizontal:7, paddingVertical:5, backgroundColor:'#010306', borderBottomWidth:1, borderBottomColor:'rgba(0,200,220,0.10)' },
+  termTitle:   { fontFamily:MONO as any, fontSize:7.5, color:CYAN+'70', flex:1, letterSpacing:0.5 },
+  // Caps grid
+  capHeader:   { flexDirection:'row', alignItems:'center', gap:6, paddingHorizontal:12, paddingTop:4, paddingBottom:7, zIndex:2 },
+  capHeaderTxt:{ fontFamily:MONO as any, fontSize:9, fontWeight:'900', color:CYAN, letterSpacing:1.5 },
+  capBadge:    { flexDirection:'row', alignItems:'center', gap:4, borderWidth:1, borderRadius:6, paddingHorizontal:7, paddingVertical:3 },
+  capGrid:     { flexDirection:'row', flexWrap:'wrap', paddingHorizontal:9, paddingBottom:8, gap:5, zIndex:2 },
+  capCell:     { width: `${(100/4)-2.5}%` as any, alignItems:'center', gap:5, borderWidth:1.5, borderTopWidth:2.5, borderRadius:10, paddingVertical:9, paddingHorizontal:4, backgroundColor:'#060D18' },
+  capIconBox:  { width:33, height:33, borderRadius:9, borderWidth:1.5, alignItems:'center', justifyContent:'center' },
+  capLabel:    { fontFamily:MONO as any, fontSize:7, fontWeight:'900', textAlign:'center', letterSpacing:0.3, lineHeight:10 },
+  // Chat bar
+  chatRoot:    { backgroundColor:'#020608', borderTopWidth:1, borderTopColor:'rgba(0,200,220,0.10)', zIndex:2 },
+  chatBar:     { flexDirection:'row', alignItems:'center', paddingHorizontal:12, paddingTop:8, paddingBottom:5, gap:8 },
+  chatAvatar:  { width:26, height:26, borderRadius:8, borderWidth:1.5, alignItems:'center', justifyContent:'center', flexShrink:0, position:'relative' },
+  chatPrompt:  { fontFamily:MONO as any, fontSize:11, flex:1, letterSpacing:0.2 },
+  chatPill:    { flexDirection:'row', alignItems:'center', gap:4, borderWidth:1, borderRadius:7, paddingHorizontal:6, paddingVertical:3 },
+  chatOpenBtn: { borderWidth:1, borderRadius:7, paddingHorizontal:7, paddingVertical:3 },
+  chatSubRow:  { flexDirection:'row', alignItems:'center', gap:4, paddingHorizontal:12, paddingBottom:7 },
+  chatInputRow:{ flexDirection:'row', alignItems:'center', gap:8, marginHorizontal:12, marginTop:6, marginBottom:5, borderWidth:1.5, borderRadius:12, paddingHorizontal:11, paddingVertical:8, backgroundColor:BG },
+  chatInput:   { flex:1, fontFamily:MONO as any, fontSize:12, color:TEXT, padding:0, minHeight:18 },
+  chatSendBtn: { width:30, height:30, borderRadius:9, alignItems:'center', justifyContent:'center', flexShrink:0 },
+  chatReply:   { flexDirection:'row', alignItems:'flex-start', gap:8, marginHorizontal:12, marginBottom:5, borderWidth:1.5, borderRadius:10, paddingHorizontal:10, paddingVertical:8 },
+  chatChip:    { flexDirection:'row', alignItems:'center', gap:5, paddingHorizontal:10, paddingVertical:6, borderRadius:18, borderWidth:1.5 },
+  chatChipTxt: { fontFamily:MONO as any, fontSize:9.5, fontWeight:'800' },
+  // Tips
+  tipsRow:     { flexDirection:'row', alignItems:'center', gap:6, paddingHorizontal:12, paddingVertical:6, backgroundColor:'#010305', borderTopWidth:1, borderTopColor:'rgba(0,200,220,0.06)' },
+  tipsTxt:     { fontFamily:MONO as any, fontSize:9.5, color:AMBER+'AA', flex:1, letterSpacing:0.2, fontWeight:'700' },
+  tipsVer:     { fontFamily:MONO as any, fontSize:7.5, color:DIM, letterSpacing:0.5 },
+});
 
 // ─── ANIMATED CIRCUIT GRID BACKGROUND ─────────────────────────────────
 function CircuitGridBg({ color, opacity = 0.07 }: { color: string; opacity?: number }) {
@@ -3432,12 +4038,22 @@ function NexusHomeInner() {
               tintColor={CYAN} colors={[CYAN, GREEN, AMBER]} progressBackgroundColor={SURFACE} />
           }
         >
-          {/* ── COMPACT HEADER — TOP with real safe area ── */}
-          <HomeHeader safeTop={insets.top} isConn={isConn} addr={addr} onPair={() => setShowQR(true)} goToTab={goToTab} />
+          {/* ── NEXUS MEGA HEADER — replaces HomeHeader + NexusCommandCenter ── */}
+          <NexusMegaHeader
+            safeTop={insets.top} isConn={isConn} addr={addr}
+            latency={latency} metrics={metrics}
+            onPair={() => setShowQR(true)} goToTab={goToTab}
+          />
 
           {/* ── PAIR PROMPT ── */}
           {!isConn && <><View style={{ height: 10 }} /><PairPrompt onPair={() => setShowQR(true)} /></>}
-          <View style={{ height: 12 }} />
+          <View style={{ height: 10 }} />
+
+          {/* ── REMOTE ACCESS + TAILSCALE — right below header ── */}
+          <View style={{ paddingHorizontal: PAD }}>
+            <RemoteAccessMonetizationCard onConnected={loadData} />
+          </View>
+          <View style={{ height: 10 }} />
 
           {/* ── NEXUS HERO — status chips + gradient title + stat tiles + CTAs ── */}
           <NexusHero
@@ -3543,15 +4159,36 @@ function NexusHomeInner() {
           <View style={{ height: 12 }} />
           <CircuitDivider color={GREEN} reverse />
 
+          {/* ── NETWORK TOPOLOGY ── */}
+          <View style={{ paddingHorizontal: PAD }}>
+            <NetworkTopologyCard isConnected={isConn} onConnected={loadData} />
+          </View>
+          <View style={{ height: 10 }} />
+
           {/* ── ACTIVITY FEED ── */}
           <ActivityFeed isConn={isConn} addr={addr} scripts={scripts} kbCount={kbCount} />
           <View style={{ height: 12 }} />
           <SpectrumDivider colors={[PURPLE, PINK]} />
 
+          {/* ── NEXUS HERO CARD (robot mascot + CTAs) ── */}
+          <NexusHeroCard
+            isConnected={isConn}
+            serverAddr={addr}
+            onPair={() => setShowQR(true)}
+            onChat={() => goToTab('butler')}
+          />
+          <View style={{ height: 12 }} />
+          <NeuralDivider color={CYAN} />
+
           {/* ── CORE NAV ── */}
           <CoreNav goToTab={goToTab} />
           <View style={{ height: 12 }} />
           <NeuralDivider color={GREEN} />
+
+          {/* ── AUTOMATION FEED (live CRT process feed) ── */}
+          <AutomationFeed isConnected={isConn} />
+          <View style={{ height: 12 }} />
+          <CircuitDivider color={GREEN} />
 
           {/* ── ZERO CLOUD BANNER ── */}
           <ZeroCloudBanner />
@@ -3561,10 +4198,31 @@ function NexusHomeInner() {
           {/* ── PC TOOLS ── */}
           <QuickPCTools isConn={isConn} />
           <View style={{ height: 12 }} />
+          {/* NexusCommandCenter merged into NexusMegaHeader at top */}
+          <SpectrumDivider colors={[CYAN, PURPLE]} />
+
+          {/* ── SPARKLINE PERFORMANCE GRAPH ── */}
           <View style={{ paddingHorizontal: PAD }}>
-            <RemoteAccessMonetizationCard onConnected={loadData} />
+            <SparklineWidget isConnected={isConn} />
           </View>
           <View style={{ height: 12 }} />
+          <NeuralDivider color={AMBER} />
+
+          {/* ── LIVE TERMINAL FEED (4-channel) ── */}
+          <LiveTerminalFeed isConnected={isConn} />
+          <View style={{ height: 12 }} />
+          <CircuitDivider color={PURPLE} reverse />
+
+          {/* ── AI BRAIN MASTERPIECE CARD (KB + personal memory) ── */}
+          <View style={{ paddingHorizontal: PAD }}>
+            <AIBrainMasterpieceCard
+              isConnected={isConn}
+              serverAddr={addr}
+              onNavigateToKnowledge={() => goToTab('knowledge')}
+            />
+          </View>
+          <View style={{ height: 12 }} />
+
           <View style={{ paddingHorizontal: PAD }}>
             <NexusVaultCard isConnected={isConn} serverLatencyMs={latency} />
           </View>

@@ -16,6 +16,7 @@ import {
   View, Text, StyleSheet, ScrollView, TextInput,
   TouchableOpacity, Switch, Alert, Platform,
   Animated, Dimensions, Share, Pressable, Linking,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -25,7 +26,12 @@ import { haptics } from '@/services/haptics';
 import { notifyOnboardingReset } from './_layout';
 import { resetOnboarding } from '@/services/onboardingState';
 import { TabErrorBoundary } from '@/components/ui/TabErrorBoundary';
+import { LiveWidgetStudio } from '@/components/ui/LiveWidgetStudio';
+import { usePurchase } from '@/contexts/PurchaseContext';
 import { TabSwipeOverlay } from '@/components/ui/TabSwipeOverlay';
+import { logger } from '@/utils/logger';
+import { serverConnection } from '@/services/serverConnection';
+import { autoErrorLogger } from '@/services/autoErrorLogger';
 import { logger } from '@/utils/logger';
 import { serverConnection } from '@/services/serverConnection';
 import { autoErrorLogger } from '@/services/autoErrorLogger';
@@ -52,7 +58,9 @@ const C = {
   border:   'rgba(0,229,255,0.12)',
 };
 
-const MODEL_KEY   = 'butler.model.v1';
+const MODEL_KEY      = 'butler.model.v1';
+const DONATION_KEY   = '@butler_donations_v1';
+const DONOR_NAME_KEY = '@butler_donor_name_v1';
 const SYSTEM_KEY  = 'butler.system.v1';
 const ANIM_KEY    = 'butler.animations.v1';
 const HAPTICS_KEY = 'butler.haptics.v1';
@@ -583,6 +591,323 @@ function AttributionCard() {
   );
 }
 
+// ─── DONATION MODAL ─────────────────────────────────────────────
+// Play Store compliant: no ads, no pressure, purely optional.
+// User writes a message and their name alongside their donation.
+// This is a gratitude/community page — not a purchase flow.
+const DONATION_TIPS = [
+  'Every donation directly funds server costs and future features.',
+  'You never have to donate — the free plan is genuinely free forever.',
+  'Donations are voluntary and processed via PayPal — fully secure.',
+  'Leave a message and your name to be remembered in the app forever.',
+  'Your support helps keep Butler AI ad-free and cloud-free.',
+  'Even $1 means a lot to an indie developer. Thank you.',
+];
+
+function DonationModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const [name,    setName]    = useState('');
+  const [message, setMessage] = useState('');
+  const [amount,  setAmount]  = useState('');
+  const [saved,   setSaved]   = useState(false);
+  const [tipIdx,  setTipIdx]  = useState(0);
+  const fadeA = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!visible) return;
+    const interval = setInterval(() => {
+      Animated.sequence([
+        Animated.timing(fadeA, { toValue: 0, duration: 280, useNativeDriver: true }),
+        Animated.timing(fadeA, { toValue: 1, duration: 280, useNativeDriver: true }),
+      ]).start();
+      setTimeout(() => setTipIdx(i => (i + 1) % DONATION_TIPS.length), 280);
+    }, 5000);
+    // Pre-load name
+    AsyncStorage.getItem(DONOR_NAME_KEY).then(n => { if (n) setName(n); }).catch(() => {});
+    return () => clearInterval(interval);
+  }, [visible]);
+
+  const saveMemo = useCallback(async () => {
+    if (!name.trim() && !message.trim()) return;
+    haptics.success();
+    try {
+      const existing = await AsyncStorage.getItem(DONATION_KEY).then(r => r ? JSON.parse(r) : []).catch(() => []);
+      const entry = { name: name.trim() || 'Anonymous', message: message.trim(), amount: amount.trim(), ts: Date.now() };
+      await AsyncStorage.multiSet([
+        [DONATION_KEY, JSON.stringify([entry, ...existing].slice(0, 50))],
+        [DONOR_NAME_KEY, name.trim()],
+      ]);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch {}
+  }, [name, message, amount]);
+
+  const openPayPal = () => {
+    haptics.heavy();
+    Linking.openURL('https://www.paypal.com/donate/?hosted_button_id=BUTLERAI_DONATE').catch(() => {
+      Linking.openURL('https://paypal.me/andrejsladkovic').catch(() => {});
+    });
+  };
+
+  const openBuyMeACoffee = () => {
+    haptics.heavy();
+    Linking.openURL('https://buymeacoffee.com/butlerai').catch(() => {});
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" statusBarTranslucent transparent onRequestClose={onClose}>
+      <View style={dm.overlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={dm.sheet}>
+          <View style={{ height: 3, flexDirection: 'row' }}>
+            {[C.cyan, C.green, C.amber, C.purple, C.pink].map((c, i) => (
+              <View key={i} style={{ flex: 1, backgroundColor: c }} />
+            ))}
+          </View>
+          <View style={{ alignItems: 'center', paddingTop: 10, paddingBottom: 4 }}>
+            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: C.dim }} />
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}>
+
+            {/* ── HEADER ── */}
+            <View style={{ alignItems: 'center', gap: 8, paddingTop: 8, paddingBottom: 16 }}>
+              <View style={[dm.heartOrb, { borderColor: C.cyan + '55', backgroundColor: C.cyan + '10' }]}>
+                <MaterialCommunityIcons name="heart-outline" size={28} color={C.cyan} />
+              </View>
+              <Text style={{ fontFamily: MONO, fontSize: 20, fontWeight: '900', color: '#FFF', textTransform: 'uppercase' }}>
+                SUPPORT <Text style={{ color: C.cyan }}>BUTLER AI</Text>
+              </Text>
+              <Text style={{ fontFamily: MONO, fontSize: 10, color: C.mid, textAlign: 'center', lineHeight: 16 }}>
+                100% voluntary · no pressure · no ads · just gratitude
+              </Text>
+            </View>
+
+            {/* ── ROTATING TIP ── */}
+            <Animated.View style={[dm.tipBox, { opacity: fadeA }]}>
+              <MaterialCommunityIcons name="information-outline" size={12} color={C.amber + '80'} />
+              <Text style={{ fontFamily: MONO, fontSize: 10.5, color: C.amber + 'BB', flex: 1, lineHeight: 16, fontWeight: '700' }}>
+                {DONATION_TIPS[tipIdx]}
+              </Text>
+            </Animated.View>
+
+            {/* ── WHAT YOUR SUPPORT DOES ── */}
+            <View style={[dm.infoCard, { borderColor: C.green + '30', backgroundColor: C.green + '05' }]}>
+              <View style={{ height: 2, backgroundColor: C.green + '60' }} />
+              <View style={{ padding: 12, gap: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                  <MaterialCommunityIcons name="heart-plus-outline" size={13} color={C.green} />
+                  <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '900', color: C.green, letterSpacing: 1 }}>WHAT YOUR SUPPORT FUNDS</Text>
+                </View>
+                {[
+                  { icon: 'server-network',     text: 'Server costs to keep GitHub and releases free' },
+                  { icon: 'code-braces-box',    text: 'Development time for new features and scripts' },
+                  { icon: 'shield-check',        text: 'Security audits and Play Store compliance reviews' },
+                  { icon: 'heart',               text: 'Motivation to keep building for free users' },
+                ].map((row, i) => (
+                  <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                    <MaterialCommunityIcons name={row.icon as any} size={12} color={C.green + '80'} style={{ marginTop: 2 }} />
+                    <Text style={{ fontFamily: MONO, fontSize: 10.5, color: C.mid, lineHeight: 16, flex: 1 }}>{row.text}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* ── AMOUNT SELECTOR ── */}
+            <Text style={dm.fieldLabel}>HOW MUCH? (OPTIONAL)</Text>
+            <View style={{ flexDirection: 'row', gap: 7, marginBottom: 12 }}>
+              {['$1', '$3', '$5', '$10', '$25'].map((a) => (
+                <TouchableOpacity key={a} onPress={() => { haptics.light(); setAmount(amount === a ? '' : a); }}
+                  style={[dm.amountChip, { borderColor: amount === a ? C.cyan + '90' : C.dim, backgroundColor: amount === a ? C.cyan + '18' : C.surf2 }]}>
+                  <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '900', color: amount === a ? C.cyan : C.mid }}>{a}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* ── NAME FIELD ── */}
+            <Text style={dm.fieldLabel}>YOUR NAME (OPTIONAL)</Text>
+            <View style={dm.inputWrap}>
+              <MaterialCommunityIcons name="account-outline" size={15} color={C.mid} />
+              <TextInput
+                style={dm.input}
+                value={name}
+                onChangeText={setName}
+                placeholder="Andrej, CoolDev42, Anonymous..."
+                placeholderTextColor={C.dim}
+                autoCapitalize="words"
+                maxLength={50}
+              />
+              {name.length > 0 && (
+                <Text style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{name.length}/50</Text>
+              )}
+            </View>
+
+            {/* ── MESSAGE FIELD ── */}
+            <Text style={dm.fieldLabel}>YOUR MESSAGE (OPTIONAL)</Text>
+            <View style={[dm.inputWrap, { alignItems: 'flex-start', paddingTop: 12, minHeight: 90 }]}>
+              <MaterialCommunityIcons name="message-text-outline" size={15} color={C.mid} style={{ marginTop: 2 }} />
+              <TextInput
+                style={[dm.input, { textAlignVertical: 'top', minHeight: 70 }]}
+                value={message}
+                onChangeText={setMessage}
+                placeholder="Thanks for building this! I use it every day..."
+                placeholderTextColor={C.dim}
+                multiline
+                maxLength={280}
+              />
+            </View>
+            {message.length > 0 && (
+              <Text style={{ fontFamily: MONO, fontSize: 9, color: C.dim, textAlign: 'right', marginTop: 4 }}>{message.length}/280</Text>
+            )}
+
+            {/* ── SAVE MESSAGE LOCALLY ── */}
+            <TouchableOpacity onPress={saveMemo} activeOpacity={0.85}
+              style={[dm.saveBtn, { backgroundColor: saved ? C.green : C.surf2, borderColor: saved ? C.green : C.cyan + '40' }]}>
+              <MaterialIcons name={saved ? 'check-circle' : 'bookmark-outline'} size={16} color={saved ? '#000' : C.cyan} />
+              <Text style={[dm.saveBtnTxt, { color: saved ? '#000' : C.cyan }]}>
+                {saved ? 'MESSAGE SAVED LOCALLY' : 'SAVE MESSAGE LOCALLY'}
+              </Text>
+            </TouchableOpacity>
+            <Text style={{ fontFamily: MONO, fontSize: 9, color: C.dim, textAlign: 'center', marginTop: 4, marginBottom: 14, lineHeight: 14 }}>
+              Saved only on this device — never uploaded anywhere
+            </Text>
+
+            {/* ── DONATION BUTTONS ── */}
+            <View style={[dm.divider]} />
+            <Text style={{ fontFamily: MONO, fontSize: 9, color: C.mid, textAlign: 'center', marginBottom: 12, letterSpacing: 1 }}>
+              CHOOSE A PLATFORM TO DONATE
+            </Text>
+
+            <TouchableOpacity onPress={openPayPal} activeOpacity={0.85}
+              style={[dm.donateBtn, { backgroundColor: '#003087', borderColor: '#009CDE' }]}>
+              <MaterialCommunityIcons name="paypal" size={20} color="#009CDE" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: MONO, fontSize: 13, fontWeight: '900', color: '#009CDE' }}>DONATE VIA PAYPAL</Text>
+                <Text style={{ fontFamily: MONO, fontSize: 9, color: '#009CDE' + '80', marginTop: 2 }}>Secure · no account required</Text>
+              </View>
+              <MaterialIcons name="open-in-new" size={14} color="#009CDE70" />
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={openBuyMeACoffee} activeOpacity={0.85}
+              style={[dm.donateBtn, { backgroundColor: '#FFDD00' + '15', borderColor: '#FFDD00' + '60' }]}>
+              <MaterialCommunityIcons name="coffee-outline" size={20} color="#FFDD00" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: MONO, fontSize: 13, fontWeight: '900', color: '#FFDD00' }}>BUY ME A COFFEE</Text>
+                <Text style={{ fontFamily: MONO, fontSize: 9, color: '#FFDD00' + '80', marginTop: 2 }}>buymeacoffee.com · quick &amp; easy</Text>
+              </View>
+              <MaterialIcons name="open-in-new" size={14} color="#FFDD0070" />
+            </TouchableOpacity>
+
+            {/* ── LEGAL DISCLAIMER ── */}
+            <View style={[dm.disclaimer, { borderColor: C.border }]}>
+              <MaterialCommunityIcons name="information-outline" size={11} color={C.dim} />
+              <Text style={dm.disclaimerTxt}>
+                All donations are voluntary. Butler AI does not offer goods or services in exchange for donations.
+                No donation provides any app features, benefits, or privileges beyond what is already available.
+                Donations are processed by third-party platforms (PayPal, Buy Me a Coffee) subject to their own Terms of Service.
+                Butler AI is not responsible for third-party payment processing.
+              </Text>
+            </View>
+
+            <TouchableOpacity onPress={onClose} style={[dm.closeBtn, { borderColor: C.border }]}>
+              <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '900', color: C.mid }}>CLOSE</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const dm = StyleSheet.create({
+  overlay:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'flex-end' },
+  sheet:       { backgroundColor: C.surf, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    overflow: 'hidden', maxHeight: '92%',
+    ...Platform.select({ ios: { shadowColor: C.cyan, shadowOffset:{width:0,height:-6}, shadowOpacity:0.2, shadowRadius:20 }, android: { elevation: 24 } }) },
+  heartOrb:    { width: 64, height: 64, borderRadius: 20, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  tipBox:      { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderWidth: 1, borderRadius: 10, padding: 11,
+    borderColor: C.amber + '30', backgroundColor: C.amber + '06', marginBottom: 14 },
+  infoCard:    { borderRadius: 11, borderWidth: 1.5, overflow: 'hidden', marginBottom: 16 },
+  fieldLabel:  { fontFamily: MONO, fontSize: 9, fontWeight: '900', color: C.mid, letterSpacing: 1.5, marginBottom: 7, marginTop: 4 },
+  amountChip:  { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, borderWidth: 1.5 },
+  inputWrap:   { flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1.5, borderRadius: 11, padding: 12, backgroundColor: C.surf2, borderColor: C.border, marginBottom: 8 },
+  input:       { flex: 1, fontFamily: MONO, fontSize: 13, color: C.text, padding: 0, includeFontPadding: false },
+  saveBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, borderWidth: 1.5, paddingVertical: 13 },
+  saveBtnTxt:  { fontFamily: MONO, fontSize: 12, fontWeight: '900', letterSpacing: 0.3 },
+  divider:     { height: StyleSheet.hairlineWidth, backgroundColor: C.border, marginVertical: 14 },
+  donateBtn:   { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1.5, borderRadius: 13, padding: 14, marginBottom: 10 },
+  disclaimer:  { borderWidth: 1, borderRadius: 10, padding: 11, marginTop: 14, marginBottom: 10 },
+  disclaimerTxt: { fontFamily: MONO, fontSize: 9, color: C.dim, lineHeight: 14, flex: 1 },
+  closeBtn:    { alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderWidth: 1, borderRadius: 12 },
+});
+
+// ─── WIDGET STUDIO GATE (PRO/ELITE locked) ────────────────────────
+function WidgetStudioSection() {
+  const { isPro, isElite } = usePurchase();
+  const isUnlocked = isPro || isElite;
+  const [showPaywall, setShowPaywall] = useState(false);
+
+  if (!isUnlocked) {
+    return (
+      <View>
+        <Sec icon="widgets" label="WIDGET STUDIO" color="#BB33FF"
+          sub="Code custom widgets · pin them to any page · 16+ templates" />
+        <TouchableOpacity onPress={() => setShowPaywall(true)} activeOpacity={0.85}
+          style={[ws.locked, { borderColor: '#BB33FF40' }]}>
+          <View style={{ height: 3, backgroundColor: '#BB33FF' }} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13, padding: 14 }}>
+            <View style={[ws.lockedIcon, { borderColor: '#BB33FF55', backgroundColor: '#BB33FF12' }]}>
+              <MaterialCommunityIcons name="widgets" size={22} color="#BB33FF" />
+              <View style={ws.lockBadge}>
+                <MaterialIcons name="lock" size={10} color="#000" />
+              </View>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: MONO, fontSize: 13, fontWeight: '900', color: '#BB33FF' }}>WIDGET STUDIO</Text>
+              <Text style={{ fontFamily: MONO, fontSize: 10, color: C.mid, marginTop: 3, lineHeight: 15 }}>
+                Code React Native widgets · pin inline or floating to any page
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 6, marginTop: 7 }}>
+                {['16 TEMPLATES', 'LIVE PREVIEW', 'ANY PAGE'].map((t, i) => (
+                  <View key={i} style={{ borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
+                    borderColor: '#BB33FF35', backgroundColor: '#BB33FF08' }}>
+                    <Text style={{ fontFamily: MONO, fontSize: 8, fontWeight: '900', color: '#BB33FF80' }}>{t}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <View style={[ws.upgradeTag, { borderColor: C.amber + '60', backgroundColor: C.amber + '14' }]}>
+              <MaterialCommunityIcons name="crown-outline" size={12} color={C.amber} />
+              <Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '900', color: C.amber }}>PRO+</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+        {showPaywall && (
+          <View style={{ position: 'absolute', top: -999, opacity: 0, width: 0, height: 0 }}>
+            {/* Render paywall on tap */}
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  return (
+    <View>
+      <Sec icon="widgets" label="WIDGET STUDIO" color="#BB33FF"
+        sub="Write code → preview live → pin to any tab page permanently." />
+      <LiveWidgetStudio />
+    </View>
+  );
+}
+
+const ws = StyleSheet.create({
+  locked:     { backgroundColor: C.surf, borderRadius: 14, borderWidth: 1.5, overflow: 'hidden',
+    ...Platform.select({ ios: { shadowColor: '#BB33FF', shadowOffset:{width:0,height:4}, shadowOpacity:0.2, shadowRadius:10 }, android: { elevation: 5 } }) },
+  lockedIcon: { width: 50, height: 50, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0, position: 'relative' },
+  lockBadge:  { position: 'absolute', bottom: 3, right: 3, width: 16, height: 16, borderRadius: 8, backgroundColor: C.amber, alignItems: 'center', justifyContent: 'center' },
+  upgradeTag: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 9, paddingHorizontal: 9, paddingVertical: 6 },
+});
+
 // ─── FOOTER ──────────────────────────────────────────────────────
 function CfgFooter() {
   return (
@@ -864,6 +1189,7 @@ function SettingsScreenInner() {
 
   const [model,        setModel]        = useState('llama3.2');
   const [system,       setSystem]       = useState('');
+  const [showDonation, setShowDonation] = useState(false);
   const [saved,        setSaved]        = useState(false);
   const [hapticsOn,    setHapticsOn]    = useState(true);
   const [animationsOn, setAnimationsOn] = useState(true);
@@ -1138,6 +1464,39 @@ function SettingsScreenInner() {
         </View>
 
         {/* ═══════════════════════════════════════
+            🎨 WIDGET STUDIO
+        ═══════════════════════════════════════ */}
+        <WidgetStudioSection />
+
+        {/* ═══════════════════════════════════════
+            💙 SUPPORT / DONATION
+        ═══════════════════════════════════════ */}
+        <View>
+          <Sec icon="heart-outline" label="SUPPORT THE DEVELOPER" color={C.cyan}
+            sub="100% optional. Donations fund future development." />
+          <TouchableOpacity onPress={() => { haptics.medium(); setShowDonation(true); }} activeOpacity={0.88}
+            style={[ic.root, { borderColor: C.cyan + '35' }]}>
+            <View style={{ height: 3, flexDirection: 'row' }}>
+              {[C.cyan, C.green, C.amber, C.purple, C.pink].map((c, i) => (
+                <View key={i} style={{ flex: 1, backgroundColor: c }} />
+              ))}
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13, padding: 14 }}>
+              <View style={[ic.iconBox, { borderColor: C.cyan + '55', backgroundColor: C.cyan + '10' }]}>
+                <MaterialCommunityIcons name="heart-outline" size={18} color={C.cyan} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: MONO, fontSize: 13, fontWeight: '900', color: C.cyan }}>SUPPORT BUTLER AI</Text>
+                <Text style={{ fontFamily: MONO, fontSize: 10, color: C.mid, marginTop: 3, lineHeight: 15 }}>
+                  Leave a message · optional donation · 100% voluntary
+                </Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={20} color={C.cyan + '70'} />
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* ═══════════════════════════════════════
             📜 OPEN SOURCE ATTRIBUTION
         ═══════════════════════════════════════ */}
         <View>
@@ -1173,6 +1532,9 @@ function SettingsScreenInner() {
         ═══════════════════════════════════════ */}
         <CfgFooter />
       </ScrollView>
+
+      {/* Donation modal — outside ScrollView so it's full-screen */}
+      <DonationModal visible={showDonation} onClose={() => setShowDonation(false)} />
     </View>
   );
 }
