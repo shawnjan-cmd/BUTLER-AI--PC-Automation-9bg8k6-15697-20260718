@@ -59,8 +59,8 @@ import { XusBusDivider } from '@/components/ui/XusBusDivider';
 import ZeroCloudCard from '@/components/ui/ZeroCloudCard';
 import { HUDCard } from '@/components/ui/HUDCard';
 import NexusBadge from '@/components/ui/NexusBadge';
+import { PerformanceStrip } from '@/components/ui/PerformanceStrip';
 import { DataStreamLine, HoloText } from '@/components/ui/NexusFX';
-import ZeroCloudCard from '@/components/ui/ZeroCloudCard';
 import {
   NexusLiveStatusBar,
   NexusButlerHeaderCard,
