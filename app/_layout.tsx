@@ -5,6 +5,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 // Font loading — GlowWave-X Orbitron + ShareTechMono + Inter stack
 import { useAppFonts } from '@/hooks/useAppFonts';
+// Universal font safety — caps accessibility font scaling to prevent layout overflow
+import { patchTextDefaults, useUniversalFontSafety } from '@/hooks/useUniversalFontSafety';
+
+// Patch Text defaults synchronously before any component renders
+patchTextDefaults();
 
 import { theme } from '@/constants/theme';
 import { installBootGuard, BootErrorBoundary } from '@/services/bootGuard';
@@ -151,6 +156,8 @@ export default function RootLayout() {
   // Load GlowWave-X font stack (Orbitron + ShareTechMono + Inter)
   // Falls back to system fonts gracefully if packages not yet installed
   const [fontsLoaded] = useAppFonts();
+  // Apply universal font safety (accessibility scale cap) on every render
+  useUniversalFontSafety();
   // We always render — fonts fall back to system defaults if not loaded
   return (
     <RootErrorBoundary>
