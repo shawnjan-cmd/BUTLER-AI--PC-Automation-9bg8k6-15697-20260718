@@ -40,12 +40,12 @@ export const NexusDivider = memo(function NexusDivider({
   );
 });
 
-// ── XUS-BUS animated divider ───────────────────────────────────────────────
-interface XusBusDividerProps {
+// ── XUS-BUS animated divider (legacy alias — use XusBusDivider from './XusBusDivider' for new code) ────
+interface XusBusDividerLegacyProps {
   style?: ViewStyle;
 }
 
-export const XusBusDivider = memo(function XusBusDivider({ style }: XusBusDividerProps) {
+export const XusBusDividerNexus = memo(function XusBusDividerNexus({ style }: XusBusDividerLegacyProps) {
   // Dot pulse animations — useNativeDriver: true (opacity only)
   const dot1 = useRef(new Animated.Value(0.4)).current;
   const dot2 = useRef(new Animated.Value(0.4)).current;

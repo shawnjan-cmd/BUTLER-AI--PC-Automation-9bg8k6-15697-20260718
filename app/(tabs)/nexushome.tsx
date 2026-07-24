@@ -56,12 +56,10 @@ import { TitanProtocolCard } from '@/components/ui/TitanProtocolCard';
 import { AppVersionBanner } from '@/components/ui/AppVersionGuard';
 import { CommandHeader } from '@/components/home/CommandHeader';
 import { XusBusDivider } from '@/components/ui/XusBusDivider';
-import { PerformanceStrip } from '@/components/ui/PerformanceStrip';
 import ZeroCloudCard from '@/components/ui/ZeroCloudCard';
 import { HUDCard } from '@/components/ui/HUDCard';
 import NexusBadge from '@/components/ui/NexusBadge';
 import { DataStreamLine, HoloText } from '@/components/ui/NexusFX';
-import { PerformanceStrip } from '@/components/ui/PerformanceStrip';
 import ZeroCloudCard from '@/components/ui/ZeroCloudCard';
 import {
   NexusLiveStatusBar,
