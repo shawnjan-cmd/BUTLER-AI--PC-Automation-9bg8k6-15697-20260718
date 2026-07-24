@@ -1,7 +1,7 @@
 /**
  * ╔══════════════════════════════════════════════════════════════════╗
  * ║         BUTLER AI — MASTER SESSION PROFILE v1.0                  ║
- * ║         © 2024-2026 Andrej Sladkovic. All Rights Reserved.       ║
+ * ║         © 2024-2026 Shawn P. All Rights Reserved.                ║
  * ║         com.butlerai.pc.automation                                ║
  * ╚══════════════════════════════════════════════════════════════════╝
  *
@@ -22,17 +22,19 @@
 // SECTION 1 — DEVELOPER IDENTITY & COPYRIGHT
 // ═══════════════════════════════════════════════════════════════════
 export const DEVELOPER = {
-  name:        'Andrej Sladkovic',
-  email:       'andrejsladkovic1992@gmail.com',
+  name:        'Shawn P.',
+  email:       'butleraiapp@proton.me',
   appId:       'com.butlerai.pc.automation',
   appName:     'Butler AI',
-  version:     '8.0.0',
-  copyright:   '© 2024-2026 Andrej Sladkovic. All Rights Reserved.',
-  trademarks:  '6 registered name variations, each legally protected.',
+  version:     '9.1.0',
+  copyright:   '© 2024-2026 Shawn P. All Rights Reserved.',
+  trademarks:  'Multiple registered trademarks — SN-210694951. See NOTICE file.',
   githubRepo:  'https://github.com/shawnjan-cmd/butler-server',
   playStore:   'https://play.google.com/store/apps/details?id=com.butlerai.pc.automation',
-  license:     'PROPRIETARY — unauthorized copying, redistribution, or reverse-engineering is strictly prohibited.',
+  license:     'PROPRIETARY — unauthorized copying, redistribution, or reverse-engineering is strictly prohibited. See LICENSE file.',
   dmca:        'DMCA Protected — 17 U.S.C. Sec. 1201',
+  householdProtocol: 'THE HOUSEHOLD PROTOCOL™ — 9-stage product flow, The Interview through Notice.',
+  buildId:     'NX-9.1.0-20260724-PROD',
 } as const;
 
 // ═══════════════════════════════════════════════════════════════════

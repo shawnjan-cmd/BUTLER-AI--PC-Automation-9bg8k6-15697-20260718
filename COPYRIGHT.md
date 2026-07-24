@@ -1,13 +1,14 @@
-# 🛡️ BUTLER AI — COPYRIGHT & INTELLECTUAL PROPERTY NOTICE
+# BUTLER AI™ — COPYRIGHT & INTELLECTUAL PROPERTY NOTICE
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════╗
 ║                                                                          ║
-║   BUTLER AI — PROPRIETARY SOFTWARE                                       ║
-║   © 2024–2026 Andrej Sladkovic. ALL RIGHTS RESERVED.                    ║
+║   BUTLER AI™ — PROPRIETARY SOFTWARE                                      ║
+║   © 2024–2026 Shawn P. ALL RIGHTS RESERVED.                             ║
 ║                                                                          ║
 ║   com.butlerai.pc.automation                                             ║
-║   Build: NX-8.0.0-20260718-PROD                                         ║
+║   Build: NX-9.1.0-20260724-PROD                                         ║
+║   Trademark Serial: SN-210694951                                         ║
 ║                                                                          ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 ```
@@ -16,133 +17,165 @@
 
 ## 1. Copyright Ownership
 
-All source code, UI designs, assets, algorithms, data structures, and documentation
-contained in this repository are the **exclusive intellectual property** of:
+All source code, UI designs, assets, algorithms, data structures, documentation,
+and the product flow sequence described in these files are the **exclusive
+intellectual property** of:
 
-> **Andrej Sladkovic**  
-> Contact: andrejsladkovic1992@gmail.com  
-> DMCA Agent: andrejsladkovic1992@gmail.com
+> **Shawn P.**
+> Contact: butleraiapp@proton.me
+> DMCA Agent: butleraiapp@proton.me
+> Trademark filing: SN-210694951 ("Butler AI: PC Automation")
 
-Copyright © 2024–2026 Andrej Sladkovic. All rights reserved.
+Copyright © 2024–2026 Shawn P. All rights reserved.
 
 ---
 
-## 2. Prohibited Acts
+## 2. Trademark Notice
 
-The following are **STRICTLY PROHIBITED** without prior written consent:
+The following names, marks, and trade dress are **trademarks** (™) claimed by
+Shawn P. No trademark right is granted by access to this source code.
+A permitted personal fork may not use these names, marks, or mascot, and may
+not imply endorsement by the owner.
+
+| Mark | Type |
+|---|---|
+| **BUTLER AI™** | Word mark — software class |
+| **BOTER™** | Word mark — PC automation suite |
+| **COMMANDCUBE™** | Word mark — PC tray presence |
+| **NEXUS™** | Word mark — home surface |
+| **XUSLINK™** | Word mark — pairing protocol |
+| **DARKBOOT™** | Word mark — boot ritual |
+| **FITCORE™** | Word mark — PC profiling / model match |
+| **SCRIPTSHIELD™** | Word mark — script safety engine |
+| **BUTLER MIND™** | Word mark — AI memory vault |
+| **VAULTPROOF™** | Word mark — live privacy ledger |
+| **PULSECODE™** | Word mark — haptic grammar |
+| **BUTLER COOKBOOK™** | Word mark — recipe corpus |
+| **SCRIPTMEDIC™** | Word mark — self-repair loop |
+| **THE HOUSEHOLD PROTOCOL™** | Word mark — 9-stage product flow |
+| **THE KEY CEREMONY™** | Word mark — pairing ritual |
+| **THE HOUSE PHRASE™** | Word mark — 3-word MitM defence |
+| **SILVER SERVICE™** | Word mark — command execution ceremony |
+| **THE PANTRY™** | Word mark — encrypted memory vault |
+| **THE DAY BOOK™** | Word mark — log / refusals timeline |
+| **DARK MATTER HUD** | Trade dress — the cyberpunk UI aesthetic |
+| Tuxedo-robot mascot | Figurative mark + copyrighted artwork |
+
+---
+
+## 3. The Household Protocol™ — Trade-Dress Sequence
+
+The following nine-stage product flow is a **named, sequenced, copyrighted
+expression** protected as trade dress:
+
+1. **THE INTERVIEW™** — first launch / trust screens
+2. **THE HIRING™** — EULA accept + butler naming ceremony
+3. **THE KEY CEREMONY™** — PC installer + QR pairing + House Phrase
+4. **THE BELLPULL™** — LAN transport layer
+5. **THE ROUNDS™** — background health polling
+6. **SILVER SERVICE™** — command execution with announcement
+7. **THE PANTRY™** — encrypted personal memory vault
+8. **THE DAY BOOK™** — log including refusals
+9. **NOTICE™** — panic wipe / dignified dismissal
+
+Any product that reproduces this sequence in this order with equivalent ceremony
+constitutes provable copying under copyright and trade-dress law.
+
+---
+
+## 4. Protected Innovations (Trade Secrets & Copyrighted Works)
+
+| # | Innovation | Protection |
+|---|---|---|
+| 1 | XUSLINK™ Frame v1 — QR pairing frame format | Trade secret + copyright |
+| 2 | THE HOUSE PHRASE™ — 3-word deterministic session-key hash MitM defence | Trade secret + trademark |
+| 3 | BUTLER MIND™ — encrypted personal AI knowledge vault (.bmind format) | Trade secret + copyright |
+| 4 | FITCORE™ — hardware-profiling model-match tier engine | Trade secret + trademark |
+| 5 | Phi-NEXUS Bridge Protocol — DELTA+SIGMA+FUSE+OMEGA fused pipeline | Trade secret |
+| 6 | SIGMA-NET Relay Crawler — phone-teleported PC crawl relay | Trade secret |
+| 7 | Quantum Link Harvester — entangled graph traversal URL discovery | Trade secret |
+| 8 | OMEGA Loop Auto-Growth Engine — 3-layer 24/7 KB expansion | Trade secret |
+| 9 | SCRIPTSHIELD™ — static + runtime script safety scoring system | Trade secret + copyright |
+| 10 | VAULTPROOF™ — live outbound-traffic ledger (privacy meter) | Copyright + trade dress |
+| 11 | PULSECODE™ — proprietary haptic signature grammar | Copyright + trade dress |
+| 12 | DARKBOOT™ — fixed-choreography boot ritual | Copyright + trade dress |
+| 13 | Dark Matter HUD — NEXUS cyberpunk UI aesthetic | Trade dress + copyright |
+| 14 | The Household Protocol™ — 9-stage Victorian butler flow | Trade dress + copyright |
+| 15 | COMMANDCUBE™ — PC tray presence with branded state glyphs | Trademark + copyright |
+| 16 | Persistent Checkpoint System — SQLite resume-on-restart | Copyright |
+| 17 | Behavioural Profiling Engine — user_topics priority queue | Trade secret |
+| 18 | Zero Hardcode Discovery — 4-method IP + 20-port auto-detect | Trade secret |
+
+---
+
+## 5. Prohibited Acts
 
 | Act | Legal Basis |
-|-----|-------------|
+|---|---|
 | Copying source code | 17 U.S.C. § 106 |
 | Reverse-engineering the compiled bundle | DMCA 17 U.S.C. § 1201 |
 | Decompiling or disassembling | EU Directive 2009/24/EC Art. 6 |
 | Creating derivative works | 17 U.S.C. § 106(2) |
 | Distributing any portion | 17 U.S.C. § 106(3) |
-| Reproducing UI/UX designs | 17 U.S.C. § 102(a)(5) |
-| Reproducing proprietary algorithms | Defend Trade Secrets Act 2016 |
-| Sublicensing | 17 U.S.C. § 106(4) |
+| Using any trademark without licence | Lanham Act 15 U.S.C. § 1114 |
+| Reproducing trade-dress sequence | Lanham Act 15 U.S.C. § 1125 |
+| Training ML models on this code | Copyright + contractual |
 | Commercial use | All of the above |
 
 ---
 
-## 3. Protected Intellectual Property
+## 6. Bundle Protection Layers
 
-The following innovations are **protected trade secrets and copyrighted works**:
-
-1. **Phi-NEXUS Bridge Protocol** — DELTA+SIGMA+FUSE+OMEGA fused pipeline
-2. **SIGMA-NET Relay Crawler** — Phone-teleported PC crawl relay architecture
-3. **Quantum Link Harvester** — Entangled graph traversal URL discovery engine
-4. **OMEGA Loop Auto-Growth Engine** — 3-layer 24/7 KB autonomous expansion
-5. **Lambda Scan** — Remote PC filesystem scanner with privilege escalation guard
-6. **Omega Scanner Daemon** — Self-healing 8-minute cycle monitor
-7. **Persistent Checkpoint System** — SQLite-backed resume-on-restart architecture
-8. **Behavioural Profiling Engine** — user_topics priority queue personalisation
-9. **Nexus Cosmetic Pack System** — Full app re-skin via CosmeticContext runtime
-10. **Zero Hardcode Discovery** — 4-method IP + 20-port auto-detect protocol
-11. **Auto-Save AI Scripts** — Silent Python code detection from natural language chat
-12. **Pip Auto-Install + Retry Engine** — ModuleNotFoundError automatic recovery
-13. **OmegaFingerprint Execution Learning** — Imports posted to KB per run
-14. **Neural KB Level System** — XP-gated tiered AI knowledge rank
-15. **NexusBridge QR Pairing Protocol** — HMAC-signed UDP beacon device pairing
-16. **Butler AI HUD Design Language** — NEXUS cyberpunk UI aesthetic system
+1. **Hermes Bytecode Compilation** — source compiled to platform bytecode
+2. **Terser Aggressive Minification** — all identifiers mangled
+3. **Multi-layer Runtime Watermark** — XOR-encoded + byte-array ownership proof
+4. **Symbol-keyed Global Fingerprint** — not serialisable, survives JSON extraction
+5. **Build-Epoch Fingerprint** — tamper-detectable timestamp hash
+6. **Household Sequence Hash** — the 9-stage sequence embedded as a dated constant
+7. **Trademark Constants** — every claimed mark embedded in the compiled bytecode
 
 ---
 
-## 4. Bundle Protection
+## 7. Legal Framework
 
-The compiled JavaScript bundle is protected by multiple layers:
-
-- **Hermes Bytecode Compilation** — Source compiled to platform bytecode
-- **Terser Aggressive Minification** — All identifiers mangled, all comments stripped
-- **Multi-layer Runtime Watermark** — XOR-encoded + byte-array ownership proof
-- **Symbol-keyed Global Fingerprint** — Not serialisable, survives JSON extraction
-- **Build Epoch Fingerprint** — Tamper-detectable timestamp hash
-
-Circumventing any of these protections violates the **Digital Millennium Copyright
-Act (DMCA) 17 U.S.C. § 1201** and is a federal crime.
+- **United States**: 17 U.S.C. §§ 101–1332 (Copyright Act); DMCA 17 U.S.C. § 1201;
+  Defend Trade Secrets Act 2016 (18 U.S.C. § 1836); Lanham Act 15 U.S.C. §§ 1114, 1125
+- **European Union**: Directive 2009/24/EC; Directive 2019/790/EU
+- **International**: Berne Convention; TRIPS Agreement (WTO); WIPO Copyright Treaty 1996
 
 ---
 
-## 5. Legal Framework
+## 8. Enforcement
 
-This software is protected under:
-
-- **United States**: 17 U.S.C. §§ 101–1332 (Copyright Act), DMCA 17 U.S.C. § 1201,
-  Defend Trade Secrets Act 2016 (18 U.S.C. § 1836)
-- **European Union**: Directive 2009/24/EC on the legal protection of computer programs,
-  Directive 2019/790/EU (Copyright in the Digital Single Market)
-- **International**: Berne Convention for the Protection of Literary and Artistic Works,
-  TRIPS Agreement (WTO), WIPO Copyright Treaty 1996
+- **Civil**: injunctive relief + statutory damages up to **$150,000 per wilful infringement** (17 U.S.C. § 504)
+- **Criminal**: up to **5 years imprisonment** + **$250,000 fine** (17 U.S.C. § 506; 18 U.S.C. § 2319)
+- **DMCA takedowns** to GitHub, Google Play, Apple App Store, and any hosting provider
+- **Trademark infringement** action under 15 U.S.C. § 1114
 
 ---
 
-## 6. Enforcement
+## 9. DMCA Contact
 
-Violations will result in:
-
-- **Civil action** seeking injunctive relief and statutory damages
-  (up to **$150,000 per wilful infringement** under 17 U.S.C. § 504)
-- **Criminal referral** for wilful infringement under 17 U.S.C. § 506
-  (up to **5 years imprisonment** and **$250,000 fine** per 18 U.S.C. § 2319)
-- **DMCA takedown notices** to GitHub, Google Play Store, Apple App Store,
-  and any hosting provider
-- **Asset seizure and forfeiture** under 18 U.S.C. § 2323
+**DMCA Agent**: Shawn P.
+**Email**: butleraiapp@proton.me
+**Subject**: `DMCA Notice — Butler AI`
 
 ---
 
-## 7. DMCA Takedown Process
+## 10. Server Component
 
-To report a violation or submit a counter-notice:
-
-**DMCA Agent**: Andrej Sladkovic  
-**Email**: andrejsladkovic1992@gmail.com  
-**Subject line**: `DMCA Notice — Butler AI`
-
-Include: description of infringing material, URL/location, your contact information,
-and a statement of good faith belief.
-
----
-
-## 8. Open-Source Server (Exception)
-
-The **server component** (`butler_server_v21_1_1_FINAL-3.py`) is separately licensed
-as open source and available at:
+The server transport layer (`butler_server.py`) is separately published as
+**source-available** (not open source) at:
 
 > https://github.com/shawnjan-cmd/butler-server
 
-The open-source server licence applies **only** to that file. The app (this codebase)
-remains fully proprietary under this COPYRIGHT notice.
+The server licence applies **only** to that file. The AI brain module (prompts,
+learning pipeline, ranking rules) ships **only** as a compiled binary and is NOT
+published. This app codebase remains fully proprietary.
 
 ---
 
-## 9. No Licence Granted
-
-Nothing in this repository, its documentation, or its distribution grants any licence,
-right, or permission to use, copy, modify, or distribute any part of this software,
-except as explicitly granted in writing by Andrej Sladkovic.
-
----
-
-*Last updated: 2026-07-18*  
-*Butler AI v8.0.0 · Build NX-8.0.0-20260718-PROD*  
-*© 2024–2026 Andrej Sladkovic. All Rights Reserved.*
+*Last updated: 2026-07-24*
+*Butler AI™ v9.1.0 · Build NX-9.1.0-20260724-PROD*
+*© 2024–2026 Shawn P. All Rights Reserved.*
+*Trademark Serial: SN-210694951*
