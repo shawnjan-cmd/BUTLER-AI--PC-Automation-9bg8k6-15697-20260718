@@ -115,6 +115,15 @@ const MODE_PROMPTS: Record<Mode, string> = {
   debug:   'DEBUG MODE: Show root cause + traceback explanation + corrected code.',
   analyze: 'ANALYZE MODE: Step-by-step reasoning → pros/cons → recommendation.',
 };
+const CPU_SAFE_THRESHOLD = 92;
+
+function inferModeFromText(text: string): Mode {
+  const t = text.toLowerCase();
+  if (/(error|traceback|stack|bug|crash|fails?|exception|not working)/.test(t)) return 'debug';
+  if (/(analy[sz]e|compare|pros and cons|trade[- ]?off|recommend|decision)/.test(t)) return 'analyze';
+  if (/(python|script|code|function|class|refactor|algorithm|terminal command)/.test(t)) return 'code';
+  return 'general';
+}
 
 // ─── MODEL TIER LOGIC ────────────────────────────────────────────
 const MODEL_TIERS: { match: RegExp; tier: number; reason: string; capability: string; info: string }[] = [
@@ -794,53 +803,40 @@ const sa = StyleSheet.create({
 });
 
 // ══════════════════════════════════════════════════════════════════
-// MODE BAR — CENTERED + VISIBLE INACTIVE TABS
+// AUTO ROUTING BAR — NO MANUAL CATEGORY PICKER
 // ══════════════════════════════════════════════════════════════════
-const MODES: { id: Mode; label: string; icon: string; color: string; desc: string }[] = [
-  { id: 'general', label: 'GENERAL', icon: 'chat',       color: GOLD,   desc: 'Conversational AI — ask anything' },
-  { id: 'code',    label: 'CODE',    icon: 'code',       color: TEAL,   desc: 'Python-only · production code' },
-  { id: 'debug',   label: 'DEBUG',   icon: 'bug-report', color: AMBER,  desc: 'Root cause + fix + traceback' },
-  { id: 'analyze', label: 'ANALYZE', icon: 'analytics',  color: VIOLET, desc: 'Step-by-step reasoning + pros/cons' },
-];
-
-function ModeBar({ active, onSelect }: { active: Mode; onSelect: (m: Mode) => void }) {
-  const scaleRefs = useRef(MODES.map(() => new Animated.Value(1))).current;
-  const pressIn  = (i: number) => Animated.spring(scaleRefs[i], { toValue: 0.88, useNativeDriver: true, tension: 400, friction: 12 }).start();
-  const pressOut = (i: number) => Animated.spring(scaleRefs[i], { toValue: 1,    useNativeDriver: true, tension: 280, friction: 10 }).start();
-
+function AutoRoutingBar() {
   return (
-    <View>
-      <View style={mb.root}>
-        {MODES.map((m, i) => {
-          const isAct = active === m.id;
-          return (
-            <Pressable key={m.id}
-              onPress={() => { haptics.selection(); onSelect(m.id); }}
-              onPressIn={() => pressIn(i)} onPressOut={() => pressOut(i)}
-              style={{ flex: 1 }}>
-              <Animated.View style={[mb.tab,
-                isAct && { borderBottomColor: m.color, borderBottomWidth: 3, backgroundColor: m.color + '14', ...shadow3d(m.color, 0.4) },
-                { transform: [{ scale: scaleRefs[i] }] }]}>
-                <MaterialIcons name={m.icon as any} size={isAct ? 16 : 13} color={isAct ? m.color : TEXT2} />
-                <Text style={[mb.txt, { color: isAct ? m.color : TEXT2, fontWeight: isAct ? '900' : '700', fontSize: isAct ? 9.5 : 8.5 }]}>{m.label}</Text>
-              </Animated.View>
-            </Pressable>
-          );
-        })}
+    <View style={mb.root}>
+      <View style={mb.status}>
+        <MaterialCommunityIcons name="robot-excited-outline" size={13} color={TEAL} />
+        <Text style={mb.statusText}>AUTO ROUTING ON</Text>
       </View>
-      {/* Mode description ticker */}
-      {MODES.filter(m => m.id === active).map(m => (
-        <View key={m.id} style={{ backgroundColor: m.color + '10', paddingVertical: 5, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: m.color + '25' }}>
-          <Text style={{ fontFamily: MONO, fontSize: 9.5, color: m.color, textAlign: 'center', fontWeight: '700', letterSpacing: 0.3 }}>{m.desc}</Text>
-        </View>
-      ))}
+      <Text style={mb.desc}>Butler detects intent automatically (chat / code / debug / analysis) from your message.</Text>
+      <View style={mb.row}>
+        {[
+          { icon: 'chat-processing-outline', label: 'CHAT', color: GOLD },
+          { icon: 'code-tags', label: 'CODE', color: TEAL },
+          { icon: 'bug-outline', label: 'DEBUG', color: AMBER },
+          { icon: 'chart-timeline-variant', label: 'ANALYZE', color: VIOLET },
+        ].map((m) => (
+          <View key={m.label} style={[mb.badge, { borderColor: m.color + '60', backgroundColor: m.color + '12' }]}>
+            <MaterialCommunityIcons name={m.icon as any} size={11} color={m.color} />
+            <Text style={[mb.badgeTxt, { color: m.color }]}>{m.label}</Text>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
 const mb = StyleSheet.create({
-  root: { flexDirection: 'row', backgroundColor: SURFACE, borderBottomWidth: 1, borderBottomColor: DIM + '80' },
-  tab:  { alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 11, paddingHorizontal: 4, borderBottomWidth: 3, borderBottomColor: 'transparent' },
-  txt:  { fontFamily: MONO, textAlign: 'center' },
+  root:      { backgroundColor: SURFACE, borderBottomWidth: 1.5, borderBottomColor: DIM + '70', paddingHorizontal: 12, paddingVertical: 8, gap: 7 },
+  status:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  statusText:{ fontFamily: MONO, fontSize: 10, fontWeight: '900', color: TEAL, letterSpacing: 1 },
+  desc:      { fontFamily: SANS, fontSize: 11.5, color: TEXT2, textAlign: 'center', lineHeight: 16 },
+  row:       { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 7 },
+  badge:     { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 },
+  badgeTxt:  { fontFamily: MONO, fontSize: 8.5, fontWeight: '900', letterSpacing: 0.5 },
 });
 
 // ══════════════════════════════════════════════════════════════════
@@ -1328,17 +1324,18 @@ const STRIP_CMDS = [
 
 function QuickStrip({ onCmd, onDrawer }: { onCmd: (p: string) => void; onDrawer: () => void }) {
   return (
-    <View style={{ flexDirection: 'row', gap: 6, paddingHorizontal: 10, paddingVertical: 7, borderTopWidth: 1.5, borderTopColor: GOLD + '18', backgroundColor: SURFACE }}>
+    <View style={{ flexDirection: 'row', gap: 6, paddingHorizontal: 10, paddingVertical: 8, borderTopWidth: 1.5, borderTopColor: GOLD + '18', backgroundColor: SURFACE2 }}>
       <TouchableOpacity onPress={() => { haptics.light(); onDrawer(); }} activeOpacity={0.8}
-        style={{ flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, borderColor: GOLD, backgroundColor: GOLD + '12', ...shadow3d(GOLD, 0.5) }}>
-        <MaterialIcons name="code" size={12} color={GOLD} />
-        <Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '900', color: GOLD }}>BUILD</Text>
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 8, borderColor: GOLD, backgroundColor: GOLD + '16', ...shadow3d(GOLD, 0.55) }}>
+        <MaterialIcons name="auto-awesome" size={12} color={GOLD} />
+        <Text style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: '900', color: GOLD }}>TOOLS</Text>
       </TouchableOpacity>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
         {STRIP_CMDS.map((s, i) => (
           <TouchableOpacity key={i} onPress={() => { haptics.light(); onCmd(s.p); }} activeOpacity={0.8}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1.5, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 7, borderColor: s.c, backgroundColor: s.c + '0E' }}>
-            <Text style={{ fontFamily: MONO, fontSize: 9.5, color: s.c, fontWeight: '700' }}>{s.l}</Text>
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 11, paddingVertical: 8, borderColor: s.c + '90', backgroundColor: s.c + '14' }}>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: s.c }} />
+            <Text style={{ fontFamily: MONO, fontSize: 9.5, color: s.c, fontWeight: '800', letterSpacing: 0.3 }}>{s.l}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -1352,6 +1349,11 @@ function QuickStrip({ onCmd, onDrawer }: { onCmd: (p: string) => void; onDrawer:
 function InputBar({ onSend, isConn, disabled }: { onSend: (t: string) => void; isConn: boolean; disabled: boolean }) {
   const [text, setText] = useState('');
   const [focused, setFocused] = useState(false);
+  const SHORTCUTS = [
+    'Check PC health now',
+    'Summarize top CPU processes',
+    'Generate a safe cleanup script',
+  ];
   const sendScA = useRef(new Animated.Value(1)).current;
   const borderA = useRef(new Animated.Value(0)).current;
   useEffect(() => { Animated.timing(borderA, { toValue: focused ? 1 : text.length > 0 ? 0.5 : 0, duration: 200, useNativeDriver: false }).start(); }, [focused, text.length]);
@@ -1371,18 +1373,35 @@ function InputBar({ onSend, isConn, disabled }: { onSend: (t: string) => void; i
   const cc = isConn ? TEAL : RED;
   return (
     <View style={ib.root}>
-      <View style={{ height: 2.5, flexDirection: 'row' }}>
+      <View style={{ height: 2.5, flexDirection: 'row', marginBottom: 3 }}>
         {[GOLD, AMBER, VIOLET, TEAL, RED].map((c, i) => <View key={i} style={{ flex: 1, backgroundColor: c, opacity: focused ? 1 : 0.28 }} />)}
       </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={ib.shortcutRow}>
+        {SHORTCUTS.map((s) => (
+          <TouchableOpacity
+            key={s}
+            activeOpacity={0.82}
+            onPress={() => {
+              if (disabled || !isConn) return;
+              haptics.light();
+              onSend(s);
+            }}
+            style={[ib.shortcutChip, { borderColor: GOLD + '55', backgroundColor: GOLD + '10' }]}
+          >
+            <MaterialCommunityIcons name="flash-outline" size={11} color={GOLD} />
+            <Text style={ib.shortcutTxt} numberOfLines={1}>{s}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
       <View style={ib.row}>
         <View style={[ib.connPill, { borderColor: cc, backgroundColor: cc + '12', ...shadow3d(cc, 0.5) }]}>
           <GlowDot color={cc} size={5} />
-          <Text style={{ fontFamily: MONO, fontSize: 9, color: cc, fontWeight: '900' }}>{isConn ? 'ON' : 'OFF'}</Text>
+          <Text style={{ fontFamily: MONO, fontSize: 9, color: cc, fontWeight: '900' }}>{isConn ? 'LIVE' : 'OFF'}</Text>
         </View>
         <Animated.View style={[ib.inputWrap, { borderColor }]}>
           <TextInput style={ib.input} value={text}
             onChangeText={v => { setText(v); autoResearch.notifyTyping(v); }}
-            placeholder={isConn ? 'Ask Butler AI anything…' : 'Pair your PC first from HOME tab…'}
+            placeholder={isConn ? 'Type naturally — Butler auto-detects intent…' : 'Pair your PC first from HOME tab…'}
             placeholderTextColor={MID} returnKeyType="send" onSubmitEditing={handleSend}
             blurOnSubmit={false} editable={!disabled} multiline maxLength={2000}
             keyboardAppearance="dark" onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} />
@@ -1412,12 +1431,15 @@ function InputBar({ onSend, isConn, disabled }: { onSend: (t: string) => void; i
   );
 }
 const ib = StyleSheet.create({
-  root:      { backgroundColor: SURFACE, borderTopWidth: 1.5, borderTopColor: GOLD + '18' },
+  root:      { backgroundColor: SURFACE2, borderTopWidth: 1.5, borderTopColor: GOLD + '18' },
+  shortcutRow: { gap: 6, paddingHorizontal: 10, paddingVertical: 4 },
+  shortcutChip: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 },
+  shortcutTxt: { fontFamily: MONO, fontSize: 9, color: GOLD, fontWeight: '800', maxWidth: 220 },
   row:       { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 10, paddingVertical: 9 },
   connPill:  { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 7, flexShrink: 0, alignSelf: 'flex-end', marginBottom: 1 },
-  inputWrap: { flex: 1, borderWidth: 2, borderRadius: 15, paddingHorizontal: 14, paddingTop: 11, paddingBottom: 11, minHeight: 50, maxHeight: 140, backgroundColor: BG },
+  inputWrap: { flex: 1, borderWidth: 2, borderRadius: 18, paddingHorizontal: 14, paddingTop: 11, paddingBottom: 11, minHeight: 50, maxHeight: 140, backgroundColor: BG, ...shadow3d(VIOLET, 0.2) },
   input:     { fontFamily: SANS, fontSize: 16, color: TEXT, lineHeight: 22, minHeight: 24, padding: 0 },
-  sendBtn:   { width: 52, height: 52, borderRadius: 16, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  sendBtn:   { width: 52, height: 52, borderRadius: 18, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   statusLine:{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 5 },
 });
 
