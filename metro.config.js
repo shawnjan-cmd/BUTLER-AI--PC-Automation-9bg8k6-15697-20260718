@@ -7,7 +7,7 @@ try { require('./tools/postinstall.js'); } catch (e) {}
 const config = getDefaultConfig(__dirname);
 
 // Bump cache to force full rebuild.
-config.cacheVersion = 'butler-ai-v5.3.1-dedup-crawler-graph';
+config.cacheVersion = 'butler-ai-v5.4.1-font-crash-fix';
 
 // ── COPYRIGHT NOTICE SERIALIZER ───────────────────────────────────────
 // Prepends a copyright banner to the COMPILED bundle. This banner

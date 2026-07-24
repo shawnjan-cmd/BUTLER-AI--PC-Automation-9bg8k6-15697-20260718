@@ -315,12 +315,9 @@ export const FEATURE_REGISTRY = {
    * EXISTS BUT NOT FULLY WIRED
    */
   partiallyWired: [
-    'AppVersionGuard — exists in components/ui/, not wired to any page',
-    'BiometricLockOverlay — exists, not wired',
+    'BiometricLockOverlay — exists, not wired (optional future security gate)',
     'PCRemoteCockpit — exists, not wired to connect tab',
     'MultiPCManager — exists, not wired',
-    'NexusVaultCard — exists, not wired',
-    'PerformanceMonitorWidget — exists, not wired to any page',
     'RuntimeDiagnosticsHUD — exists, disabled by user (decorative animations)',
     'GeminiKeyCard — exists, Supabase not connected so not applicable',
   ],
