@@ -55,6 +55,9 @@ import AutomationFeed from '@/components/home/AutomationFeed';
 import { TitanProtocolCard } from '@/components/ui/TitanProtocolCard';
 import { AppVersionBanner } from '@/components/ui/AppVersionGuard';
 import { CommandHeader } from '@/components/home/CommandHeader';
+import { HUDCard } from '@/components/ui/HUDCard';
+import NexusBadge from '@/components/ui/NexusBadge';
+import { DataStreamLine, HoloText } from '@/components/ui/NexusFX';
 import {
   NexusLiveStatusBar,
   NexusButlerHeaderCard,
@@ -4064,9 +4067,21 @@ function NexusHomeInner() {
             goToTab={goToTab}
           />
 
+          {/* ── DATA STREAM LINE — scrolling hex under header ── */}
+          <DataStreamLine color={isConn ? '#34D399' : '#6EE7FF'} height={14} />
+
           {/* ── APP VERSION BANNER ── */}
           <View style={{ paddingHorizontal: PAD, paddingTop: 4 }}>
             <AppVersionBanner />
+          </View>
+
+          {/* ── NEXUS STATUS BADGES ROW ── */}
+          <View style={{ flexDirection: 'row', gap: 7, paddingHorizontal: PAD, paddingTop: 8, paddingBottom: 4, flexWrap: 'wrap' }}>
+            <NexusBadge variant={isConn ? 'online' : 'offline'} label={isConn ? 'CONNECTED' : 'OFFLINE'} size="sm" />
+            <NexusBadge variant="live" label="LOCAL AI" color="#A78BFA" size="sm" />
+            <NexusBadge variant="tag" label="AES-256" color="#34D399" size="sm" />
+            <NexusBadge variant="tag" label="ZERO CLOUD" color="#6EE7FF" size="sm" />
+            <NexusBadge variant="tag" label="LAN ONLY" color="#FDBA74" size="sm" />
           </View>
 
           {/* ── NEXUS BUTLER HEADER CARD + LIVE STATUS BAR ── */}
@@ -4087,15 +4102,15 @@ function NexusHomeInner() {
           <View style={{ height: 10 }} />
 
           {/* ── REMOTE ACCESS + TAILSCALE — right below header ── */}
-          <View style={{ paddingHorizontal: PAD }}>
+          <HUDCard accent={isConn ? '#34D399' : '#6EE7FF'} rail corners hex="remote-access" style={{ marginHorizontal: PAD }} flush>
             <RemoteAccessMonetizationCard onConnected={loadData} />
-          </View>
+          </HUDCard>
           <View style={{ height: 10 }} />
 
           {/* ── TITAN PROTOCOL CARD — HMAC security scoring ── */}
-          <View style={{ paddingHorizontal: PAD }}>
+          <HUDCard accent="#A78BFA" rail corners hex="titan-sec" live style={{ marginHorizontal: PAD }} flush>
             <TitanProtocolCard />
-          </View>
+          </HUDCard>
           <View style={{ height: 10 }} />
 
           {/* ── NEXUS HERO — status chips + gradient title + stat tiles + CTAs ── */}
@@ -4114,15 +4129,24 @@ function NexusHomeInner() {
           <View style={{ height: 12 }} />
 
           {/* ── SECURITY SHOWCASE — hero visual, HUD tile grid (AES-256/LAN/NO TELEMETRY/64C/SHA) ── */}
-          <View style={{ paddingHorizontal: PAD }}>
+          <HUDCard accent="#34D399" rail corners hex="sec-showcase" live style={{ marginHorizontal: PAD }} flush>
             <SecurityShowcase mode="full" />
-          </View>
+          </HUDCard>
           <View style={{ height: 10 }} />
 
           {/* ── SECURITY PROTOCOLS — animated 6-module row ── */}
           <SecurityProtocols />
           <View style={{ height: 12 }} />
           <NeuralDivider color={GREEN} />
+
+          {/* ── XUS-BUS DIVIDER ── */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: PAD, paddingVertical: 4 }}>
+            <HoloText text="NEXUS" fontSize={7} color="rgba(110,231,255,0.4)" />
+            <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(110,231,255,0.12)', marginHorizontal: 8 }} />
+            <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: '#34D399', opacity: 0.8 }} />
+            <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(110,231,255,0.12)', marginHorizontal: 8 }} />
+            <HoloText text="IOW.BRIDGE" fontSize={7} color="rgba(110,231,255,0.4)" />
+          </View>
 
           {/* ── STATUS CARDS 4 — Executed · Vectors · Latency · Status ── */}
           <StatusCards4 isConn={isConn} scripts={scripts} kbCount={kbCount} latency={latency} />
@@ -4184,7 +4208,9 @@ function NexusHomeInner() {
           <PowerDivider color={AMBER} />
 
           {/* ── AI MEMORY ── */}
-          <AIMemoryPanel isConn={isConn} kbCount={kbCount} />
+          <HUDCard accent="#A78BFA" rail corners hex="ai-memory" live style={{ marginHorizontal: PAD }} flush>
+            <AIMemoryPanel isConn={isConn} kbCount={kbCount} />
+          </HUDCard>
           <View style={{ height: 12 }} />
           <SpectrumDivider colors={[PURPLE, CYAN]} />
 
@@ -4215,24 +4241,30 @@ function NexusHomeInner() {
           <CircuitDivider color={BLUE} reverse />
 
           {/* ── CLIPBOARD ── */}
-          <ClipboardWidget isConn={isConn} />
+          <HUDCard accent="#6EE7FF" rail corners hex="clipboard-sync" style={{ marginHorizontal: PAD }} flush>
+            <ClipboardWidget isConn={isConn} />
+          </HUDCard>
           <View style={{ height: 12 }} />
           <PowerDivider color={PURPLE} />
 
           {/* ── FILE SHARE ── */}
-          <FileShareWidget isConn={isConn} />
+          <HUDCard accent="#4A9EFF" rail corners hex="file-transfer" style={{ marginHorizontal: PAD }} flush>
+            <FileShareWidget isConn={isConn} />
+          </HUDCard>
           <View style={{ height: 12 }} />
           <NeuralDivider color={AMBER} />
 
           {/* ── SCRIPT LAUNCHER ── */}
-          <ScriptLauncher isConn={isConn} />
+          <HUDCard accent="#00CC88" rail corners hex="script-launch" style={{ marginHorizontal: PAD }} flush>
+            <ScriptLauncher isConn={isConn} />
+          </HUDCard>
           <View style={{ height: 12 }} />
           <CircuitDivider color={GREEN} reverse />
 
           {/* ── NETWORK TOPOLOGY ── */}
-          <View style={{ paddingHorizontal: PAD }}>
+          <HUDCard accent="#00D4FF" rail corners hex="lan-topology" live={isConn} style={{ marginHorizontal: PAD }} flush>
             <NetworkTopologyCard isConnected={isConn} onConnected={loadData} />
-          </View>
+          </HUDCard>
           <View style={{ height: 10 }} />
 
           {/* ── ACTIVITY FEED ── */}
@@ -4250,6 +4282,9 @@ function NexusHomeInner() {
           <View style={{ height: 12 }} />
           <NeuralDivider color={CYAN} />
 
+          {/* ── DATA STREAM DIVIDER ── */}
+          <DataStreamLine color="#A78BFA" height={12} style={{ marginVertical: 4 }} />
+
           {/* ── CORE NAV ── */}
           <CoreNav goToTab={goToTab} />
           <View style={{ height: 12 }} />
@@ -4266,7 +4301,9 @@ function NexusHomeInner() {
           <PowerDivider color={TEAL} />
 
           {/* ── PC TOOLS ── */}
-          <QuickPCTools isConn={isConn} />
+          <HUDCard accent="#FDBA74" rail corners hex="quick-tools" style={{ marginHorizontal: PAD }} flush>
+            <QuickPCTools isConn={isConn} />
+          </HUDCard>
           <View style={{ height: 12 }} />
           {/* NexusCommandCenter merged into NexusMegaHeader at top */}
           <SpectrumDivider colors={[CYAN, PURPLE]} />
@@ -4284,18 +4321,18 @@ function NexusHomeInner() {
           <CircuitDivider color={PURPLE} reverse />
 
           {/* ── AI BRAIN MASTERPIECE CARD (KB + personal memory) ── */}
-          <View style={{ paddingHorizontal: PAD }}>
+          <HUDCard accent="#A78BFA" rail corners hex="ai-brain" live style={{ marginHorizontal: PAD }} flush>
             <AIBrainMasterpieceCard
               isConnected={isConn}
               serverAddr={addr}
               onNavigateToKnowledge={() => goToTab('knowledge')}
             />
-          </View>
+          </HUDCard>
           <View style={{ height: 12 }} />
 
-          <View style={{ paddingHorizontal: PAD }}>
+          <HUDCard accent="#F87171" rail corners hex="nexus-vault" style={{ marginHorizontal: PAD }} flush>
             <NexusVaultCard isConnected={isConn} serverLatencyMs={latency} />
-          </View>
+          </HUDCard>
           <View style={{ height: 16 }} />
           <TipsTicker color={DIM} />
           <View style={{ height: 8 }} />
