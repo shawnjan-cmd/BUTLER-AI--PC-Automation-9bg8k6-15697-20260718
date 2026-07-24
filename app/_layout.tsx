@@ -8,6 +8,7 @@ import { useAppFonts } from '@/hooks/useAppFonts';
 
 import { theme } from '@/constants/theme';
 import { installBootGuard, BootErrorBoundary } from '@/services/bootGuard';
+import { RootErrorBoundary } from '@/components/ui/RootErrorBoundary';
 import { CosmeticProvider } from '@/contexts/CosmeticContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { TabBarProvider } from '@/contexts/TabBarContext';
@@ -152,6 +153,7 @@ export default function RootLayout() {
   const [fontsLoaded] = useAppFonts();
   // We always render — fonts fall back to system defaults if not loaded
   return (
+    <RootErrorBoundary>
     <BootErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.bg }}>
         <SafeAreaProvider>
@@ -184,5 +186,6 @@ export default function RootLayout() {
         </SafeAreaProvider>
       </GestureHandlerRootView>
     </BootErrorBoundary>
+    </RootErrorBoundary>
   );
 }
