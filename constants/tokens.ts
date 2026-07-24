@@ -12,31 +12,58 @@ export const FONT = {
   sans: (Platform.OS === 'ios' ? 'System'     : 'sans-serif') as any,
 };
 
-// ─── PALETTE ──────────────────────────────────────────────────────
+// ─── PALETTE (Section 21.30 — ground-truth from production screenshots) ────
 export const COLOR = {
-  // Backgrounds
-  bg:       '#010407',
-  surf:     '#060D18',
-  surf2:    '#0A1422',
-  surf3:    '#0D1C30',
+  // ── BACKGROUNDS ─────────────────────────────────────────────────────────
+  bg:            '#080C12',   // root screen background
+  surface:       '#0D1117',   // all card / HUDCard inner fill
+  surfaceDeep:   '#0A0E16',   // nested inner panels, input areas
+  surfaceInput:  '#0B0F18',   // text inputs, search bars
+  surfaceHeader: '#0C1019',   // sticky header bar
+  surfaceBar:    '#0D1420',   // runtime scanner bar
+  // Legacy aliases kept for backward compat:
+  surf:          '#0D1117',
+  surf2:         '#0A0E16',
+  surf3:         '#080C12',
 
-  // Brand neons
-  cyan:     '#00E5FF',
-  green:    '#00FF88',
-  magenta:  '#CC44FF',
-  amber:    '#FFB020',
-  red:      '#FF3344',
-  blue:     '#4488FF',
-  pink:     '#FF6EB4',
-  yellow:   '#FFD400',
-  teal:     '#00CCBB',
+  // ── TEXT ────────────────────────────────────────────────────────────────
+  text:          '#E8EAF0',   // primary readable text
+  textMuted:     '#6B7280',   // secondary / dim text
+  textMid:       '#9CA3AF',   // mid-level
+  textDim:       '#4B5563',   // very dim
+  mid:           '#6B7280',
+  dim:           '#2A3649',
 
-  // UI
-  text:     '#C8E4F0',
-  mid:      '#4A7090',
-  dim:      '#1A2E44',
-  border:   'rgba(0,229,255,0.10)',
-  stripe5: ['#00E5FF', '#00FF88', '#CC44FF', '#FFB020', '#FF6EB4'] as string[],
+  // ── BRAND ACCENTS (exact module colors from Section 21.2) ───────────────
+  cyan:          '#00FFD4',   // CPU, Disk, primary teal features
+  sky:           '#00D4FF',   // AI Chat, LAN, lighter blue-teal
+  teal:          '#00CC88',   // Files Organized, mid-teal
+  green:         '#00FF88',   // Scripts, Space Recovered, success
+  blue:          '#2277FF',   // File Transfer, Process EXEC
+  violet:        '#9B59F6',   // KB, AI Memory, Scripts Active
+  amber:         '#FF9500',   // RAM, Uptime, Quick Tools, warnings
+  orange:        '#FF6622',   // Logs module
+  red:           '#FF3B30',   // Threats, Alerts, errors, OFFLINE
+  muted:         '#888CA0',   // Config, Sandbox, disabled states
+  // Legacy aliases:
+  magenta:       '#9B59F6',
+  pink:          '#FF44AA',
+  yellow:        '#FFD400',
+  ice:           '#6EE7FF',   // Butler AI signature ice-blue
+
+  // ── BORDERS ─────────────────────────────────────────────────────────────
+  border:        'rgba(0,212,255,0.10)',
+  borderHi:      'rgba(0,212,255,0.20)',
+  borderSharp:   'rgba(0,212,255,0.35)',
+
+  // ── GLOWS ───────────────────────────────────────────────────────────────
+  glowCyan:      'rgba(0,255,212,0.18)',
+  glowGreen:     'rgba(0,255,136,0.18)',
+  glowViolet:    'rgba(155,89,246,0.18)',
+  glowAmber:     'rgba(255,149,0,0.18)',
+
+  // ── STRIPE ──────────────────────────────────────────────────────────────
+  stripe5: ['#FF0055', '#FF9500', '#00FF88', '#00D4FF', '#9B59F6'] as string[],
 } as const;
 
 // ─── SPACING ──────────────────────────────────────────────────────

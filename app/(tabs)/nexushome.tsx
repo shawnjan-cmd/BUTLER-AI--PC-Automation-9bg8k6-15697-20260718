@@ -55,9 +55,14 @@ import AutomationFeed from '@/components/home/AutomationFeed';
 import { TitanProtocolCard } from '@/components/ui/TitanProtocolCard';
 import { AppVersionBanner } from '@/components/ui/AppVersionGuard';
 import { CommandHeader } from '@/components/home/CommandHeader';
+import { XusBusDivider } from '@/components/ui/XusBusDivider';
+import { PerformanceStrip } from '@/components/ui/PerformanceStrip';
+import ZeroCloudCard from '@/components/ui/ZeroCloudCard';
 import { HUDCard } from '@/components/ui/HUDCard';
 import NexusBadge from '@/components/ui/NexusBadge';
 import { DataStreamLine, HoloText } from '@/components/ui/NexusFX';
+import { PerformanceStrip } from '@/components/ui/PerformanceStrip';
+import ZeroCloudCard from '@/components/ui/ZeroCloudCard';
 import {
   NexusLiveStatusBar,
   NexusButlerHeaderCard,
@@ -87,7 +92,8 @@ const DIM     = '#2A3A50';
 const MID     = '#5A7888';
 const TEXT    = '#D4EEF8';
 const TEXT2   = '#7898A8';
-const MONO: any = Platform.OS === 'ios' ? 'Courier' : 'monospace';
+import { FontFamily } from '@/constants/typography';
+const MONO: any = FontFamily.mono;
 
 // Compact number formatter (1200 → 1.2K)
 function fmtCompact(n: number): string {
@@ -4084,18 +4090,7 @@ function NexusHomeInner() {
             <NexusBadge variant="tag" label="LAN ONLY" color="#FDBA74" size="sm" />
           </View>
 
-          {/* ── NEXUS BUTLER HEADER CARD + LIVE STATUS BAR ── */}
-          <View style={{ paddingHorizontal: PAD, paddingTop: 8 }}>
-            <NexusButlerHeaderCard isConnected={isConn} goToTab={goToTab} />
-          </View>
-          <View style={{ height: 4 }} />
-          <NexusLiveStatusBar
-            isConnected={isConn}
-            kbArticles={kbCount}
-            scriptsRunTotal={scripts}
-            goToTab={goToTab}
-          />
-          <View style={{ height: 8 }} />
+          {/* NexusButlerHeaderCard + NexusLiveStatusBar removed — CommandHeader is the single merged hero */}
 
           {/* ── PAIR PROMPT ── */}
           {!isConn && <><View style={{ height: 6 }} /><PairPrompt onPair={() => setShowQR(true)} /></>}
@@ -4113,21 +4108,13 @@ function NexusHomeInner() {
           </HUDCard>
           <View style={{ height: 10 }} />
 
-          {/* ── NEXUS HERO — status chips + gradient title + stat tiles + CTAs ── */}
-          <NexusHero
-            isConnected={isConn}
-            serverAddr={addr}
-            kbCount={kbCount}
-            scripts={scripts}
-            onPair={() => setShowQR(true)}
-            goToTab={goToTab}
-          />
-          <View style={{ height: 10 }} />
+          {/* NexusHero removed — CommandHeader is the single merged hero */}
 
           {/* ── QUICK NAV 4 — Pair · Chat · Run · Files ── */}
           <QuickNav4 isConn={isConn} onPair={() => setShowQR(true)} goToTab={goToTab} />
           <View style={{ height: 12 }} />
 
+          <XusBusDivider color="#34D399" leftLabel="SECURITY" rightLabel="NEXUS.GATE" dotColors={['#34D399','#A78BFA','#6EE7FF']} />
           {/* ── SECURITY SHOWCASE — hero visual, HUD tile grid (AES-256/LAN/NO TELEMETRY/64C/SHA) ── */}
           <HUDCard accent="#34D399" rail corners hex="sec-showcase" live style={{ marginHorizontal: PAD }} flush>
             <SecurityShowcase mode="full" />
@@ -4136,18 +4123,14 @@ function NexusHomeInner() {
 
           {/* ── SECURITY PROTOCOLS — animated 6-module row ── */}
           <SecurityProtocols />
-          <View style={{ height: 12 }} />
+          <View style={{ height: 8 }} />
+          <XusBusDivider color="#34D399" leftLabel="SECURITY" rightLabel="NEXUS.FIREWALL" />
           <NeuralDivider color={GREEN} />
 
-          {/* ── XUS-BUS DIVIDER ── */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: PAD, paddingVertical: 4 }}>
-            <HoloText text="NEXUS" fontSize={7} color="rgba(110,231,255,0.4)" />
-            <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(110,231,255,0.12)', marginHorizontal: 8 }} />
-            <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: '#34D399', opacity: 0.8 }} />
-            <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(110,231,255,0.12)', marginHorizontal: 8 }} />
-            <HoloText text="IOW.BRIDGE" fontSize={7} color="rgba(110,231,255,0.4)" />
-          </View>
+          <XusBusDivider color="#6EE7FF" dotColors={['#34D399','#FDBA74','#6EE7FF']} />
 
+          {/* ── PERFORMANCE STRIP — live perf chips ── */}
+          <PerformanceStrip cpu={metrics.cpu} ram={metrics.ram} disk={metrics.disk} latency={latency} isConn={isConn} />
           {/* ── STATUS CARDS 4 — Executed · Vectors · Latency · Status ── */}
           <StatusCards4 isConn={isConn} scripts={scripts} kbCount={kbCount} latency={latency} />
           <View style={{ height: 12 }} />
@@ -4272,14 +4255,7 @@ function NexusHomeInner() {
           <View style={{ height: 12 }} />
           <SpectrumDivider colors={[PURPLE, PINK]} />
 
-          {/* ── NEXUS HERO CARD (robot mascot + CTAs) ── */}
-          <NexusHeroCard
-            isConnected={isConn}
-            serverAddr={addr}
-            onPair={() => setShowQR(true)}
-            onChat={() => goToTab('butler')}
-          />
-          <View style={{ height: 12 }} />
+          {/* NexusHeroCard removed — CommandHeader already has the robot mascot + CTAs */}
           <NeuralDivider color={CYAN} />
 
           {/* ── DATA STREAM DIVIDER ── */}
@@ -4287,7 +4263,8 @@ function NexusHomeInner() {
 
           {/* ── CORE NAV ── */}
           <CoreNav goToTab={goToTab} />
-          <View style={{ height: 12 }} />
+          <View style={{ height: 8 }} />
+          <XusBusDivider color="#34D399" leftLabel="SECURITY" rightLabel="NEXUS.FIREWALL" />
           <NeuralDivider color={GREEN} />
 
           {/* ── AUTOMATION FEED (live CRT process feed) ── */}
@@ -4295,10 +4272,7 @@ function NexusHomeInner() {
           <View style={{ height: 12 }} />
           <CircuitDivider color={GREEN} />
 
-          {/* ── ZERO CLOUD BANNER ── */}
-          <ZeroCloudBanner />
-          <View style={{ height: 16 }} />
-          <PowerDivider color={TEAL} />
+          <XusBusDivider color="#00CCBB" leftLabel="PRIVACY" rightLabel="ZERO.CLOUD" dotColors={['#34D399','#6EE7FF','#00CCBB']} />
 
           {/* ── PC TOOLS ── */}
           <HUDCard accent="#FDBA74" rail corners hex="quick-tools" style={{ marginHorizontal: PAD }} flush>
@@ -4336,6 +4310,11 @@ function NexusHomeInner() {
           <View style={{ height: 16 }} />
           <TipsTicker color={DIM} />
           <View style={{ height: 8 }} />
+          {/* ── ZERO CLOUD TRUST CARD ── */}
+          <View style={{ paddingHorizontal: PAD }}>
+            <ZeroCloudCard />
+          </View>
+          <View style={{ height: 16 }} />
 
           {/* ── FOOTER ── */}
           <Footer isConn={isConn} addr={addr} />
