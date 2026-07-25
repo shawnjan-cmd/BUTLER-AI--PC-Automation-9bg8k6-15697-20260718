@@ -1,50 +1,44 @@
-# Butler AI — v5 Core (onspace.ai compatible)
+# Butler AI — OnSpace overhaul build
 
-Clean rewrite focused on the three core flows:
+This branch overhauls the app into a reliable core flow with live backend wiring:
 
-- **Chat** — talk to your local Ollama model
-- **Connect** — point Butler at your PC (host / port / token / HTTPS)
-- **Settings** — default model, system prompt, reset
+- **Home**: live server health, latency, endpoint status
+- **Connect**: editable host/port/token/HTTPS + live test/persist
+- **Butler**: real chat connected to `/api/chat` with model + system prompt controls
+- **Settings**: persisted assistant defaults + full connection reset
 
-## Stack
-- Expo SDK 53 + Expo Router 5 (file-based routing under `app/`)
-- React Native 0.79 / React 19
-- TypeScript strict
-- AsyncStorage for local preferences
-- No native modules outside the onspace.ai-supported set
+## Open-source trust mode
 
-## Endpoints
-The connection layer targets the standard Ollama REST API:
-- `GET  /api/tags`  → connection test
-- `POST /api/chat`  → chat completion (non-streaming)
+To support transparent/self-hosted backend trust, this repo now includes:
 
-## Run
-```
-bun install      # or npm install
-bun expo start   # or npx expo start
-```
+- `backend/open_source_server.py` — auditable Python server users can run directly
+- `app/(tabs)/connect.tsx` action to copy a generated server template to clipboard
 
-## Project layout
-```
-app/
-  _layout.tsx          # root stack + splash + safe-area
-  +not-found.tsx
-  (tabs)/
-    _layout.tsx        # bottom tabs
-    index.tsx          # Chat
-    connect.tsx        # Server config + ping
-    settings.tsx       # Model / system prompt / reset
-services/
-  storage.ts           # safe AsyncStorage wrapper
-  connection.ts        # ServerConfig, fetchWithAuth, pingServer
-  chat.ts              # sendChat against Ollama
-constants/
-  theme.ts             # dark palette tokens
+The open-source server exposes:
+
+- `GET /health`
+- `GET /api/status`
+- `GET /api/tags` (proxied to Ollama)
+- `POST /api/chat` (proxied to Ollama)
+
+Optional auth is supported via `BUTLER_SERVER_TOKEN` bearer token.
+
+## Run the open-source Python server
+
+```bash
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\\Scripts\\activate
+pip install fastapi uvicorn requests
+export OLLAMA_BASE_URL=http://127.0.0.1:11434
+export BUTLER_SERVER_TOKEN=your_token_here   # optional
+python backend/open_source_server.py
 ```
 
-## onspace.ai compatibility checklist
-- `main` is `expo-router/entry`
-- `app.json` uses `expo-router` plugin and `metro` web bundler
-- All dependencies pinned to Expo SDK 53 compatible versions
-- No `child_process`, `fs`, `node:` imports, or web-only APIs in app code
-- `tsconfig.json` extends `expo/tsconfig.base`
+## App runtime
+
+The app expects an Ollama-compatible backend and checks:
+
+- `/api/tags` for connection health
+- `/api/chat` for assistant replies
+
+Set your server details from the **Connect** tab.
