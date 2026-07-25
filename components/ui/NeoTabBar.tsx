@@ -71,21 +71,27 @@ function NeoTabBarImpl({ state, descriptors, navigation }: BottomTabBarProps) {
 
   return (
     <View style={[s.wrapper, { paddingBottom: Math.max(insets.bottom, 8) }]}> 
-      <View style={s.chatStrip}>
-        <Ionicons name="sparkles-outline" size={18} color="#86D3FF" />
-        <TextInput
-          value={draft}
-          onChangeText={setDraft}
-          placeholder="Ask Butler anything..."
-          placeholderTextColor="#87A2C8"
-          style={s.input}
-          returnKeyType="send"
-          onSubmitEditing={submitDraft}
-          blurOnSubmit
-        />
-        <Pressable style={s.askButton} onPress={submitDraft}>
-          <Text style={s.askButtonText}>Ask</Text>
-        </Pressable>
+      <View style={s.chatBox}>
+        <View style={s.chatHeader}>
+          <Text style={s.chatHeaderLabel}>AI CHAT</Text>
+          <Text style={s.chatHeaderSub}>ABOVE TOOLBAR</Text>
+        </View>
+        <View style={s.chatStrip}>
+          <Ionicons name="sparkles-outline" size={18} color="#9EDCFF" />
+          <TextInput
+            value={draft}
+            onChangeText={setDraft}
+            placeholder="Type a prompt for Butler..."
+            placeholderTextColor="#8EA8C8"
+            style={s.input}
+            returnKeyType="send"
+            onSubmitEditing={submitDraft}
+            blurOnSubmit
+          />
+          <Pressable style={s.askButton} onPress={submitDraft}>
+            <Text style={s.askButtonText}>SEND</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={s.toolbar}>
@@ -143,23 +149,47 @@ export const NeoTabBar = memo(NeoTabBarImpl);
 
 const s = StyleSheet.create({
   wrapper: {
-    backgroundColor: '#05070D',
+    backgroundColor: '#03060C',
     paddingHorizontal: 12,
     paddingTop: 6,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.06)',
+    borderTopColor: 'rgba(255,255,255,0.08)',
   },
-  chatStrip: {
+  chatBox: {
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(126,211,255,0.34)',
-    backgroundColor: '#0C182A',
-    minHeight: 48,
-    paddingHorizontal: 12,
+    borderColor: 'rgba(140,217,255,0.35)',
+    backgroundColor: '#081223',
+    paddingHorizontal: 10,
+    paddingTop: 8,
+    paddingBottom: 9,
+    marginBottom: 9,
+    gap: 6,
+  },
+  chatHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  chatHeaderLabel: {
+    color: '#85CAFF',
+    fontSize: 10,
+    letterSpacing: 1,
+    fontWeight: '900',
+  },
+  chatHeaderSub: {
+    color: '#66D8FF',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  chatStrip: {
+    borderRadius: 11,
+    backgroundColor: '#0E1A2E',
+    minHeight: 45,
+    paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 10,
   },
   input: {
     flex: 1,
@@ -168,21 +198,21 @@ const s = StyleSheet.create({
     paddingVertical: Platform.OS === 'ios' ? 9 : 6,
   },
   askButton: {
-    borderRadius: 10,
-    backgroundColor: '#6CC3FF',
+    borderRadius: 8,
+    backgroundColor: '#87D5FF',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 7,
   },
   askButtonText: {
-    color: '#05101B',
+    color: '#08111E',
     fontWeight: '800',
-    fontSize: 12,
+    fontSize: 11,
     letterSpacing: 0.4,
   },
   toolbar: {
-    borderRadius: 16,
+    borderRadius: 13,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255,255,255,0.12)',
     backgroundColor: '#0B1220',
     overflow: 'hidden',
   },

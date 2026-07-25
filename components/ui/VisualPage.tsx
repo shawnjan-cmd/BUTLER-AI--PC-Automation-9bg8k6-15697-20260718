@@ -28,7 +28,10 @@ export function VisualPage({ eyebrow, title, subtitle, sections, footerNote }: V
     <SafeAreaView style={s.safe}>
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
         <View style={s.hero}>
-          <Text style={s.eyebrow}>{eyebrow}</Text>
+          <View style={s.heroTop}>
+            <Text style={s.eyebrow}>{eyebrow}</Text>
+            <Text style={s.livePill}>LIVE UI</Text>
+          </View>
           <Text style={s.title}>{title}</Text>
           <Text style={s.subtitle}>{subtitle}</Text>
         </View>
@@ -54,7 +57,10 @@ export function VisualPage({ eyebrow, title, subtitle, sections, footerNote }: V
                     <Text style={s.cardTitle}>{item.title}</Text>
                     <Text style={s.cardDescription}>{item.description}</Text>
                   </View>
-                  <Text style={s.cardCta}>{item.cta ?? (clickable ? 'Open' : 'Soon')}</Text>
+                  <View style={s.cardRight}>
+                    <Text style={s.cardCta}>{item.cta ?? (clickable ? 'Open' : 'Soon')}</Text>
+                    <Text style={s.cardArrow}>›</Text>
+                  </View>
                 </Pressable>
               );
             })}
@@ -70,59 +76,76 @@ export function VisualPage({ eyebrow, title, subtitle, sections, footerNote }: V
 const s = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#05070D',
+    backgroundColor: '#03060C',
   },
   content: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: 16,
+    paddingTop: 14,
     paddingBottom: 170,
-    gap: 20,
+    gap: 14,
   },
   hero: {
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(91,175,255,0.3)',
-    padding: 18,
-    backgroundColor: '#0B1220',
+    borderColor: 'rgba(95,188,255,0.35)',
+    padding: 14,
+    backgroundColor: '#081222',
     gap: 8,
   },
-  eyebrow: {
-    color: '#7DB6FF',
-    fontSize: 12,
-    letterSpacing: 1.2,
-    fontWeight: '700',
-  },
-  title: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '800',
-  },
-  subtitle: {
-    color: '#C5D5EA',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  section: {
-    gap: 12,
-  },
-  sectionTitle: {
-    color: '#EEF3FB',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  card: {
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: '#0F1728',
+  heroTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+  },
+  eyebrow: {
+    color: '#82C6FF',
+    fontSize: 10,
+    letterSpacing: 1.3,
+    fontWeight: '900',
+  },
+  livePill: {
+    color: '#13F0C8',
+    borderWidth: 1,
+    borderColor: 'rgba(19,240,200,0.45)',
+    backgroundColor: 'rgba(19,240,200,0.1)',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  title: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    fontWeight: '900',
+  },
+  subtitle: {
+    color: '#B7CBE7',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  section: {
+    gap: 10,
+  },
+  sectionTitle: {
+    color: '#EEF5FF',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  card: {
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: '#0C1526',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
   },
   cardPressed: {
-    opacity: 0.84,
+    opacity: 0.78,
   },
   cardTextWrap: {
     flex: 1,
@@ -130,23 +153,32 @@ const s = StyleSheet.create({
   },
   cardTitle: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
   },
   cardDescription: {
-    color: '#B7C6DC',
-    fontSize: 13,
-    lineHeight: 19,
+    color: '#ABC2DE',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  cardRight: {
+    alignItems: 'center',
+    gap: 2,
   },
   cardCta: {
-    color: '#6CC3FF',
-    fontSize: 12,
-    fontWeight: '700',
+    color: '#79C8FF',
+    fontSize: 10,
+    fontWeight: '900',
     textTransform: 'uppercase',
   },
+  cardArrow: {
+    color: '#5A83AA',
+    fontSize: 14,
+    fontWeight: '700',
+  },
   footer: {
-    color: '#93A8C5',
-    fontSize: 12,
+    color: '#839BB8',
+    fontSize: 11,
     textAlign: 'center',
     marginTop: 4,
   },
