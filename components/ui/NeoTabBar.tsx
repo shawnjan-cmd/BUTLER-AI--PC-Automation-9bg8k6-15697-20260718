@@ -49,8 +49,12 @@ function NeoTabBarImpl({ state, descriptors, navigation }: BottomTabBarProps) {
   const [draft, setDraft] = useState('');
 
   const visibleRoutes = useMemo(
-    () => state.routes.filter((route) => !hiddenRoutes.has(route.name)),
-    [state.routes]
+    () =>
+      state.routes.filter((route) => {
+        if (hiddenRoutes.has(route.name)) return false;
+        return descriptors[route.key]?.options?.href !== null;
+      }),
+    [descriptors, state.routes]
   );
 
   const activeName = state.routes[state.index]?.name;
