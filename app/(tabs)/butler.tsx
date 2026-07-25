@@ -1,11 +1,23 @@
+import { useMemo } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import { VisualPage } from '@/components/ui/VisualPage';
 
 export default function ButlerScreen() {
+  const params = useLocalSearchParams<{ q?: string }>();
+  const quickPrompt = useMemo(() => {
+    if (!params.q) return null;
+    return String(params.q).trim().slice(0, 120);
+  }, [params.q]);
+
   return (
     <VisualPage
       eyebrow="AI ASSISTANT"
       title="Butler Console"
-      subtitle="Your assistant workspace is now focused, easier to scan, and ready for production polish."
+      subtitle={
+        quickPrompt
+          ? `Quick prompt received: "${quickPrompt}"`
+          : 'Your assistant workspace is now focused, easier to scan, and ready for production polish.'
+      }
       sections={[
         {
           title: 'Conversation Modes',

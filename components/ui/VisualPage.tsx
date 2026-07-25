@@ -75,7 +75,7 @@ const s = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 40,
+    paddingBottom: 170,
     gap: 20,
   },
   hero: {

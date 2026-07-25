@@ -1,44 +1,16 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-
-const iconByRoute: Record<string, keyof typeof Ionicons.glyphMap> = {
-  nexushome: 'home-outline',
-  scripts: 'code-slash-outline',
-  butler: 'chatbubbles-outline',
-  knowledge: 'library-outline',
-  logs: 'pulse-outline',
-  builder: 'build-outline',
-  fileshare: 'folder-open-outline',
-  downloads: 'cloud-download-outline',
-  connect: 'link-outline',
-  cosmetic: 'color-palette-outline',
-  settings: 'settings-outline',
-};
+import { NeoTabBar } from '@/components/ui/NeoTabBar';
 
 export default function TabsLayout() {
   return (
     <Tabs
       initialRouteName="nexushome"
-      screenOptions={({ route }) => ({
+      tabBar={(props) => <NeoTabBar {...props} />}
+      screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#6CC3FF',
-        tabBarInactiveTintColor: '#7F8EA8',
-        tabBarStyle: {
-          backgroundColor: '#0A101D',
-          borderTopColor: 'rgba(255,255,255,0.08)',
-          height: 64,
-          paddingBottom: 8,
-          paddingTop: 8,
-        },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '700',
-        },
-        tabBarIcon: ({ color, size }) => (
-          <Ionicons name={iconByRoute[route.name] ?? 'ellipse-outline'} size={size} color={color} />
-        ),
-      })}
+        sceneStyle: { backgroundColor: '#05070D' },
+      }}
     >
       <Tabs.Screen name="onboarding" options={{ href: null }} />
       <Tabs.Screen name="index" options={{ href: null }} />
@@ -51,7 +23,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="fileshare" options={{ title: 'Files' }} />
       <Tabs.Screen name="downloads" options={{ title: 'Downloads' }} />
       <Tabs.Screen name="connect" options={{ title: 'Connect' }} />
-      <Tabs.Screen name="cosmetic" options={{ title: 'Cosmetic' }} />
+      <Tabs.Screen name="cosmetic" options={{ title: 'Theme' }} />
       <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
     </Tabs>
   );
