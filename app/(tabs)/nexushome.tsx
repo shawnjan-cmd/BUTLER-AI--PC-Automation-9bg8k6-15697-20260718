@@ -91,8 +91,12 @@ const TEXT2   = '#7898A8';
 import { FontFamily } from '@/constants/typography';
 const MONO: any = FontFamily.mono;
 let docPickerMod: typeof import('expo-document-picker') | null = null;
+let docPickerPromise: Promise<typeof import('expo-document-picker')> | null = null;
 async function getDocPicker() {
-  if (!docPickerMod) docPickerMod = await import('expo-document-picker');
+  if (docPickerMod) return docPickerMod;
+  if (!docPickerPromise) docPickerPromise = import('expo-document-picker');
+  docPickerMod = await docPickerPromise;
+  docPickerPromise = null;
   return docPickerMod;
 }
 

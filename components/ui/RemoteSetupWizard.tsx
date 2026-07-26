@@ -37,7 +37,9 @@ async function copyText(text: string) {
   try {
     await safeSetClipboard(text);
     haptics.success?.() ?? haptics.light();
-  } catch {}
+  } catch (error) {
+    console.warn('[RemoteSetupWizard] Clipboard copy failed', error);
+  }
 }
 
 // ── Animated progress bar ─────────────────────────────────────────
