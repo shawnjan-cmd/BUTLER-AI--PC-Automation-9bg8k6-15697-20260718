@@ -5,10 +5,12 @@ import { FontFamily } from '@/constants/typography';
 
 type IndigoHeroProps = {
   isConnected?: boolean;
+  cpu?: number;
+  ram?: number;
+  disk?: number;
 };
 
 const INDIGO = '#6366F1';
-const MONO: any = FontFamily.mono;
 
 function Pill({ label, color }: { label: string; color: string }) {
   return (
@@ -27,7 +29,11 @@ function UptimeBar({ value, color }: { value: number; color: string }) {
   );
 }
 
-export function IndigoHero({ isConnected = false }: IndigoHeroProps) {
+export function IndigoHero({ isConnected = false, cpu = 0, ram = 0, disk = 0 }: IndigoHeroProps) {
+  const cpuHealth = isConnected ? Math.max(0, 100 - Math.round(cpu)) : 0;
+  const ramHealth = isConnected ? Math.max(0, 100 - Math.round(ram)) : 0;
+  const diskHealth = isConnected ? Math.max(0, 100 - Math.round(disk)) : 0;
+
   return (
     <View style={s.wrap}>
       <View style={s.headerRow}>
@@ -46,9 +52,9 @@ export function IndigoHero({ isConnected = false }: IndigoHeroProps) {
       </View>
 
       <View style={s.bars}>
-        <UptimeBar value={98} color="#818CF8" />
-        <UptimeBar value={96} color="#6366F1" />
-        <UptimeBar value={99} color="#A5B4FC" />
+        <UptimeBar value={cpuHealth} color="#818CF8" />
+        <UptimeBar value={ramHealth} color="#6366F1" />
+        <UptimeBar value={diskHealth} color="#A5B4FC" />
       </View>
 
       <Text style={s.footer}>30D · HEALTHY</Text>
@@ -80,7 +86,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(99,102,241,0.25)',
   },
   title: {
-    fontFamily: MONO,
+    fontFamily: FontFamily.mono,
     fontSize: 11,
     fontWeight: '900',
     color: '#E0E7FF',
@@ -88,7 +94,7 @@ const s = StyleSheet.create({
   },
   subtitle: {
     marginTop: 3,
-    fontFamily: MONO,
+    fontFamily: FontFamily.mono,
     fontSize: 8.5,
     color: '#A5B4FC',
     letterSpacing: 0.9,
@@ -105,7 +111,7 @@ const s = StyleSheet.create({
   },
   pillDot: { width: 6, height: 6, borderRadius: 999 },
   pillTxt: {
-    fontFamily: MONO,
+    fontFamily: FontFamily.mono,
     fontSize: 8,
     fontWeight: '900',
     letterSpacing: 0.8,
@@ -124,7 +130,7 @@ const s = StyleSheet.create({
   },
   footer: {
     marginTop: 2,
-    fontFamily: MONO,
+    fontFamily: FontFamily.mono,
     fontSize: 8.5,
     color: '#C7D2FE',
     letterSpacing: 1.0,

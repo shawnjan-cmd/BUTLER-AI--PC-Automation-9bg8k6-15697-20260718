@@ -3498,7 +3498,7 @@ function NexusHomeInner() {
           <View style={{ height: 10 }} />
 
           {/* ── INDIGO HERO ── */}
-          <IndigoHero isConnected={isConn} />
+          <IndigoHero isConnected={isConn} cpu={metrics.cpu} ram={metrics.ram} disk={metrics.disk} />
           <View style={{ height: 10 }} />
 
           {/* ── REMOTE ACCESS + TAILSCALE — right below header ── */}
