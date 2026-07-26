@@ -51,6 +51,7 @@ import { LiveTerminalFeed } from '@/components/home/LiveTerminalFeed';
 import { NexusHeroCard } from '@/components/home/NexusHeroCard';
 import { NetworkTopologyCard } from '@/components/home/NetworkTopologyCard';
 import { NexusCommandCenter } from '@/components/home/NexusCommandCenter';
+import { IndigoHero } from '@/components/home/IndigoHero';
 import { SystemVitalsGrid } from '@/components/home/SystemVitalsGrid';
 import AutomationFeed from '@/components/home/AutomationFeed';
 import { TitanProtocolCard } from '@/components/ui/TitanProtocolCard';
@@ -60,6 +61,7 @@ import { XusBusDivider } from '@/components/ui/XusBusDivider';
 import ZeroCloudCard from '@/components/ui/ZeroCloudCard';
 import { HUDCard } from '@/components/ui/HUDCard';
 import NexusBadge from '@/components/ui/NexusBadge';
+import { PerformanceStrip } from '@/components/ui/PerformanceStrip';
 import { DataStreamLine, HoloText } from '@/components/ui/NexusFX';
 import {
   NexusLiveStatusBar,
@@ -3495,6 +3497,10 @@ function NexusHomeInner() {
           {!isConn && <><View style={{ height: 6 }} /><PairPrompt onPair={() => setShowQR(true)} /></>}
           <View style={{ height: 10 }} />
 
+          {/* ── INDIGO HERO ── */}
+          <IndigoHero isConnected={isConn} />
+          <View style={{ height: 10 }} />
+
           {/* ── REMOTE ACCESS + TAILSCALE — right below header ── */}
           <HUDCard accent={isConn ? '#10B77A' : '#61A6FA'} rail corners hex="remote-access" style={{ marginHorizontal: PAD }} flush>
             <RemoteAccessMonetizationCard onConnected={loadData} />
@@ -3530,6 +3536,7 @@ function NexusHomeInner() {
 
           {/* ── SYSTEM VITALS — NEXUS Command Center dashboard grid (real data, real sparklines) ── */}
           <SystemVitalsGrid cpu={metrics.cpu} ram={metrics.ram} disk={metrics.disk} latency={latency} isConn={isConn} />
+          <PerformanceStrip cpu={metrics.cpu} ram={metrics.ram} disk={metrics.disk} latency={latency} isConn={isConn} />
           <View style={{ height: 10 }} />
           {/* ── STATUS CARDS 4 — Executed · Vectors · Latency · Status ── */}
           <StatusCards4 isConn={isConn} scripts={scripts} kbCount={kbCount} latency={latency} />
