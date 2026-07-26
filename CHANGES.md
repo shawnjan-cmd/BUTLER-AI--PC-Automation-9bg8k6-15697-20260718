@@ -1,49 +1,109 @@
-# Home screen fix + vitals dashboard — what changed
+# Butler AI — Onboarding Exit Architecture
+# Version 2.0.0 | Production-Ready
 
-## How to apply
-Replace these 3 files in your repo at the **exact same paths**:
+## Summary
 
-- `app/(tabs)/nexushome.tsx` (replace)
-- `components/home/SystemVitalsGrid.tsx` (new file)
-- `.gitignore` (replace)
+Navigation out of the 10-page INTRO onboarding is owned by a single function in a single file.
 
-Then run:
 ```
-git rm -r --cached .reskin-backup .env
-git add -A
-git commit -m "Fix undefined PerformanceStrip crash, add SystemVitalsGrid dashboard, clean repo"
+services/onboardingExit.ts   ← Only place that calls router.replace on exit
+app/(tabs)/onboarding.tsx    ← Calls exitOnboarding(), nothing else
+app/_layout.tsx              ← initApp runs ONCE, never navigates again after boot
 ```
-(`git rm --cached` untracks them without deleting them from your disk — safe.)
 
-## What changed and why
+**The invariant:** After `_layout.tsx` sets `didInitRef.current = true`, no code in `_layout.tsx` ever calls `router.replace` again. All onboarding exit navigation is owned by `exitOnboarding`.
 
-**1. Fixed a real crash bug.** `nexushome.tsx` called `<PerformanceStrip .../>` but never
-imported it anywhere in the file — that's an undefined component reference, which React
-throws on at render time. This line was live on your Home screen.
+---
 
-**2. Added `SystemVitalsGrid.tsx`.** Replaces that broken line with a proper 2×2 dashboard
-card grid — CPU / RAM / DISK / Latency, each with a real trend delta and a real sparkline
-— matching the "NEXUS Command Center" look from your reference screenshots. It's wired to
-your existing `performanceHistory` service (the same real data `SparklineWidget` already
-uses elsewhere in the app), so every number and every sparkline is genuine — nothing is
-faked or randomly incremented.
+## Before vs. After
 
-**3. Deleted ~600 lines of dead code.** `NexusMegaHeader` (and the const arrays only it
-used — `CRAWLER_LINES_H`, `LAN_NODES_H`, `HEADER_CAPS`, `HEADER_TIPS`) was defined in the
-file but never actually rendered anywhere — `CommandHeader` is the component that's
-actually on screen. Removing it doesn't change anything visually; it just makes the file
-~15% shorter and easier to work in.
+### Before (broken — multiple competing exit mechanisms)
+```
+Screen10Ready
+├── global.__onboardingComplete()   ─┐
+├── setNeedsOnboarding(false)        │  all competing,
+├── router.replace('/(tabs)')        │  all racing
+└── router.navigate('/(tabs)')      ─┘
+```
 
-**4. Repo hygiene.** Added `.reskin-backup/` (a 3.3MB stale backup folder that was tracked
-in git) and `.env` to `.gitignore`.
+### After (v2.0 — single path)
+```
+OnboardingTab.finish()
+└── exitOnboarding(router)   ← services/onboardingExit.ts
+    ├── AsyncStorage.multiSet(ALL_CONSENT_KEYS)
+    ├── Retry gate key individually  
+    └── router.replace('/(tabs)/nexushome')
 
-Both edited files pass a full TypeScript syntax check.
+_layout.tsx initApp
+└── didInitRef guard → runs ONCE, never navigates again
+```
 
-## What I deliberately did NOT touch
-Your Home screen has a lot of other sections below this (security showcase, crawler/KB
-cards, script forge, network metrics, core surfaces launcher) that are already wired to
-real data and working. I didn't rewrite those — doing that blind, without being able to
-compile/run the app here, risks breaking things that currently work. If you want the next
-pass to tighten any specific section (e.g. consolidate the four stacked security cards
-into a denser 2-column layout, or restyle a different tab), point me at it and I'll do the
-same read-first, verify-after approach on that piece specifically.
+---
+
+## Services
+
+### `services/onboardingExit.ts` — Primary Exit Function
+
+```typescript
+export async function exitOnboarding(router): Promise<OnboardingExitResult>
+export async function exitOnboardingBool(router): Promise<boolean>  // legacy shim
+```
+
+**What it does:**
+1. Calls `AsyncStorage.multiSet` with all 9+ consent keys
+2. Retries the gate key (`ONBOARDING_DONE_KEY`) individually for resilience  
+3. Attempts `router.replace('/(tabs)/nexushome')` then fallbacks
+4. Returns result object — never throws, never hangs
+
+### `services/devOnboarding.ts` — Dev/QA Utilities (DEV only)
+
+| Function | Description |
+|----------|-------------|
+| `devResetOnboarding()` | Clears all keys → fresh install behavior |
+| `devCompleteOnboarding()` | Sets all keys to `'1'` → skips onboarding |
+| `devOnboardingStatus()` | Returns `Record<string, string \| null>` snapshot |
+| `devPrintOnboardingStatus()` | Pretty-prints snapshot to console |
+| `devSetOnboardingKey(key, value)` | Granular: set or clear one key |
+| `devSimulateFreshInstall()` | Full reset including first-launch marker |
+
+---
+
+## Testing Checklist
+
+```
+Fresh install (no AsyncStorage)
+[ ] App routes to INTRO tab
+[ ] All 10 pages navigate correctly  
+[ ] Safety page (page 3) blocks NEXT until all checkboxes checked
+[ ] Pledge page (page 4) blocks NEXT until all checkboxes checked
+[ ] FINISH button navigates to nexushome and stays there
+[ ] SKIP button also navigates to nexushome
+
+Warm boot (onboarding complete)
+[ ] Routes directly to nexushome — no INTRO flash
+
+Edge cases
+[ ] Double-tap FINISH is idempotent (launchingRef guard)
+[ ] BACK from page 10 returns to page 9
+[ ] Kill app during FINISH → reopen → button unlocks (launchingRef reset on error)
+```
+
+---
+
+## FAQ
+
+**Q: Why is `exitOnboarding` in its own service file?**  
+Isolation. It can be imported by the onboarding tab, tested in unit tests, and future screens without any dependency on the layout tree.
+
+**Q: What happens if `AsyncStorage.multiSet` fails?**  
+`exitOnboarding` retries the single gate key individually. If that also fails, navigation still proceeds. On next cold boot, the missing key might trigger INTRO again — but that's better than a stuck button.
+
+**Q: Is `devOnboarding.ts` safe to ship in production?**  
+All logging is guarded by `__DEV__`. The functions themselves run in production too (they just don't log), but they should only be called from Settings DEBUG TOOLS or test code.
+
+**Q: The `launchingRef` pattern — why not `useState`?**  
+State updates are async — there's a window where a second tap could slip through. Refs are synchronous; `launchingRef.current = true` is visible immediately.
+
+---
+
+*Butler AI — Onboarding Exit Architecture v2.0.0*
