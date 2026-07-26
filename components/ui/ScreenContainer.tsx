@@ -11,8 +11,9 @@
  *   </ScreenContainer>
  */
 import React from 'react';
-import { View, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, Dimensions, StyleSheet } from 'react-native';
 
+const SW = Dimensions.get('window').width;
 const MAX_CONTENT_WIDTH = 640;
 
 interface Props {
@@ -21,10 +22,9 @@ interface Props {
 }
 
 export function ScreenContainer({ children, style }: Props) {
-  const { width } = useWindowDimensions();
   return (
     <View style={styles.outer}>
-      <View style={[styles.inner, { maxWidth: Math.min(width, MAX_CONTENT_WIDTH) }, style]}>{children}</View>
+      <View style={[styles.inner, style]}>{children}</View>
     </View>
   );
 }
@@ -34,5 +34,6 @@ const styles = StyleSheet.create({
   inner: {
     flex: 1,
     width: '100%',
+    maxWidth: SW > MAX_CONTENT_WIDTH ? MAX_CONTENT_WIDTH : SW,
   },
 });

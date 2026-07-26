@@ -15,7 +15,7 @@
 import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Platform, Animated,
-  ScrollView, useWindowDimensions,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -78,8 +78,8 @@ const TAB_META: Record<string, { color: string; label: string }> = {
 // Palette — matches the rest of the app
 const BG_CARD  = '#020A16';
 const BORDER_C = 'rgba(0,200,224,0.16)';
-const DIM_C    = 'rgba(255,255,255,0.42)';
-const DIM_LBL  = 'rgba(255,255,255,0.52)';
+const DIM_C    = 'rgba(255,255,255,0.20)';
+const DIM_LBL  = 'rgba(255,255,255,0.28)';
 
 function getColor(r: string) { return TAB_META[r]?.color ?? '#00E5FF'; }
 function getLabel(r: string) { return TAB_META[r]?.label ?? r.slice(0, 4).toUpperCase(); }
@@ -128,19 +128,17 @@ function renderIcon(routeName: string, color: string, active: boolean) {
 interface TabItemProps {
   routeName: string;
   isFocused: boolean;
-  minCellWidth: number;
-  compact: boolean;
+  flex: number;
   onPress: () => void;
 }
 
-const TabItem = React.memo(function TabItem({ routeName, isFocused, minCellWidth, compact, onPress }: TabItemProps) {
+const TabItem = React.memo(function TabItem({ routeName, isFocused, flex, onPress }: TabItemProps) {
   const color = getColor(routeName);
   const label = getLabel(routeName);
 
   const scaleA = useRef(new Animated.Value(1)).current;
   const bgA    = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
   const labelA = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
-  const pressA = useRef(new Animated.Value(1)).current;
 
   const [hasUnread, setHasUnread] = useState(_butlerUnread && routeName === 'butler');
 
@@ -173,19 +171,13 @@ const TabItem = React.memo(function TabItem({ routeName, isFocused, minCellWidth
   return (
     <TouchableOpacity
       onPress={() => { haptics.light(); onPress(); }}
-      onPressIn={() => {
-        Animated.spring(pressA, { toValue: 0.96, tension: 260, friction: 12, useNativeDriver: true }).start();
-      }}
-      onPressOut={() => {
-        Animated.spring(pressA, { toValue: 1, tension: 240, friction: 10, useNativeDriver: true }).start();
-      }}
       activeOpacity={0.7}
-      style={{ width: minCellWidth, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}
+      style={{ flex, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}
       accessibilityRole="button"
       accessibilityState={{ selected: isFocused }}>
-      <Animated.View style={{ transform: [{ scale: Animated.multiply(scaleA, pressA) }], alignItems: 'center', gap: 3 }}>
+      <Animated.View style={{ transform: [{ scale: scaleA }], alignItems: 'center', gap: 3 }}>
         {/* Icon pill */}
-        <Animated.View style={[ti.iconPill, compact && ti.iconPillCompact, { backgroundColor: bgColor, borderColor: borderCol }]}>
+        <Animated.View style={[ti.iconPill, { backgroundColor: bgColor, borderColor: borderCol }]}>
           {renderIcon(routeName, iconColor, isFocused)}
           {/* Active dot above icon */}
           {isFocused && (
@@ -197,7 +189,7 @@ const TabItem = React.memo(function TabItem({ routeName, isFocused, minCellWidth
           )}
         </Animated.View>
         {/* Label */}
-        <Animated.Text style={[ti.label, compact && ti.labelCompact, { color: labelColor }]} numberOfLines={1}>
+        <Animated.Text style={[ti.label, { color: labelColor }]} numberOfLines={1}>
           {label}
         </Animated.Text>
       </Animated.View>
@@ -233,15 +225,6 @@ const ti = StyleSheet.create({
     textAlign: 'center',
     includeFontPadding: false,
   },
-  iconPillCompact: {
-    width: 38,
-    height: 32,
-    borderRadius: 10,
-  },
-  labelCompact: {
-    fontSize: 7,
-    letterSpacing: 0.4,
-  },
 });
 
 // ── MAIN TABBAR ────────────────────────────────────────────────────
@@ -252,7 +235,6 @@ export default function FuturisticTabBar(
 ) {
   const { state, descriptors, navigation } = props;
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
 
   // Register global tab-switch helper
   useEffect(() => {
@@ -282,11 +264,6 @@ export default function FuturisticTabBar(
   const isOnButlerTab   = activeRouteName === 'butler';
   const activeColor     = getColor(activeRouteName);
   const bottomPad       = Math.max(insets.bottom, Platform.OS === 'android' ? 4 : 0);
-  const routeCount      = Math.max(visibleRoutes.length, 1);
-  const compact         = width < 370;
-  const minCellWidth    = compact ? 58 : 64;
-  const tabRowWidth     = routeCount * minCellWidth;
-  const rowNeedsScroll  = tabRowWidth > width - 26;
 
   return (
     <View pointerEvents="box-none" style={[dock.root, { paddingBottom: bottomPad }]}>
@@ -303,15 +280,7 @@ export default function FuturisticTabBar(
         <View style={[dock.accent, { backgroundColor: activeColor }]} />
 
         {/* Tab row */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          bounces={false}
-          contentContainerStyle={[
-            dock.tabRow,
-            rowNeedsScroll ? { minWidth: tabRowWidth } : { width: '100%', justifyContent: 'space-between' },
-          ]}
-        >
+        <View style={dock.tabRow}>
           {visibleRoutes.map(({ route, idx }) => {
             const isFocused = state.index === idx;
             const onPress   = () => {
@@ -323,13 +292,12 @@ export default function FuturisticTabBar(
                 key={route.key}
                 routeName={route.name}
                 isFocused={isFocused}
-                minCellWidth={minCellWidth}
-                compact={compact}
+                flex={1}
                 onPress={onPress}
               />
             );
           })}
-        </ScrollView>
+        </View>
       </View>
     </View>
   );
@@ -373,8 +341,8 @@ const dock = StyleSheet.create({
   tabRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
+    justifyContent: 'space-around',
+    paddingHorizontal: 2,
     paddingTop: 4,
     paddingBottom: 6,
   },

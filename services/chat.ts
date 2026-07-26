@@ -11,40 +11,15 @@ export type ChatMessage = {
 
 export type SendOptions = {
   model: string;
-  systemPrompt?: string;
   signal?: AbortSignal;
 };
-
-type OllamaResponse = {
-  message?: {
-    content?: string;
-  };
-  response?: string;
-};
-
-function normalizeMessages(messages: ChatMessage[], systemPrompt?: string): Array<{ role: ChatRole; content: string }> {
-  const normalized = messages
-    .filter((message) => Boolean(message.content.trim()))
-    .map((message) => ({ role: message.role, content: message.content.trim() }));
-
-  if (systemPrompt?.trim()) {
-    normalized.unshift({ role: 'system', content: systemPrompt.trim() });
-  }
-
-  return normalized;
-}
-
-function parseAssistantText(payload: OllamaResponse): string {
-  const raw = payload?.message?.content ?? payload?.response ?? '';
-  return String(raw).trim();
-}
 
 export async function sendChat(
   cfg: ServerConfig,
   messages: ChatMessage[],
   opts: SendOptions,
 ): Promise<string> {
-  const response = await fetchWithAuth(
+  const res = await fetchWithAuth(
     cfg,
     '/api/chat',
     {
@@ -52,26 +27,17 @@ export async function sendChat(
       body: JSON.stringify({
         model: opts.model,
         stream: false,
-        messages: normalizeMessages(messages, opts.systemPrompt),
+        messages: messages.map((m) => ({ role: m.role, content: m.content })),
       }),
       signal: opts.signal,
     },
     120_000,
   );
-
-  if (!response.ok) {
-    const details = await response.text().catch(() => '');
-    throw new Error(`Chat failed (${response.status}): ${details || response.statusText}`);
+  if (!res.ok) {
+    throw new Error(`Chat failed: ${res.status} ${res.statusText}`);
   }
-
-  const payload = (await response.json()) as OllamaResponse;
-  const text = parseAssistantText(payload);
-
-  if (!text) {
-    throw new Error('Server returned an empty assistant response.');
-  }
-
-  return text;
+  const data = (await res.json()) as { message?: { content?: string } };
+  return data?.message?.content ?? '';
 }
 
 export function newMessage(role: ChatRole, content: string): ChatMessage {

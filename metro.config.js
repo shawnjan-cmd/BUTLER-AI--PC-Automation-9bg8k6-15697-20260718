@@ -7,7 +7,9 @@ try { require('./tools/postinstall.js'); } catch (e) {}
 const config = getDefaultConfig(__dirname);
 
 // Bump cache to force full rebuild.
-config.cacheVersion = 'butler-ai-v5.10.0-new-components';
+// Cache version uses current timestamp so every GitHub push/save busts
+// the bundle cache and UI/UX changes appear instantly in the preview.
+config.cacheVersion = 'butler-ai-v5.10.1-' + Date.now();
 
 // ── COPYRIGHT NOTICE SERIALIZER ───────────────────────────────────────
 // Prepends a copyright banner to the COMPILED bundle. This banner
