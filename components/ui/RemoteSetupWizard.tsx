@@ -10,12 +10,13 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, Modal, ScrollView, Pressable,
   Animated, Platform, Dimensions, TextInput,
-  TouchableOpacity, ActivityIndicator, Clipboard,
+  TouchableOpacity, ActivityIndicator,
   Alert,
 } from 'react-native';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { haptics } from '@/services/haptics';
+import { safeSetClipboard } from '@/services/safeClipboard';
 import { serverConnection } from '@/services/serverConnection';
 
 const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
@@ -34,7 +35,7 @@ type WizardStep = 'choose' | 'install' | 'run' | 'enter' | 'test' | 'done';
 // ── Copy-to-clipboard helper ──────────────────────────────────────
 function copyText(text: string) {
   try {
-    Clipboard.setString(text);
+    void safeSetClipboard(text);
     haptics.success?.() ?? haptics.light();
   } catch {}
 }

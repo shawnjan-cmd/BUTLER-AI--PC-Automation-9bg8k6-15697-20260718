@@ -21,11 +21,9 @@ import React, {
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable,
   Animated, Platform, Dimensions, TextInput, ActivityIndicator,
-  RefreshControl, Alert, Clipboard, Image,
+  RefreshControl, Alert, Image,
 } from 'react-native';
 import Svg, { Path, Line, Circle, Polyline, Defs, LinearGradient, Stop, Rect, G } from 'react-native-svg';
-import * as ExpoClipboard from 'expo-clipboard';
-import * as DocumentPicker from 'expo-document-picker';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -37,6 +35,7 @@ import { pcClipboard } from '@/services/pcClipboard';
 import { executionHistory } from '@/services/executionHistory';
 import { knowledgeAccumulator } from '@/services/knowledgeAccumulator';
 import { performanceHistory } from '@/services/performanceHistory';
+import { safeGetClipboard } from '@/services/safeClipboard';
 import { TabErrorBoundary } from '@/components/ui/TabErrorBoundary';
 import { RemoteAccessMonetizationCard } from '@/components/home/RemoteAccessMonetizationCard';
 import { NexusVaultCard } from '@/components/ui/NexusVaultCard';
@@ -2124,7 +2123,7 @@ function ClipboardWidget({ isConn }: { isConn: boolean }) {
 
   const pasteFromPhone = async () => {
     try {
-      const s = await ExpoClipboard.getStringAsync();
+      const s = await safeGetClipboard();
       if (s) { setText(s); setStatusMsg('Pasted from phone'); haptics.success(); }
       else   setStatusMsg('Phone clipboard is empty');
     } catch { setStatusMsg('Could not read phone clipboard'); }
@@ -2291,7 +2290,8 @@ function FileShareWidget({ isConn }: { isConn: boolean }) {
   const pickFile = async () => {
     haptics.medium();
     try {
-      const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
+      const mod = await import('expo-document-picker');
+      const result = await mod.getDocumentAsync({ copyToCacheDirectory: true });
       if (!result.canceled && result.assets?.[0]) {
         const a = result.assets[0];
         setFile({ name: a.name, uri: a.uri, size: a.size });
