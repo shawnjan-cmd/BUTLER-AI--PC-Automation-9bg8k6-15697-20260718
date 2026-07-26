@@ -2,6 +2,8 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { NeoTabBar } from '@/components/ui/NeoTabBar';
 
+const TAB_BG = '#05070D';
+
 export default function TabsLayout() {
   return (
     <Tabs
@@ -9,7 +11,8 @@ export default function TabsLayout() {
       tabBar={(props) => <NeoTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        sceneStyle: { backgroundColor: '#05070D' },
+        animation: 'fade',
+        sceneStyle: { backgroundColor: TAB_BG },
       }}
     >
       <Tabs.Screen name="onboarding" options={{ href: null }} />
