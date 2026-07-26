@@ -3499,6 +3499,7 @@ function NexusHomeInner() {
 
           {/* ── INDIGO HERO ── */}
           <IndigoHero isConnected={isConn} cpu={metrics.cpu} ram={metrics.ram} disk={metrics.disk} />
+          <PerformanceStrip cpu={metrics.cpu} ram={metrics.ram} disk={metrics.disk} latency={latency} isConn={isConn} />
           <View style={{ height: 10 }} />
 
           {/* ── REMOTE ACCESS + TAILSCALE — right below header ── */}
@@ -3536,7 +3537,6 @@ function NexusHomeInner() {
 
           {/* ── SYSTEM VITALS — NEXUS Command Center dashboard grid (real data, real sparklines) ── */}
           <SystemVitalsGrid cpu={metrics.cpu} ram={metrics.ram} disk={metrics.disk} latency={latency} isConn={isConn} />
-          <PerformanceStrip cpu={metrics.cpu} ram={metrics.ram} disk={metrics.disk} latency={latency} isConn={isConn} />
           <View style={{ height: 10 }} />
           {/* ── STATUS CARDS 4 — Executed · Vectors · Latency · Status ── */}
           <StatusCards4 isConn={isConn} scripts={scripts} kbCount={kbCount} latency={latency} />

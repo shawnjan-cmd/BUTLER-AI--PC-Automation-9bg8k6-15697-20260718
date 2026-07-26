@@ -11,6 +11,7 @@ type IndigoHeroProps = {
 };
 
 const INDIGO = '#6366F1';
+const MIN_BAR_WIDTH_PERCENT = 8;
 
 function Pill({ label, color }: { label: string; color: string }) {
   return (
@@ -24,15 +25,22 @@ function Pill({ label, color }: { label: string; color: string }) {
 function UptimeBar({ value, color }: { value: number; color: string }) {
   return (
     <View style={s.barTrack}>
-      <View style={[s.barFill, { width: `${Math.max(8, Math.min(100, value))}%`, backgroundColor: color }]} />
+      <View style={[s.barFill, { width: `${Math.max(MIN_BAR_WIDTH_PERCENT, Math.min(100, value))}%`, backgroundColor: color }]} />
     </View>
   );
 }
 
 export function IndigoHero({ isConnected = false, cpu = 0, ram = 0, disk = 0 }: IndigoHeroProps) {
-  const cpuHealth = isConnected ? Math.max(0, 100 - Math.round(cpu)) : 0;
-  const ramHealth = isConnected ? Math.max(0, 100 - Math.round(ram)) : 0;
-  const diskHealth = isConnected ? Math.max(0, 100 - Math.round(disk)) : 0;
+  const cpuAvailable = isConnected ? Math.max(0, 100 - Math.round(cpu)) : 0;
+  const ramAvailable = isConnected ? Math.max(0, 100 - Math.round(ram)) : 0;
+  const diskAvailable = isConnected ? Math.max(0, 100 - Math.round(disk)) : 0;
+  const underLoad = isConnected && (cpu >= 90 || ram >= 90 || disk >= 95);
+  const title = !isConnected
+    ? 'AWAITING CORE LINK'
+    : underLoad
+      ? 'SYSTEM LOAD ELEVATED'
+      : 'ALL SYSTEMS OPERATIONAL';
+  const footer = !isConnected ? 'OFFLINE · STANDBY' : underLoad ? 'LIVE · MONITORING' : 'LIVE · HEALTHY';
 
   return (
     <View style={s.wrap}>
@@ -41,8 +49,8 @@ export function IndigoHero({ isConnected = false, cpu = 0, ram = 0, disk = 0 }: 
           <MaterialCommunityIcons name="robot-happy-outline" size={24} color="#E0E7FF" />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={s.title}>ALL SYSTEMS OPERATIONAL</Text>
-          <Text style={s.subtitle}>INDIGO CORE STATUS</Text>
+          <Text style={s.title}>{title}</Text>
+          <Text style={s.subtitle}>{isConnected ? 'INDIGO CORE STATUS' : 'INDIGO CORE STANDBY'}</Text>
         </View>
       </View>
 
@@ -52,12 +60,12 @@ export function IndigoHero({ isConnected = false, cpu = 0, ram = 0, disk = 0 }: 
       </View>
 
       <View style={s.bars}>
-        <UptimeBar value={cpuHealth} color="#818CF8" />
-        <UptimeBar value={ramHealth} color="#6366F1" />
-        <UptimeBar value={diskHealth} color="#A5B4FC" />
+        <UptimeBar value={cpuAvailable} color="#818CF8" />
+        <UptimeBar value={ramAvailable} color="#6366F1" />
+        <UptimeBar value={diskAvailable} color="#A5B4FC" />
       </View>
 
-      <Text style={s.footer}>30D · HEALTHY</Text>
+      <Text style={s.footer}>{footer}</Text>
     </View>
   );
 }
