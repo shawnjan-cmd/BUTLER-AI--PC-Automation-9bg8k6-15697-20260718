@@ -90,6 +90,11 @@ const TEXT    = '#D4EEF8';
 const TEXT2   = '#7898A8';
 import { FontFamily } from '@/constants/typography';
 const MONO: any = FontFamily.mono;
+let docPickerMod: typeof import('expo-document-picker') | null = null;
+async function getDocPicker() {
+  if (!docPickerMod) docPickerMod = await import('expo-document-picker');
+  return docPickerMod;
+}
 
 // Compact number formatter (1200 → 1.2K)
 function fmtCompact(n: number): string {
@@ -2290,7 +2295,7 @@ function FileShareWidget({ isConn }: { isConn: boolean }) {
   const pickFile = async () => {
     haptics.medium();
     try {
-      const mod = await import('expo-document-picker');
+      const mod = await getDocPicker();
       const result = await mod.getDocumentAsync({ copyToCacheDirectory: true });
       if (!result.canceled && result.assets?.[0]) {
         const a = result.assets[0];

@@ -33,9 +33,9 @@ type Provider = 'tailscale' | 'cloudflare' | 'direct';
 type WizardStep = 'choose' | 'install' | 'run' | 'enter' | 'test' | 'done';
 
 // ── Copy-to-clipboard helper ──────────────────────────────────────
-function copyText(text: string) {
+async function copyText(text: string) {
   try {
-    void safeSetClipboard(text);
+    await safeSetClipboard(text);
     haptics.success?.() ?? haptics.light();
   } catch {}
 }
@@ -57,8 +57,8 @@ function ProgressBar({ step, total, color }: { step: number; total: number; colo
 // ── Code block with copy button ───────────────────────────────────
 function CodeBlock({ code, color = C.cyan }: { code: string; color?: string }) {
   const [copied, setCopied] = useState(false);
-  const handleCopy = () => {
-    copyText(code);
+  const handleCopy = async () => {
+    await copyText(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
