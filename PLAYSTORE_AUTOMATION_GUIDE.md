@@ -24,7 +24,7 @@
 **Step 3 — Enable GitHub Pages:**
 1. Go to Settings → Pages (left sidebar)
 2. Source: **GitHub Actions**
-3. Commit or update `.github/workflows/deploy-privacy-policy.yml`
+3. Commit or update `.github/workflows/deploy-docs.yml`
 4. Push any change under `docs/` or manually run the workflow from the Actions tab
 5. The workflow automatically publishes every page in `docs/`
 6. Wait for the workflow to finish → your URLs are live:
