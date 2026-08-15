@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - 'docs/**'
-      - '.github/workflows/deploy-docs.yml'
+      - '.github/workflows/deploy-privacy-policy.yml'
   workflow_dispatch: # Allow manual trigger from GitHub Actions tab
 
 permissions:
