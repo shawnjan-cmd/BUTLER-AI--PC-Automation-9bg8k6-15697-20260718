@@ -23,10 +23,10 @@
 
 **Step 3 — Enable GitHub Pages:**
 1. Go to Settings → Pages (left sidebar)
-2. Source: **Deploy from a branch**
-3. Branch: **main**, folder: **/ (root)**
-4. Click **Save**
-5. Wait ~60 seconds → your URL is live:
+2. Source: **GitHub Actions**
+3. Commit or update `.github/workflows/deploy-privacy-policy.yml`
+4. Push a change to `docs/privacy-policy.html` or manually run the workflow from the Actions tab
+5. Wait for the workflow to finish → your URL is live:
    `https://shawnjan-cmd.github.io/butler-ai-privacy/`
 
 **Step 4 — Paste URL in Play Console:**
@@ -267,4 +267,3 @@ When ready for public release:
 | "No app bundles" | Upload AAB in Internal testing → Create new release |
 | "Package name already taken" | Your package `com.butlerai.pc.automation` is already registered ✓ |
 | EAS Submit "first upload manually" | Already done ✓ — future uploads can use EAS |
-
