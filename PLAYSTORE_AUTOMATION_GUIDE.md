@@ -17,21 +17,23 @@
 
 **Step 2 — Upload the privacy policy HTML:**
 1. In your new repo, click "Add file" → "Upload files"
-2. Upload the file: `docs/privacy-policy.html` from this project
-3. Rename it to `index.html` when uploading
+2. Upload the full `docs/` site from this project, including `index.html` and `privacy-policy.html`
+3. Keep the filenames as-is
 4. Commit changes
 
 **Step 3 — Enable GitHub Pages:**
 1. Go to Settings → Pages (left sidebar)
 2. Source: **GitHub Actions**
 3. Commit or update `.github/workflows/deploy-privacy-policy.yml`
-4. Push a change to `docs/privacy-policy.html` or manually run the workflow from the Actions tab
-5. Wait for the workflow to finish → your URL is live:
+4. Push any change under `docs/` or manually run the workflow from the Actions tab
+5. The workflow automatically publishes every page in `docs/`
+6. Wait for the workflow to finish → your URLs are live:
    `https://shawnjan-cmd.github.io/butler-ai-privacy/`
+   `https://shawnjan-cmd.github.io/butler-ai-privacy/privacy-policy.html`
 
 **Step 4 — Paste URL in Play Console:**
 - Play Console → Policy → App content → Privacy policy
-- Paste: `https://shawnjan-cmd.github.io/butler-ai-privacy/`
+- Paste: `https://shawnjan-cmd.github.io/butler-ai-privacy/privacy-policy.html`
 - Save ✓
 
 ---
