@@ -14,12 +14,11 @@
 
 ## 1. Overview
 
-Butler AI: PC Automation (v6.0), also referred to as "Nexus Command Center" or "CommandCube", is a **local-network, self-hosted** PC automation app. It connects your Android device to a Python server (`butler_server.py`) running on your own PC over your home or office Wi-Fi network.
+Butler AI: PC Automation (v6.0), also referred to as "Butler AI Command Center" or "CommandCube", is a **local-network, self-hosted** PC automation app. It connects your Android device to a Python server (`butler_server.py`) running on your own PC over your home or office Wi-Fi network.
 
 **Our privacy philosophy is simple: Your data is your own.** The App is built on a local-first, privacy-centric architecture.
 
-**We do not collect, store, transmit, or sell any personal data.**
-No data ever leaves your local network or reaches any third party unless you explicitly configure optional AI features — see Section 4.
+**The developer does not operate a cloud collection service for Butler data.** The app can transmit user-entered chat, selected commands, pairing identifiers, and—if the optional voice lane is enabled—short user-recorded audio to the user's paired PC. User-configured remote transport may leave the local network. Review the actual release configuration before relying on this statement.
 
 ---
 
@@ -42,7 +41,9 @@ All data processed via these permissions remains strictly local to your device.
 
 ## 4. Data We Collect
 
-### 4.1 Data Collected by Butler AI: NONE
+### 4.1 Data processed by Butler AI
+
+Butler processes data locally on the Android device and/or the user's paired PC. The exact data flow depends on the features the user enables and the final release configuration.
 
 | Data Type | Collected? | Notes |
 |-----------|-----------|-------|
@@ -52,7 +53,7 @@ All data processed via these permissions remains strictly local to your device.
 | Location (GPS) | ❌ No | Not accessed |
 | Contacts | ❌ No | Not accessed |
 | Camera | ⚠️ QR only | Only for QR code scanning to pair with your PC. Images processed locally, never stored or transmitted. |
-| Microphone | ❌ No | Not accessed |
+| Microphone | ⚠️ Optional | Used only for visible, user-started voice capture if the voice lane is enabled; raw audio is intended to be ephemeral. |
 | Files / Storage | ❌ No | App reads no external files |
 | Device identifiers | ⚠️ Local only | A random UUID is generated on first launch, stored locally, sent only to your own PC server on your local network. |
 | Usage analytics | ❌ No | No analytics SDK included |
@@ -71,23 +72,24 @@ The following data is stored in your device's private `AsyncStorage` (never acce
 - **Chat History** — Butler AI conversation history (your data, stored locally)
 - **Settings** — App configuration preferences
 
-**All locally stored data is deleted automatically when you uninstall the app.**
-
-No data is ever transmitted to the developer, to any analytics service, or to any third party without explicit user action.
+**Android-private local data is normally removed when the app is uninstalled, subject to Android backup and device behavior.** The paired PC may retain server-side records, scripts, receipts, or logs according to its own configuration; use the server's deletion controls as well. Butler does not intentionally send data to a developer-operated analytics or AI cloud in the local-only build, but a user-configured remote transport can change the network path.
 
 ---
 
 ## 5. Data Sharing
 
-### We share NO data with any third parties.
+### Developer-operated third-party sharing
+
+The local-only build does not intentionally send Butler content to developer-operated analytics, advertising, or cloud-AI services. The user's paired PC is a separate endpoint controlled by the user. A user-configured remote transport, external crawler source, or third-party integration can create additional recipients and must be disclosed and reviewed separately.
 
 | Recipient | Data Shared | Purpose |
 |-----------|-------------|---------|
 | Third-party analytics | ❌ None | N/A |
 | Advertising networks | ❌ None | N/A |
 | Data brokers | ❌ None | N/A |
-| Cloud databases | ❌ None | N/A |
-| Your PC server (butler_server.py) | Device ID + Session Token | Authentication only — on your local network |
+| Developer-operated cloud databases | ❌ None in local-only build | N/A |
+| User's paired PC server | Chat, commands, pairing data, and optional voice payloads as enabled | Butler functionality |
+| User-configured remote endpoint | Data selected by the user | Remote connectivity; review endpoint trust and transport |
 
 The only "server" Butler AI communicates with is `butler_server.py` running on your own personal computer. You control this server entirely. No data passes through any infrastructure we own or operate.
 
@@ -103,15 +105,9 @@ By default, Butler AI uses a local Ollama AI model running on your own PC. No da
 - **What is NOT sent:** Nothing goes to any external server
 - **Privacy:** Completely private — all processing on your hardware
 
-### 4.2 Google Gemini AI (Optional — User-Configured)
+### 4.2 Local Ollama on the user's paired PC
 
-If you configure a Gemini API key in Settings, Butler AI can optionally send chat messages to Google's Gemini API.
-
-- **What is sent:** Your typed messages and conversation context only
-- **What is NOT sent:** Your name, email, device ID, location, or any personal identifiers
-- **Google's Privacy Policy:** https://policies.google.com/privacy
-- **You can disable this** by removing the Gemini API key in Settings
-- **Default state:** Disabled — Ollama local AI is used by default
+The supported AI provider is local Ollama running on the user's paired PC. Chat text and the context selected by the app may be sent to that PC for response generation. No developer-operated cloud AI provider is enabled by the local-only architecture. Users remain responsible for securing their PC, Ollama service, network, firewall, and any remote access configuration.
 
 ---
 
@@ -121,9 +117,9 @@ If you configure a Gemini API key in Settings, Butler AI can optionally send cha
 - All communication between the app and your PC occurs on your **local network only** (LAN — 192.168.x.x, 10.x.x.x)
 - Authentication uses **64-character cryptographic Bearer tokens** generated with `secrets.token_urlsafe(64)`
 - Token comparison uses **constant-time comparison** (`secrets.compare_digest`) to prevent timing attacks
-- Optional **TLS/HTTPS encryption** via self-signed certificate (generated by `butler_server.py`)
+- **Transport security depends on configuration:** authenticated LAN transport, TLS where configured, and additional protection for remote connections. Do not treat a self-signed certificate or bearer token alone as proof of secure internet exposure.
 - The PC server implements **rate limiting** (60 requests/IP/minute) to prevent abuse
-- **Single-device lock**: the PC server can only be paired to ONE device at a time
+- **Single-device lock**: the PC server can restrict pairing to one device at a time; verify the active server configuration before relying on this control
 
 ### 5.2 Script Execution Safety
 - All Python scripts are scanned for dangerous patterns before execution
@@ -135,7 +131,7 @@ If you configure a Gemini API key in Settings, Butler AI can optionally send cha
 - All local data is stored in Android's private `AsyncStorage` — inaccessible to other apps
 - No data is encrypted at rest beyond Android's standard storage encryption
 - No backups of app data are created to external services
-- All data is permanently deleted on app uninstall
+- Android-private app data is intended to be removed on uninstall; paired-PC data and user-created backups require separate deletion
 
 ---
 
@@ -144,7 +140,7 @@ If you configure a Gemini API key in Settings, Butler AI can optionally send cha
 | Permission | Why It Is Used |
 |-----------|---------------|
 | `CAMERA` | Scanning QR codes displayed by `butler_server.py` on your PC to pair. The camera is only activated when you tap "SCAN QR CODE". No images are stored. |
-| `INTERNET` | Communicating with your local PC server. Optionally used with Google Gemini API if you enable that feature in Settings. |
+| `INTERNET` | Communicating with the paired PC, local Ollama, or a user-configured remote endpoint. |
 
 **No other permissions are requested.**
 
@@ -154,7 +150,8 @@ Butler AI does NOT use:
 - `READ_CONTACTS` / `WRITE_CONTACTS`
 - `READ_EXTERNAL_STORAGE` / `WRITE_EXTERNAL_STORAGE`
 - `READ_PHONE_STATE`
-- `RECORD_AUDIO`
+- `RECORD_AUDIO` unless the optional voice lane is included in the final build
+- Any hidden or continuous background microphone capture
 - Any background location or activity recognition permissions
 
 ---
@@ -172,7 +169,7 @@ Butler AI is not directed at children under 18 years of age. This App is a devel
 | Local KB / Scripts / Settings | Until you clear the app or uninstall | Clear via Settings → Clear Knowledge Base, or uninstall app |
 | Chat History | Until you tap "Clear Chat" | Tap Clear Chat in Butler AI tab |
 | Session Token | Until you disconnect or server resets | Tap DISCONNECT in Connect tab |
-| Gemini request data | Not retained by Butler AI | See Google's privacy policy |
+| Paired-PC request, receipt, script, and optional voice data | Depends on server configuration and retention policy | Use the paired server's deletion controls and clear encrypted receipts/audio according to policy |
 
 **To delete all your data:** Uninstall Butler AI: PC Automation from your device. All `AsyncStorage` data is deleted automatically by Android.
 
@@ -198,10 +195,10 @@ If you have questions about this Privacy Policy, please contact:
 
 | Question | Answer |
 |---------|--------|
-| Does your app collect or share user data? | No personal data is collected or shared |
-| Is data collected encrypted in transit? | Yes — HTTPS to Gemini (if enabled); optional TLS to local PC |
-| Do you provide a way for users to request data deletion? | Yes — uninstall the app (all data permanently deleted by Android) |
-| Does the app share data with third parties? | Only anonymized chat text with Gemini, opt-in only, no PII |
+| Does the app process or share user data? | Yes, only as required for user-enabled local PC, chat, pairing, script, and optional voice functionality |
+| Is data encrypted in transit? | Depends on the final LAN/remote transport configuration; verify before release |
+| Is deletion available? | Android-local deletion plus paired-PC/server deletion controls; uninstall alone does not guarantee deletion of PC-side data |
+| Does the developer operate cloud AI or analytics for the local-only build? | No |
 
 ---
 

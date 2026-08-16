@@ -1,0 +1,13 @@
+{
+  "name": "Install Scoop",
+  "description": "Install the Scoop package manager (no admin needed).",
+  "category": "Install",
+  "tags": [
+    "install",
+    "scoop",
+    "package-manager"
+  ],
+  "icon": "inventory_2",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

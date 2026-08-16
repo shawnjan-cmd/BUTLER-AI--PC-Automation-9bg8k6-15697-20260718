@@ -17,18 +17,18 @@ const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
 const SANS: any = Platform.OS === 'ios' ? 'System'    : 'sans-serif';
 
 const C = {
-  bg:       '#010508',
-  surface:  '#070D18',
-  card:     '#0A1422',
-  cyan:     '#00E5FF',
-  green:    '#00FF88',
-  amber:    '#FFB020',
-  purple:   '#CC44FF',
-  teal:     '#00CCBB',
-  red:      '#FF3344',
-  text:     '#D4E8F6',
-  textMid:  '#6A8EA8',
-  textDim:  '#2A4060',
+  bg:       '#050810',
+  surface:  '#0B0F17',
+  card:     '#111621',
+  cyan:     '#38D9E8',
+  green:    '#2FE38A',
+  amber:    '#FFB43D',
+  purple:   '#A468FF',
+  teal:     '#38D9E8',
+  red:      '#FF4D5E',
+  text:     '#4A9EFF',
+  textMid:  '#4A9EFF',
+  textDim:  '#4A9EFF',
   border:   'rgba(0,229,255,0.12)',
 };
 
@@ -50,17 +50,17 @@ const TRUST_CARDS: TrustCard[] = [
   {
     icon: 'cloud-off',
     iconLib: 'material',
-    title: 'No cloud, ever',
-    claim: 'Every request stays on your WiFi.',
-    detail: 'Your phone talks only to your own PC over the local area network. No traffic is routed through any external server. No company cloud, no relay node, no intermediary.',
+    title: 'Local-first transport',
+    claim: 'The default route is your paired PC.',
+    detail: 'The local build is designed to talk to your paired PC over the local network. User-configured remote transport can change the network path, so verify the active route before sending sensitive data.',
     color: C.cyan,
   },
   {
     icon: 'eye-off-outline',
     iconLib: 'community',
-    title: 'No accounts, no tracking',
-    claim: 'Nothing to sign up for. Nothing to track.',
-    detail: 'No analytics SDKs, no ad ID, no crash reporting, no background network calls to any host outside your own PC\'s IP address. We have no server to receive your data.',
+    title: 'No developer analytics by design',
+    claim: 'No developer account is required for local pairing.',
+    detail: 'The local build does not intentionally include developer analytics or advertising identifiers. Review the final release bundle and any remote transport configuration before relying on this statement.',
     color: C.green,
   },
   {
@@ -76,7 +76,7 @@ const TRUST_CARDS: TrustCard[] = [
     iconLib: 'community',
     title: 'Your data, your device',
     claim: 'Delete anytime. No waiting, no request form.',
-    detail: 'All stored data (server config, session token, AI chat history, knowledge base) lives in your phone\'s encrypted storage. Settings → Reset All Data removes everything instantly.',
+    detail: 'Sensitive local values use authenticated encryption with a protected key boundary when available. Reset controls remove app records, but paired-PC records and backups must be deleted separately.',
     color: C.purple,
   },
   {
@@ -84,7 +84,7 @@ const TRUST_CARDS: TrustCard[] = [
     iconLib: 'community',
     title: 'Hardware-encrypted credentials',
     claim: 'Session tokens use device-backed encryption.',
-    detail: 'Your PC server\'s session token and pairing credentials are stored using hardware-backed encrypted storage (Android Keystore / iOS Keychain). They cannot be read by other apps, even on a rooted device.',
+    detail: 'Your PC server session token and pairing credentials use Android Keystore / iOS Keychain when available. This raises the protection bar, but no app can honestly guarantee secrecy on a fully compromised or rooted device.',
     color: C.teal,
   },
   {
@@ -109,7 +109,6 @@ const PERMISSIONS: PermRow[] = [
   { name: 'INTERNET',            reason: 'All calls go to your PC server on LAN — no internet destinations',       risk: 'NONE' },
   { name: 'VIBRATE',             reason: 'Haptic feedback on button presses',                                       risk: 'NONE' },
   { name: 'NOTIFICATIONS',       reason: 'Digital Twin security alerts from your own PC',                          risk: 'LOW'  },
-  { name: 'BIOMETRIC',           reason: 'Optional vault protection in Settings — never required',                  risk: 'LOW'  },
 ];
 
 function PermBadge({ risk }: { risk: 'LOW' | 'NONE' }) {
@@ -273,9 +272,9 @@ export default function SecurityTrustScreen() {
         {/* Compliance footer */}
         <View style={s.complianceBox}>
           <MaterialCommunityIcons name="check-decagram" size={28} color={C.green} />
-          <Text style={s.complianceTitle}>Fully Compliant</Text>
+              <Text style={s.complianceTitle}>Compliance Checklist</Text>
           <Text style={s.complianceSub}>
-            Butler AI follows all Google Play Store policies for automation and remote control applications. Accepted on the Play Store after full manual review.
+              Butler is designed around explicit user actions and declared permissions. Final Play Console compliance depends on the exact release manifest, disclosures, target API, and review outcome.
           </Text>
         </View>
       </ScrollView>
@@ -288,7 +287,7 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 16, paddingBottom: 12,
     borderBottomWidth: 2, borderBottomColor: C.cyan + '25',
-    backgroundColor: '#030A18',
+    backgroundColor: '#070A10',
   },
   backBtn: { width: 36, height: 36, borderRadius: 10, borderWidth: 1.5, borderColor: C.cyan + '40',
     backgroundColor: C.cyan + '0C', alignItems: 'center', justifyContent: 'center' },
@@ -298,7 +297,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 5 },
   sectionHdr: { fontFamily: MONO, fontSize: 9, fontWeight: '900', color: C.cyan + '80',
     letterSpacing: 2, marginTop: 16, marginBottom: 8 },
-  heroCard: { borderRadius: 16, borderWidth: 2, borderColor: C.green + '40', backgroundColor: '#030A18',
+  heroCard: { borderRadius: 16, borderWidth: 2, borderColor: C.green + '40', backgroundColor: '#070A10',
     overflow: 'hidden', marginBottom: 8,
     ...Platform.select({ ios: { shadowColor: C.green, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 18 }, android: { elevation: 8 } }) },
   trustCard: { borderRadius: 14, borderWidth: 1.5, backgroundColor: C.card,

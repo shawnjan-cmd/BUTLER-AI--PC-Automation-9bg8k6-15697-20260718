@@ -1,0 +1,14 @@
+{
+  "name": "GPU Information",
+  "description": "Detect GPU(s) via nvidia-smi, wmic (Windows), or lspci (Linux).",
+  "category": "System",
+  "tags": [
+    "gpu",
+    "nvidia",
+    "hardware",
+    "video"
+  ],
+  "icon": "cpu",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

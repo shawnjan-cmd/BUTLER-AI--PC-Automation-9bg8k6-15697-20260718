@@ -1,0 +1,13 @@
+{
+  "name": "Eye-Strain 20-20-20 Reminder",
+  "description": "Loop forever and remind you every 20 min to look at something 20 ft away for 20 s.",
+  "category": "Productivity",
+  "tags": [
+    "eyes",
+    "reminder",
+    "health"
+  ],
+  "icon": "clock",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

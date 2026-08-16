@@ -1,0 +1,13 @@
+{
+  "name": "List Scheduled Tasks",
+  "description": "Show all enabled Windows Task Scheduler entries with next run time.",
+  "category": "System",
+  "tags": [
+    "tasks",
+    "scheduler",
+    "windows"
+  ],
+  "icon": "calendar-clock",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

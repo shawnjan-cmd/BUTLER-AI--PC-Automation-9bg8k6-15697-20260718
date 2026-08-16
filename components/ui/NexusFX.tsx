@@ -1,374 +1,577 @@
 /**
- * NexusFX — Butler AI Special Effects Components
- * © 2024-2026 Andrej Sladkovic. All Rights Reserved.
- *
- * Exports: TypewriterBoot · DataStreamLine · HoloText · NexusScanFrame · GlitchPressButton
- * GlowWave-X design system — Section 20.5
- *
- * DRIVER NOTES:
- *   TypewriterBoot cursorOp  → useNativeDriver: true (opacity)
- *   DataStreamLine scrollX   → useNativeDriver: true (translateX)
- *   NexusScanFrame scanY     → useNativeDriver: false (top position)
- *   HoloText breathe         → useNativeDriver: true (opacity)
- *   GlitchPressButton scale  → useNativeDriver: true (transform)
+ * ⚡ NEXUS HUD FX — Reusable boot-screen animations for any page
+ * Extracts: MiniSkull · TypewriterBoot · TechGrid · GlitchPress · ChromeHeader
+ * NOTE: ALL animations use useNativeDriver: false to prevent Hermes Android driver conflicts
+ * (previously TerminatorFX.tsx — renamed to NexusFX.tsx)
  */
-import React, {
-  memo, useCallback, useEffect, useRef, useState,
-} from 'react';
+
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
-  Animated, Dimensions, Easing, Platform, Pressable,
-  StyleSheet, Text, View, ViewStyle,
+  View, Text, StyleSheet, Platform, Animated, Dimensions, TouchableOpacity,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { FontFamily } from '@/constants/typography';
+import { autoErrorLogger } from '@/services/autoErrorLogger';
 import { haptics } from '@/services/haptics';
 
-const SW = Math.max(320, Dimensions.get('window').width);
+const _DIM_NFX = Dimensions.get('window'); /* cold-start safe */
+const SW = _DIM_NFX.width  > 0 ? _DIM_NFX.width  : 414;
+const SH = _DIM_NFX.height > 0 ? _DIM_NFX.height : 896;
+const MONO: any = Platform.OS === 'ios' ? 'Courier' : 'monospace';
 
-const C = {
-  ice:    '#6EE7FF',
-  mint:   '#34D399',
-  violet: '#A78BFA',
-  amber:  '#FDBA74',
-  coral:  '#F87171',
-  text:   '#E4EBF5',
-  textMid:'#7A8FA5',
-  textDim:'#3D4C63',
-  surface:'#0F1828',
-  card:   '#0A0F1A',
+// ─── NEXUS palette ─────────────────────────────────────────────────
+export const FX = {
+  bg:      '#000509',
+  red:     '#CC2200',
+  redBrt:  '#FF6A1F',
+  amber:   '#FF7700',
+  text:    '#FF2A1F',
+  dim:     '#0A1A22',
 };
 
-// ─────────────────────────────────────────────────────────────────
-// TypewriterBoot — multi-line organic typewriter reveal
-// Variable speed per character (12–26ms/char). Perfect for boot seq.
-// ─────────────────────────────────────────────────────────────────
-interface TypewriterBootProps {
-  lines:    string[];
-  color?:   string;
-  fontSize?: number;
-  onDone?:  () => void;
-  style?:   ViewStyle;
-}
+// ═══════════════════════════════════════════════════════════════════
+// 1. MiniSkull — compact HUD skull for page headers
+// ═══════════════════════════════════════════════════════════════════
+export function MiniSkull({
+  size = 52,
+  glitchOnPress = false,
+  onPress,
+}: {
+  size?: number;
+  glitchOnPress?: boolean;
+  onPress?: () => void;
+}) {
+  const eyeGlow   = useRef(new Animated.Value(0.7)).current;
+  const floatY    = useRef(new Animated.Value(0)).current;
+  const scanOp    = useRef(new Animated.Value(0)).current;
+  const scanTY    = useRef(new Animated.Value(0)).current;
+  const jitterX   = useRef(new Animated.Value(0)).current;
+  const crackAnim = useRef(new Animated.Value(0.5)).current;
 
-export const TypewriterBoot = memo(function TypewriterBoot({
-  lines, color = C.mint, fontSize = 10, onDone, style,
-}: TypewriterBootProps) {
-  const [visibleText, setVisibleText] = useState('');
-  const [linesDone,   setLinesDone]   = useState(false);
-  const cursorA = useRef(new Animated.Value(1)).current;
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const mountedRef = useRef(true);
-
-  useEffect(() => {
-    const cursor = Animated.loop(Animated.sequence([
-      Animated.timing(cursorA, { toValue: 0, duration: 500, useNativeDriver: true }),
-      Animated.timing(cursorA, { toValue: 1, duration: 500, useNativeDriver: true }),
-    ]));
-    cursor.start();
-    return () => { cursor.stop(); };
+  const fireGlitch = useCallback(() => {
+    scanTY.setValue(0);
+    Animated.sequence([
+      Animated.timing(scanOp, { toValue: 0.95, duration: 25, useNativeDriver: false }),
+      Animated.timing(scanTY, { toValue: 1, duration: 180, useNativeDriver: false }),
+      Animated.timing(scanOp, { toValue: 0, duration: 50, useNativeDriver: false }),
+    ]).start();
+    Animated.sequence([
+      Animated.timing(jitterX, { toValue: -4, duration: 25, useNativeDriver: false }),
+      Animated.timing(jitterX, { toValue: 5,  duration: 20, useNativeDriver: false }),
+      Animated.timing(jitterX, { toValue: -2, duration: 18, useNativeDriver: false }),
+      Animated.timing(jitterX, { toValue: 0,  duration: 80, useNativeDriver: false }),
+    ]).start();
   }, []);
 
   useEffect(() => {
-    mountedRef.current = true;
-    const full = lines.join('\n');
-    let i = 0;
-    timerRef.current = setInterval(() => {
-      if (!mountedRef.current) return;
-      i++;
-      setVisibleText(full.slice(0, i));
-      if (i >= full.length) {
-        if (timerRef.current) clearInterval(timerRef.current);
-        setLinesDone(true);
-        onDone?.();
-      }
-    }, 16 + Math.random() * 12); // 16–28ms per char
-    return () => {
-      mountedRef.current = false;
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [lines.join('|')]);
-
-  return (
-    <View style={style}>
-      <Text style={{
-        fontFamily: FontFamily.mono as any,
-        fontSize, color,
-        lineHeight: fontSize * 1.65,
-        letterSpacing: 0.3,
-        includeFontPadding: false,
-      }}>
-        {visibleText}
-        {!linesDone && (
-          <Animated.Text style={{ color, opacity: cursorA }}>▌</Animated.Text>
-        )}
-      </Text>
-    </View>
-  );
-});
-
-// ─────────────────────────────────────────────────────────────────
-// DataStreamLine — scrolling hex data footer banner
-// Full-width strip with scrolling hex bytes — no gradient required
-// Driver: translateX on native thread
-// ─────────────────────────────────────────────────────────────────
-interface DataStreamLineProps {
-  color?:  string;
-  height?: number;
-  style?:  ViewStyle;
-}
-
-function genHexStream(len = 80): string {
-  return Array.from({ length: len }, () =>
-    Math.floor(Math.random() * 256).toString(16).padStart(2, '0').toUpperCase()
-  ).join(' ');
-}
-
-export const DataStreamLine = memo(function DataStreamLine({
-  color = C.ice, height = 16, style,
-}: DataStreamLineProps) {
-  const [stream, setStream] = useState(() => genHexStream(80));
-  const scrollX = useRef(new Animated.Value(0)).current;
-  const CONTENT_W = 1400;
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.timing(scrollX, {
-        toValue: -CONTENT_W,
-        duration: 18000,
-        easing:   Easing.linear,
-        useNativeDriver: true,
-      })
-    );
-    loop.start();
-    const refresh = setInterval(() => setStream(genHexStream(80)), 3000);
-    return () => { loop.stop(); clearInterval(refresh); };
+    Animated.loop(Animated.sequence([
+      Animated.delay(1600),
+      Animated.timing(eyeGlow, { toValue: 0.05, duration: 55,  useNativeDriver: false }),
+      Animated.timing(eyeGlow, { toValue: 1,    duration: 75,  useNativeDriver: false }),
+      Animated.timing(eyeGlow, { toValue: 0.05, duration: 50,  useNativeDriver: false }),
+      Animated.timing(eyeGlow, { toValue: 0.9,  duration: 85,  useNativeDriver: false }),
+      Animated.delay(500),
+      Animated.timing(eyeGlow, { toValue: 0.4,  duration: 500, useNativeDriver: false }),
+      Animated.timing(eyeGlow, { toValue: 0.9,  duration: 500, useNativeDriver: false }),
+    ])).start();
+    Animated.loop(Animated.sequence([
+      Animated.timing(floatY, { toValue: -4, duration: 2000, useNativeDriver: false }),
+      Animated.timing(floatY, { toValue: 0,  duration: 2000, useNativeDriver: false }),
+    ])).start();
+    Animated.loop(Animated.sequence([
+      Animated.timing(crackAnim, { toValue: 1,   duration: 2800, useNativeDriver: false }),
+      Animated.timing(crackAnim, { toValue: 0.3, duration: 2800, useNativeDriver: false }),
+    ])).start();
+    const t = setInterval(() => {
+      if (Math.random() > 0.65) fireGlitch();
+    }, 4500);
+    return () => clearInterval(t);
   }, []);
 
-  return (
-    <View style={[{ height, overflow: 'hidden', backgroundColor: color + '05' }, style]}>
-      <Animated.Text
-        numberOfLines={1}
-        style={{
-          fontFamily:   FontFamily.mono as any,
-          fontSize:     Math.max(7, height * 0.58),
-          color:        color + '55',
-          letterSpacing: 1.8,
-          lineHeight:   height,
-          width:        CONTENT_W,
-          transform:    [{ translateX: scrollX }],
-          includeFontPadding: false,
-        }}
-      >
-        {stream}
-      </Animated.Text>
-    </View>
+  const S = size;
+  const eyeColor = eyeGlow.interpolate({ inputRange: [0, 1], outputRange: ['#001A22', '#FF2A1F'] });
+
+  const skull = (
+    <Animated.View style={[ms.wrap, { width: S, height: S * 1.15, transform: [{ translateY: floatY }, { translateX: jitterX }] }]}>
+      <View style={[ms.cranium, {
+        width: S * 0.9,
+        height: S * 0.62,
+        borderTopLeftRadius: S * 0.45,
+        borderTopRightRadius: S * 0.45,
+        borderBottomLeftRadius: S * 0.08,
+        borderBottomRightRadius: S * 0.08,
+      }]}>
+        <Animated.View style={[ms.crack, { opacity: crackAnim, left: S * 0.47, height: S * 0.22 }]} />
+        <View style={[ms.socketRow, { gap: S * 0.12 }]}>
+          {[0, 1].map(i => (
+            <View key={i} style={[ms.socket, { width: S * 0.26, height: S * 0.18, borderRadius: S * 0.055 }]}>
+              <Animated.View style={[ms.eyeLens, {
+                width: S * 0.14, height: S * 0.10,
+                backgroundColor: eyeColor as any,
+                shadowColor: '#FF2A1F',
+                shadowRadius: S * 0.06,
+              }]} />
+              <Animated.View style={[ms.lensFlare, { opacity: eyeGlow, top: S * 0.025, left: S * 0.045, width: S * 0.04, height: S * 0.03 }]} />
+            </View>
+          ))}
+        </View>
+        <View style={[ms.nasalRow, { gap: S * 0.045 }]}>
+          {[0, 1].map(i => <View key={i} style={[ms.nasal, { width: S * 0.07, height: S * 0.09, borderRadius: S * 0.02 }]} />)}
+        </View>
+      </View>
+      <View style={[ms.jaw, { width: S * 0.82, borderBottomLeftRadius: S * 0.09, borderBottomRightRadius: S * 0.09 }]}>
+        <View style={[ms.teethRow, { gap: S * 0.022 }]}>
+          {[7, 6, 8, 6, 7].map((h, i) => (
+            <View key={i} style={[ms.tooth, { width: S * 0.08, height: S * (h / 50), borderRadius: S * 0.015 }]} />
+          ))}
+        </View>
+      </View>
+      <View style={[ms.neckRow, { gap: S * 0.04 }]}>
+        {[4, 6, 4].map((w, i) => (
+          <View key={i} style={[ms.neckPipe, { width: S * (w / 50), height: S * 0.1, borderRadius: S * 0.02 }]} />
+        ))}
+      </View>
+      <Animated.View style={[ms.led, { opacity: eyeGlow, width: S * 0.06, height: S * 0.06, borderRadius: S * 0.03, shadowRadius: S * 0.04 }]} />
+      <Animated.View style={[ms.glitchScan, {
+        opacity: scanOp,
+        height: S * 0.045,
+        transform: [{ translateY: scanTY.interpolate({ inputRange: [0, 1], outputRange: [-S * 0.6, S * 0.6] }) }],
+      }]} />
+    </Animated.View>
   );
-});
 
-// ─────────────────────────────────────────────────────────────────
-// HoloText — holographic shimmer text with breathing opacity
-// ─────────────────────────────────────────────────────────────────
-interface HoloTextProps {
-  text:      string;
-  fontSize?: number;
-  color?:    string;
-  style?:    ViewStyle;
-}
-
-export const HoloText = memo(function HoloText({
-  text, fontSize = 11, color = C.textMid, style,
-}: HoloTextProps) {
-  const breathe = useRef(new Animated.Value(0.55)).current;
-
-  useEffect(() => {
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(breathe, { toValue: 1,    duration: 2200, useNativeDriver: true }),
-      Animated.timing(breathe, { toValue: 0.35, duration: 2200, useNativeDriver: true }),
-    ]));
-    loop.start();
-    return () => loop.stop();
-  }, []);
-
+  if (!onPress) return skull;
   return (
-    <Animated.Text style={[
-      {
-        fontFamily:    FontFamily.mono as any,
-        fontSize,
-        color,
-        letterSpacing: 2,
-        textTransform: 'uppercase',
-        opacity:       breathe,
-        ...Platform.select({ ios: { textShadowColor: color, textShadowRadius: 6, textShadowOffset: { width: 0, height: 0 } } }),
-        includeFontPadding: false,
-      },
-      style,
-    ]}>
-      {text}
-    </Animated.Text>
-  );
-});
-
-// ─────────────────────────────────────────────────────────────────
-// NexusScanFrame — animated L-bracket corners + horizontal scan line
-// Wraps any element with an active scanning aesthetic
-// Driver: scanY uses useNativeDriver: false (top position interpolation)
-//         cornerOp uses useNativeDriver: true
-// ─────────────────────────────────────────────────────────────────
-interface NexusScanFrameProps {
-  children:  React.ReactNode;
-  color?:    string;
-  active?:   boolean;
-  armLength?: number;
-  thickness?: number;
-  style?:    ViewStyle;
-}
-
-export const NexusScanFrame = memo(function NexusScanFrame({
-  children, color = C.ice, active = true, armLength = 16, thickness = 2, style,
-}: NexusScanFrameProps) {
-  const scanY    = useRef(new Animated.Value(0)).current;  // JS driver — position
-  const cornerOp = useRef(new Animated.Value(0.5)).current; // native driver
-
-  useEffect(() => {
-    if (!active) return;
-    const scanLoop = Animated.loop(Animated.sequence([
-      Animated.timing(scanY, { toValue: 1, duration: 1800, useNativeDriver: false }),
-      Animated.timing(scanY, { toValue: 0, duration: 0,    useNativeDriver: false }),
-      Animated.delay(400),
-    ]));
-    const cornerLoop = Animated.loop(Animated.sequence([
-      Animated.timing(cornerOp, { toValue: 1,   duration: 900, useNativeDriver: true }),
-      Animated.timing(cornerOp, { toValue: 0.3, duration: 900, useNativeDriver: true }),
-    ]));
-    scanLoop.start();
-    cornerLoop.start();
-    return () => { scanLoop.stop(); cornerLoop.stop(); };
-  }, [active]);
-
-  const BRACKET: ViewStyle = { position: 'absolute', width: armLength, height: armLength };
-
-  return (
-    <View style={[{ position: 'relative', overflow: 'hidden' }, style]}>
-      {children}
-      {active && (
-        <>
-          {/* Corner brackets — native driver opacity */}
-          <Animated.View style={[BRACKET, { top: 0, left: 0,  borderTopWidth: thickness, borderLeftWidth:  thickness, borderColor: color, opacity: cornerOp }]} />
-          <Animated.View style={[BRACKET, { top: 0, right: 0, borderTopWidth: thickness, borderRightWidth: thickness, borderColor: color, opacity: cornerOp }]} />
-          <Animated.View style={[BRACKET, { bottom: 0, left: 0,  borderBottomWidth: thickness, borderLeftWidth:  thickness, borderColor: color, opacity: cornerOp }]} />
-          <Animated.View style={[BRACKET, { bottom: 0, right: 0, borderBottomWidth: thickness, borderRightWidth: thickness, borderColor: color, opacity: cornerOp }]} />
-          {/* Scan line — JS driver top % */}
-          <Animated.View
-            pointerEvents="none"
-            style={{
-              position: 'absolute', left: 0, right: 0, height: 1.5,
-              backgroundColor: color, opacity: 0.55,
-              top: scanY.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
-            }}
-          />
-        </>
-      )}
-    </View>
-  );
-});
-
-// ─────────────────────────────────────────────────────────────────
-// GlitchPressButton — button with press glitch + spark effect
-// ─────────────────────────────────────────────────────────────────
-interface GlitchPressButtonProps {
-  label:    string;
-  onPress:  () => void;
-  color?:   string;
-  disabled?: boolean;
-  style?:   ViewStyle;
-}
-
-export const GlitchPressButton = memo(function GlitchPressButton({
-  label, onPress, color = C.ice, disabled = false, style,
-}: GlitchPressButtonProps) {
-  const scale    = useRef(new Animated.Value(1)).current;
-  const sparkOp  = useRef(new Animated.Value(0)).current;
-  const sparkSc  = useRef(new Animated.Value(0)).current;
-  const [sparking, setSparking] = useState(false);
-
-  const onPressIn = useCallback(() => {
-    if (disabled) return;
-    Animated.spring(scale, { toValue: 0.95, tension: 380, friction: 11, useNativeDriver: true }).start();
-    haptics.medium();
-  }, [disabled]);
-
-  const onPressOut = useCallback(() => {
-    Animated.spring(scale, { toValue: 1, tension: 280, friction: 10, useNativeDriver: true }).start();
-  }, []);
-
-  const handlePress = useCallback(() => {
-    if (disabled) return;
-    setSparking(true);
-    Animated.parallel([
-      Animated.timing(sparkSc, { toValue: 1.6, duration: 400, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      Animated.sequence([
-        Animated.timing(sparkOp, { toValue: 1,   duration: 150, useNativeDriver: true }),
-        Animated.timing(sparkOp, { toValue: 0,   duration: 350, useNativeDriver: true }),
-      ]),
-    ]).start(() => { setSparking(false); sparkSc.setValue(0); sparkOp.setValue(0); });
-    onPress();
-  }, [disabled, onPress]);
-
-  return (
-    <Pressable
-      onPressIn={onPressIn}
-      onPressOut={onPressOut}
-      onPress={handlePress}
-      disabled={disabled}
+    <TouchableOpacity
+      onPress={() => {
+        haptics.light();
+        if (glitchOnPress) fireGlitch();
+        onPress();
+      }}
+      activeOpacity={0.85}
     >
-      <Animated.View style={[
-        s2.btn,
-        {
-          borderColor:     color + '70',
-          backgroundColor: disabled ? color + '08' : color + '14',
-          opacity:         disabled ? 0.4 : 1,
-          transform:       [{ scale }],
-          ...Platform.select({
-            ios: { shadowColor: color, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8 },
-            android: { elevation: 4 },
-          }),
-        },
-        style,
-      ]}>
-        <Text style={[s2.btnTxt, { color }]}>{label}</Text>
-        {sparking && (
-          <Animated.View
-            pointerEvents="none"
-            style={{
-              position: 'absolute', top: -32, left: -32, right: -32, bottom: -32,
-              borderRadius: 48, borderWidth: 2.5, borderColor: color,
-              transform: [{ scale: sparkSc }], opacity: sparkOp,
-            }}
-          />
-        )}
-      </Animated.View>
-    </Pressable>
+      {skull}
+    </TouchableOpacity>
   );
+}
+
+const ms = StyleSheet.create({
+  wrap:      { alignItems: 'center', justifyContent: 'center', gap: 0, position: 'relative' },
+  cranium: {
+    backgroundColor: '#140707', borderWidth: 1.5, borderColor: '#FF2A1F',
+    alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden',
+    shadowColor: '#FF2A1F', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 6, elevation: 4,
+  },
+  crack:     { position: 'absolute', top: 6, width: 1.5, backgroundColor: '#FF2A1F', borderRadius: 1, transform: [{ rotate: '8deg' }] },
+  socketRow: { flexDirection: 'row', marginBottom: 2, marginTop: 6 },
+  socket:    {
+    backgroundColor: '#000',
+    borderWidth: 1, borderColor: '#005577',
+    alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  eyeLens:   { borderRadius: 3, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, elevation: 3 },
+  lensFlare: { position: 'absolute', backgroundColor: '#88EEFF', borderRadius: 2 },
+  nasalRow:  { flexDirection: 'row', marginBottom: 2 },
+  nasal:     { backgroundColor: '#000A0E', borderWidth: 1, borderColor: '#451A15' },
+  jaw: {
+    backgroundColor: '#140707', borderBottomWidth: 1.5, borderLeftWidth: 1.5, borderRightWidth: 1.5,
+    borderColor: '#FF2A1F', paddingVertical: 4, paddingHorizontal: 4, alignItems: 'center', marginTop: 1,
+  },
+  teethRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  tooth:    { backgroundColor: '#002233', borderWidth: 1, borderColor: '#005577' },
+  neckRow:  { flexDirection: 'row', marginTop: 2, alignItems: 'flex-start' },
+  neckPipe: { backgroundColor: '#001A22', borderWidth: 1, borderColor: '#451A15', borderRadius: 2 },
+  led:      { backgroundColor: '#FF2A1F', marginTop: 2, shadowColor: '#FF2A1F', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1 },
+  glitchScan: {
+    position: 'absolute', left: -8, right: -8,
+    backgroundColor: '#FF2A1F', borderRadius: 2,
+    shadowColor: '#FF2A1F', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 8,
+  },
 });
 
-const s2 = StyleSheet.create({
-  btn: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    justifyContent: 'center',
-    borderWidth:    1.5,
-    borderRadius:   12,
-    paddingHorizontal: 18,
-    paddingVertical:   12,
-    overflow:       'hidden',
-    position:       'relative',
-  },
-  btnTxt: {
-    fontFamily:   FontFamily.displayMed as any,
-    fontSize:     13,
-    fontWeight:   '500',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    includeFontPadding: false,
+// ═══════════════════════════════════════════════════════════════════
+// 2. TypewriterLine
+// ═══════════════════════════════════════════════════════════════════
+export function TypewriterLine({
+  text, color, speed = 16, style,
+}: {
+  text: string; color: string; speed?: number; style?: any;
+}) {
+  const [shown, setShown] = useState('');
+  const cursorBlink = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    setShown('');
+    let i = 0;
+    const id = setInterval(() => {
+      i++;
+      setShown(text.slice(0, i));
+      if (i >= text.length) clearInterval(id);
+    }, speed);
+    Animated.loop(Animated.sequence([
+      Animated.timing(cursorBlink, { toValue: 0, duration: 400, useNativeDriver: false }),
+      Animated.timing(cursorBlink, { toValue: 1, duration: 400, useNativeDriver: false }),
+    ])).start();
+    return () => clearInterval(id);
+  }, [text, speed]);
+
+  return (
+    <Text style={[tw.line, { color }, style]}>
+      {shown}
+      {shown.length < text.length ? (
+        <Animated.Text style={[tw.cursor, { opacity: cursorBlink }]}>|</Animated.Text>
+      ) : null}
+    </Text>
+  );
+}
+const tw = StyleSheet.create({
+  line:   { fontSize: 10, fontFamily: MONO, lineHeight: 17, letterSpacing: 0.3 },
+  cursor: { fontSize: 10, color: '#FF2A1F', fontFamily: MONO },
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// 3. TechGrid
+// ═══════════════════════════════════════════════════════════════════
+export function TechGrid({
+  rows = 20, cols = 14, color = 'rgba(255,42,31,0.06)', animated = false,
+}: {
+  rows?: number; cols?: number; color?: string; animated?: boolean;
+}) {
+  const opacity = useRef(new Animated.Value(0.7)).current;
+  useEffect(() => {
+    if (!animated) return;
+    Animated.loop(Animated.sequence([
+      Animated.timing(opacity, { toValue: 1,   duration: 2200, useNativeDriver: false }),
+      Animated.timing(opacity, { toValue: 0.3, duration: 2200, useNativeDriver: false }),
+    ])).start();
+  }, [animated]);
+
+  const content = (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {Array.from({ length: rows }).map((_, i) => (
+        <View key={`h${i}`} style={[tg.line, { top: (i / rows) * SH, left: 0, right: 0, height: 1, backgroundColor: color }]} />
+      ))}
+      {Array.from({ length: cols }).map((_, i) => (
+        <View key={`v${i}`} style={[tg.line, { left: (i / cols) * SW, top: 0, bottom: 0, width: 1, backgroundColor: color }]} />
+      ))}
+    </View>
+  );
+  if (!animated) return content;
+  return <Animated.View style={[StyleSheet.absoluteFill, { opacity }]} pointerEvents="none">{content}</Animated.View>;
+}
+const tg = StyleSheet.create({
+  line: { position: 'absolute' },
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// 4. GlitchPressButton
+// ═══════════════════════════════════════════════════════════════════
+export function GlitchPressButton({
+  onPress, children, style, disabled,
+  logLabel,
+}: {
+  onPress: () => void;
+  children: React.ReactNode;
+  style?: any;
+  disabled?: boolean;
+  logLabel?: string;
+}) {
+  const scale    = useRef(new Animated.Value(1)).current;
+  const scanOp   = useRef(new Animated.Value(0)).current;
+  const scanTY   = useRef(new Animated.Value(0)).current;
+  const borderOp = useRef(new Animated.Value(0)).current;
+
+  const handlePress = () => {
+    if (disabled) return;
+    haptics.light();
+    if (logLabel) {
+      autoErrorLogger.log('info', 'GlitchButton', `Button pressed: ${logLabel}`);
+    }
+    scanTY.setValue(0);
+    borderOp.setValue(0);
+    Animated.parallel([
+      Animated.sequence([
+        Animated.timing(scale, { toValue: 0.93, duration: 65, useNativeDriver: false }),
+        Animated.timing(scale, { toValue: 1,    duration: 110, useNativeDriver: false }),
+      ]),
+      Animated.sequence([
+        Animated.timing(scanOp,   { toValue: 0.85, duration: 22, useNativeDriver: false }),
+        Animated.timing(scanTY,   { toValue: 1,    duration: 150, useNativeDriver: false }),
+        Animated.timing(scanOp,   { toValue: 0,    duration: 40, useNativeDriver: false }),
+      ]),
+      Animated.sequence([
+        Animated.timing(borderOp, { toValue: 0.9, duration: 55, useNativeDriver: false }),
+        Animated.timing(borderOp, { toValue: 0,   duration: 220, useNativeDriver: false }),
+      ]),
+    ]).start();
+    onPress();
+  };
+
+  return (
+    <TouchableOpacity onPress={handlePress} disabled={disabled} activeOpacity={0.82}>
+      <Animated.View style={[{ transform: [{ scale }] }, style, { position: 'relative', overflow: 'hidden' }]}>
+        {children}
+        <Animated.View pointerEvents="none" style={[gp.scan, {
+          opacity: scanOp,
+          transform: [{ translateY: scanTY.interpolate({ inputRange: [0, 1], outputRange: [-40, 80] }) }],
+        }]} />
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, {
+          borderRadius: 6, borderWidth: 2, borderColor: '#FF2A1F', opacity: borderOp,
+        }]} />
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
+const gp = StyleSheet.create({
+  scan: {
+    position: 'absolute', left: 0, right: 0, height: 3,
+    backgroundColor: '#FF2A1F',
+    shadowColor: '#FF2A1F', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 6,
   },
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// 5. ChromeHeader
+// ═══════════════════════════════════════════════════════════════════
+export function ChromeHeader({
+  title, subtitle, showSkull = false, connected, rightContent,
+}: {
+  title: string;
+  subtitle?: string;
+  showSkull?: boolean;
+  connected?: boolean;
+  rightContent?: React.ReactNode;
+}) {
+  const glowAnim = useRef(new Animated.Value(0.5)).current;
+
+  useEffect(() => {
+    Animated.loop(Animated.sequence([
+      Animated.timing(glowAnim, { toValue: 1,   duration: 1100, useNativeDriver: false }),
+      Animated.timing(glowAnim, { toValue: 0.3, duration: 1100, useNativeDriver: false }),
+    ])).start();
+  }, []);
+
+  const connColor = connected == null ? '#FF6A1F' : connected ? '#00FF88' : '#FF6A1F';
+
+  return (
+    <View style={ch.wrap}>
+      <TechGrid rows={6} cols={8} color="rgba(255,42,31,0.04)" />
+      <View style={ch.row}>
+        {showSkull ? (
+          <MiniSkull size={40} glitchOnPress />
+        ) : (
+          <View style={ch.tBox}>
+            <Text style={ch.tTxt}>N</Text>
+          </View>
+        )}
+        <View style={{ flex: 1 }}>
+          <TypewriterLine text={title} color="#FF2A1F" speed={22} style={ch.title} />
+          {subtitle ? <Text style={ch.sub}>{subtitle}</Text> : null}
+        </View>
+        <View style={ch.rightWrap}>
+          {rightContent}
+          {connected != null ? (
+            <View style={[ch.connBadge, { borderColor: connColor + '70', backgroundColor: connColor + '12' }]}>
+              <Animated.View style={[ch.connDot, { backgroundColor: connColor, opacity: glowAnim }]} />
+              <Text style={[ch.connTxt, { color: connColor }]}>{connected ? 'LINKED' : 'OFFLINE'}</Text>
+            </View>
+          ) : null}
+        </View>
+      </View>
+      <Animated.View style={[ch.bottomEdge, {
+        opacity: glowAnim.interpolate({ inputRange: [0.3, 1], outputRange: [0.4, 0.9] }),
+      }]} />
+    </View>
+  );
+}
+const ch = StyleSheet.create({
+  wrap:       { backgroundColor: '#0E0F12', borderBottomWidth: 3, borderBottomColor: '#FF2A1F', paddingHorizontal: 12, paddingVertical: 9, overflow: 'hidden', position: 'relative' },
+  row:        { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  tBox:       { width: 30, height: 30, borderRadius: 5, backgroundColor: '#FF2A1F', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FF2A1F' },
+  tTxt:       { fontSize: 18, fontWeight: '900', color: '#000', fontFamily: MONO },
+  title:      { fontSize: 11, fontWeight: '900', letterSpacing: 2, textTransform: 'uppercase' },
+  sub:        { fontSize: 6, color: '#5A626E', fontFamily: MONO, letterSpacing: 1, marginTop: 1 },
+  rightWrap:  { alignItems: 'flex-end', gap: 4 },
+  connBadge:  { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1.5, borderRadius: 5, paddingHorizontal: 7, paddingVertical: 4 },
+  connDot:    { width: 5, height: 5, borderRadius: 3 },
+  connTxt:    { fontSize: 8, fontWeight: '900', fontFamily: MONO, letterSpacing: 1.5 },
+  bottomEdge: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 1, backgroundColor: '#FF2A1F' },
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// 6. BootLogBox
+// ═══════════════════════════════════════════════════════════════════
+export function BootLogBox({
+  lines,
+  title = 'SYSTEM LOG',
+  height: boxH = 80,
+  autoPlay = true,
+}: {
+  lines: { text: string; color: string }[];
+  title?: string;
+  height?: number;
+  autoPlay?: boolean;
+}) {
+  const [visible, setVisible] = useState<number[]>([]);
+  const glowAnim = useRef(new Animated.Value(0.4)).current;
+
+  useEffect(() => {
+    Animated.loop(Animated.sequence([
+      Animated.timing(glowAnim, { toValue: 1,   duration: 900, useNativeDriver: false }),
+      Animated.timing(glowAnim, { toValue: 0.2, duration: 900, useNativeDriver: false }),
+    ])).start();
+    if (!autoPlay) return;
+    lines.forEach((_, i) => {
+      setTimeout(() => setVisible(prev => [...prev, i]), i * 320);
+    });
+  }, []);
+
+  return (
+    <View style={[blb.box, { height: boxH }]}>
+      <View style={blb.hdr}>
+        <View style={blb.dot} />
+        <View style={blb.dot} />
+        <View style={blb.dot} />
+        <Text style={blb.hdrTxt}>{title}</Text>
+        <Animated.Text style={[blb.recTxt, { opacity: glowAnim }]}>REC</Animated.Text>
+      </View>
+      <View style={blb.body}>
+        {lines.slice(0, 4).map((l, i) =>
+          visible.includes(i) || !autoPlay ? (
+            <TypewriterLine key={i} text={l.text} color={l.color} speed={14} />
+          ) : null
+        )}
+        <Animated.Text style={[blb.cursor, { opacity: glowAnim }]}>{'> _'}</Animated.Text>
+      </View>
+    </View>
+  );
+}
+const blb = StyleSheet.create({
+  box:    { backgroundColor: '#070708', borderRadius: 5, borderWidth: 1.5, borderColor: '#FF2A1F70', overflow: 'hidden' },
+  hdr:    { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#FF2A1F', paddingHorizontal: 10, paddingVertical: 5 },
+  dot:    { width: 7, height: 7, borderRadius: 4, backgroundColor: '#000' },
+  hdrTxt: { fontSize: 8, fontWeight: '900', color: '#000', fontFamily: MONO, letterSpacing: 1.5, flex: 1 },
+  recTxt: { fontSize: 8, fontWeight: '900', color: '#000', fontFamily: MONO, letterSpacing: 1 },
+  body:   { padding: 8, gap: 1 },
+  cursor: { fontSize: 10, color: '#FF2A1F', fontFamily: MONO, marginTop: 3 },
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// 7. AutoHealthButton
+// ═══════════════════════════════════════════════════════════════════
+export function AutoHealthButton({
+  label, icon, color = '#FF2A1F', onPress, onCheck, disabled, style, textStyle,
+}: {
+  label: string;
+  icon?: string;
+  color?: string;
+  onPress: () => Promise<void> | void;
+  onCheck?: () => Promise<boolean>;
+  disabled?: boolean;
+  style?: any;
+  textStyle?: any;
+}) {
+  const [checking, setChecking] = useState(false);
+  const [lastStatus, setLastStatus] = useState<'idle' | 'ok' | 'fail'>('idle');
+  const glowAnim = useRef(new Animated.Value(0.5)).current;
+
+  useEffect(() => {
+    Animated.loop(Animated.sequence([
+      Animated.timing(glowAnim, { toValue: 1,   duration: 1000, useNativeDriver: false }),
+      Animated.timing(glowAnim, { toValue: 0.3, duration: 1000, useNativeDriver: false }),
+    ])).start();
+  }, []);
+
+  const handlePress = async () => {
+    autoErrorLogger.log('info', 'AutoHealthButton', `Tapped: ${label}`);
+    await onPress();
+    if (onCheck) {
+      setChecking(true);
+      try {
+        const ok = await onCheck();
+        setLastStatus(ok ? 'ok' : 'fail');
+        autoErrorLogger.log(ok ? 'info' : 'warn', 'AutoHealthButton', `Health check for ${label}: ${ok ? 'PASS' : 'FAIL'}`);
+      } catch (e: any) {
+        setLastStatus('fail');
+        autoErrorLogger.log('error', 'AutoHealthButton', `Health check error for ${label}: ${e?.message}`);
+      } finally {
+        setChecking(false);
+        setTimeout(() => setLastStatus('idle'), 3000);
+      }
+    }
+  };
+
+  const statusColor = lastStatus === 'ok' ? '#00FF88' : lastStatus === 'fail' ? '#FF6A1F' : color;
+
+  return (
+    <GlitchPressButton onPress={handlePress} disabled={disabled || checking} style={style} logLabel={label}>
+      <Animated.View style={[ahb.inner, {
+        borderColor: statusColor + '80',
+        shadowColor: statusColor,
+        shadowOpacity: glowAnim as unknown as number,
+      }]}>
+        {icon ? <Text style={ahb.icon}>{icon}</Text> : null}
+        <Text style={[ahb.label, { color: statusColor }, textStyle]}>{label}</Text>
+        {checking ? (
+          <Animated.View style={[ahb.led, { backgroundColor: '#FF6A1F', opacity: glowAnim }]} />
+        ) : lastStatus !== 'idle' ? (
+          <View style={[ahb.led, { backgroundColor: statusColor }]} />
+        ) : null}
+      </Animated.View>
+    </GlitchPressButton>
+  );
+}
+const ahb = StyleSheet.create({
+  inner: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#0E0F12', borderRadius: 6, borderWidth: 1.5,
+    paddingHorizontal: 12, paddingVertical: 9, overflow: 'hidden',
+    ...Platform.select({
+      ios: { shadowOffset: { width: 0, height: 0 }, shadowRadius: 6 },
+      android: { elevation: 3 },
+    }),
+  },
+  icon:  { fontSize: 13 },
+  label: { fontSize: 10, fontWeight: '900', fontFamily: MONO, letterSpacing: 1, flex: 1 },
+  led:   { width: 6, height: 6, borderRadius: 3 },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AnimatedWire — minimal stub so older screens that import it don't crash.
+// Renders an absolutely-positioned line/dot accent matching the cyberpunk look.
+// Accepts every prop the old call sites pass (direction, length, color, etc.)
+// and ignores ones that aren't needed for the simple visual.
+// ─────────────────────────────────────────────────────────────────────────────
+type AnimatedWireProps = {
+  direction?: 'horizontal' | 'vertical';
+  length?: number;
+  color?: string;
+  thickness?: number;
+  dotCount?: number;
+  speed?: number;
+  caps?: boolean;
+  opacity?: number;
+  absolute?: boolean;
+  delay?: number;
+  style?: any;
+  [key: string]: any;
+};
+
+export function AnimatedWire({
+  direction = 'horizontal',
+  length = 40,
+  color = '#FF2A1F',
+  thickness = 1,
+  opacity = 0.5,
+  absolute = false,
+  style,
+}: AnimatedWireProps) {
+  const horizontal = direction === 'horizontal';
+  const baseStyle = {
+    width:  horizontal ? length : thickness,
+    height: horizontal ? thickness : length,
+    backgroundColor: color,
+    opacity,
+    ...(absolute ? { position: 'absolute' as const } : null),
+  };
+  return <View style={[baseStyle, style]} pointerEvents="none" />;
+}

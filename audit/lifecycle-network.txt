@@ -1,0 +1,496 @@
+# Timers and scheduler APIs
+app/(tabs)/_layout.tsx:204:    fastWatchdogRef.current = setTimeout(() => {
+app/(tabs)/_layout.tsx:212:    hardCapRef.current = setTimeout(() => {
+app/(tabs)/_layout.tsx:235:        setTimeout(hideSplash, 80);
+app/(tabs)/builder.tsx:57:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/builder.tsx:128:    const t = setInterval(() => {
+app/(tabs)/builder.tsx:135:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/builder.tsx:157:    setTimeout(() => {
+app/(tabs)/butler.tsx:63:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/butler.tsx:144:    const loops = anims.map((a, i) => Animated.loop(Animated.sequence([
+app/(tabs)/butler.tsx:190:    const t = setInterval(tick, 1000); return () => clearInterval(t);
+app/(tabs)/butler.tsx:194:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/butler.tsx:398:    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
+app/(tabs)/butler.tsx:420:        await new Promise(r => setTimeout(r, 500 + Math.random() * 400));
+app/(tabs)/butler.tsx:432:        const timeoutId = setTimeout(() => ctrl.abort(), 35000);
+app/(tabs)/connect.tsx:35:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/connect.tsx:49:    const s = Animated.loop(Animated.sequence([
+app/(tabs)/connect.tsx:54:    const p = Animated.loop(Animated.sequence([
+app/(tabs)/connect.tsx:153:    const t = setInterval(() => {
+app/(tabs)/connect.tsx:161:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/cosmetic.tsx:78:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/cosmetic.tsx:168:    const t = setInterval(() => {
+app/(tabs)/cosmetic.tsx:175:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/fileshare.tsx:44:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/fileshare.tsx:64:    const t = setInterval(() => {
+app/(tabs)/fileshare.tsx:71:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/fileshare.tsx:169:      const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 60000);
+app/(tabs)/home.tsx:57:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/home.tsx:92:    const t = setInterval(tick, 1000); return () => clearInterval(t);
+app/(tabs)/home.tsx:96:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/home.tsx:189:    const loop = Animated.loop(
+app/(tabs)/home.tsx:306:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/home.tsx:364:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/home.tsx:865:        const timeout = setTimeout(() => ctrl.abort(), 5000);
+app/(tabs)/home.tsx:904:    const t = setInterval(() => {
+app/(tabs)/knowledge.tsx:124:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/knowledge.tsx:155:    const t = setInterval(tick, 1000); return () => clearInterval(t);
+app/(tabs)/knowledge.tsx:158:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/knowledge.tsx:246:    const loop = Animated.loop(
+app/(tabs)/knowledge.tsx:373:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/knowledge.tsx:711:    await new Promise(r => setTimeout(r, 1400));
+app/(tabs)/logs.tsx:69:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/logs.tsx:83:    const t = setInterval(() => {
+app/(tabs)/logs.tsx:91:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/logs.tsx:195:      timerRef.current = setInterval(() => {
+app/(tabs)/monitor.tsx:40:    const timer = setInterval(() => refresh(false), 5000);
+app/(tabs)/onboarding.tsx:120:  setTimeout(attempt, 400);
+app/(tabs)/onboarding.tsx:121:  setTimeout(attempt, 1000);
+app/(tabs)/onboarding.tsx:122:  setTimeout(attempt, 2200);
+app/(tabs)/onboarding.tsx:140:    setTimeout(() => hp.medium(),  130);
+app/(tabs)/onboarding.tsx:141:    setTimeout(() => hp.heavy(),   270);
+app/(tabs)/onboarding.tsx:142:    setTimeout(() => hp.success(), 460);
+app/(tabs)/onboarding.tsx:143:    setTimeout(() => hp.success(), 650);
+app/(tabs)/onboarding.tsx:144:    setTimeout(() => hp.success(), 820);
+app/(tabs)/onboarding.tsx:408:      Animated.loop(
+app/(tabs)/onboarding.tsx:485:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/onboarding.tsx:499:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/onboarding.tsx:563:    const r = Animated.loop(Animated.timing(ring, { toValue: 1, duration: 7200, useNativeDriver: ND }));
+app/(tabs)/onboarding.tsx:564:    const p = Animated.loop(Animated.sequence([
+app/(tabs)/onboarding.tsx:591:    const shim = Animated.loop(Animated.sequence([
+app/(tabs)/onboarding.tsx:596:    const glow = Animated.loop(Animated.sequence([
+app/(tabs)/onboarding.tsx:600:    const scan = Animated.loop(Animated.sequence([
+app/(tabs)/onboarding.tsx:828:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/onboarding.tsx:1453:    const p = Animated.loop(Animated.sequence([
+app/(tabs)/onboarding.tsx:1457:    const s = Animated.loop(Animated.timing(spin, { toValue:1, duration:8000, useNativeDriver:ND }));
+app/(tabs)/onboarding.tsx:1496:    const g  = Animated.loop(Animated.sequence([
+app/(tabs)/onboarding.tsx:1500:    const s  = Animated.loop(Animated.sequence([
+app/(tabs)/onboarding.tsx:1504:    const r  = Animated.loop(Animated.timing(ringRot, { toValue:1, duration:6000, useNativeDriver:ND }));
+app/(tabs)/onboarding.tsx:1505:    const bp = Animated.loop(Animated.sequence([
+app/(tabs)/onboarding.tsx:1671:      setTimeout(() => { onClose(); onPaired(); }, 900);
+app/(tabs)/onboarding.tsx:1921:    bubbleTimerRef.current = setTimeout(() => setBubbleVisible(false), 4500);
+app/(tabs)/onboarding.tsx:1931:    const t = setTimeout(() => showBubble(0), 900);
+app/(tabs)/onboarding.tsx:1948:      setTimeout(() => {
+app/(tabs)/onboarding.tsx:2004:        setTimeout(() => scrollRef.current?.scrollTo({ y: 0, animated: false }), 6);
+app/(tabs)/onboarding.tsx:2011:          setTimeout(() => showBubble(nextIdx), 350);
+app/(tabs)/onboarding.tsx:2026:        setTimeout(() => scrollRef.current?.scrollTo({ y: 0, animated: false }), 10);
+app/(tabs)/onboarding.tsx:2031:        ]).start(() => setTimeout(() => showBubble(nextIdx), 350));
+app/(tabs)/onboarding.tsx:2042:    setTimeout(() => { launchingRef.current = false; }, 4000);
+app/(tabs)/onboarding.tsx:2165:    const sweep = Animated.loop(
+app/(tabs)/onboarding.tsx:2174:    const glow = Animated.loop(Animated.sequence([
+app/(tabs)/onboarding.tsx:2179:    const alert = Animated.loop(Animated.sequence([
+app/(tabs)/scripts.tsx:95:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/scripts.tsx:197:    const t = setInterval(() => {
+app/(tabs)/scripts.tsx:204:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/scripts.tsx:522:      await new Promise(r => setTimeout(r, 700));
+app/(tabs)/scripts.tsx:551:      setTimeout(() => setCopied(false), 2000);
+app/(tabs)/settings.tsx:111:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/settings.tsx:125:    const t = setInterval(() => {
+app/(tabs)/settings.tsx:132:    const loop = Animated.loop(Animated.sequence([
+app/(tabs)/settings.tsx:511:  setTimeout(function(){document.getElementById('paste-ta').focus();},100);
+app/(tabs)/settings.tsx:528:  document.body.appendChild(t);setTimeout(function(){t.remove();},2200);
+app/(tabs)/settings.tsx:610:    setTimeout(() => {
+app/_layout.tsx:148:          setTimeout(() => {
+app/category/[id].tsx:68:        setTimeout(() => setCopied(false), 2000);
+app/category/[id].tsx:88:    Animated.loop(Animated.sequence([
+app/category/[id].tsx:125:                  onPress={async () => { haptics.medium(); await copyText(fix.command); setCopiedIdx(idx); setTimeout(() => setCopiedIdx(null), 2200); }}
+app/category/[id].tsx:313:    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
+app/crash-report.tsx:73:    const loop = Animated.loop(Animated.sequence([
+app/crash-report.tsx:196:    const loop = Animated.loop(Animated.sequence([
+app/crash-report.tsx:240:      setTimeout(() => setCleared(false), 3000);
+app/crash-report.tsx:255:      setTimeout(() => setAutoSaved(false), 2000);
+components/cyber/HackerGrid.tsx:100:    setTimeout(() => {
+components/home/AIBrainMasterpieceCard.tsx:65:    const l = Animated.loop(Animated.sequence([
+components/home/AIBrainMasterpieceCard.tsx:112:      Animated.loop(Animated.sequence([
+components/home/AIBrainMasterpieceCard.tsx:119:      Animated.loop(Animated.sequence([
+components/home/AIBrainMasterpieceCard.tsx:126:    const scan = Animated.loop(Animated.timing(scanAnim, { toValue: 1, duration: 3800, useNativeDriver: false }));
+components/home/AIBrainMasterpieceCard.tsx:127:    const glow = Animated.loop(Animated.sequence([
+components/home/AIBrainMasterpieceCard.tsx:232:    const sh = Animated.loop(Animated.sequence([
+components/home/AIBrainMasterpieceCard.tsx:586:    const l = Animated.loop(Animated.sequence([
+components/home/AIBrainMasterpieceCard.tsx:637:          const c = new AbortController(); const t = setTimeout(() => c.abort(), 4000);
+components/home/AIBrainMasterpieceCard.tsx:649:  useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, [load]);
+components/home/AIBrainMasterpieceCard.tsx:658:      setTimeout(load, 2000);
+components/home/AIBrainMasterpieceCard.tsx:661:        const c = new AbortController(); const t = setTimeout(() => c.abort(), 10000);
+components/home/AIBrainMasterpieceCard.tsx:670:        setTimeout(load, 2000);
+components/home/LiveTerminalFeed.tsx:170:    const cl = Animated.loop(Animated.sequence([
+components/home/LiveTerminalFeed.tsx:182:    const tid = setInterval(() => {
+components/home/LiveTerminalFeed.tsx:188:        setTimeout(() => setMsgIdx(m => (m + 1) % BOT_MSGS.length), 3800);
+components/home/LiveTerminalFeed.tsx:245:    const gl = Animated.loop(Animated.sequence([
+components/home/LiveTerminalFeed.tsx:249:    const sc = Animated.loop(Animated.sequence([
+components/home/LiveTerminalFeed.tsx:339:    const t = setInterval(fetch, 8000);
+components/home/NetworkTopologyCard.tsx:70:    const pulse = Animated.loop(Animated.sequence([
+components/home/NetworkTopologyCard.tsx:129:    const l = Animated.loop(Animated.sequence([
+components/home/NetworkTopologyCard.tsx:167:      const l = Animated.loop(Animated.sequence([
+components/home/NetworkTopologyCard.tsx:295:    const l = Animated.loop(Animated.sequence([
+components/home/NexusCommandCenter.tsx:95:    const loop = Animated.loop(Animated.sequence([
+components/home/NexusCommandCenter.tsx:124:      tiRef.current = setTimeout(() => {
+components/home/NexusCommandCenter.tsx:130:      tiRef.current = setTimeout(() => {
+components/home/NexusCommandCenter.tsx:197:    const scanLoop = Animated.loop(Animated.sequence([
+components/home/NexusCommandCenter.tsx:205:    const pulseLoop = Animated.loop(Animated.sequence([
+components/home/NexusCommandCenter.tsx:213:    const glowLoop = Animated.loop(Animated.sequence([
+components/home/NexusCommandCenter.tsx:220:    const radarLoop = Animated.loop(
+components/home/NexusCommandCenter.tsx:247:      lineTimerRef.current = setTimeout(advanceCrawler, 22);
+components/home/NexusCommandCenter.tsx:254:      lineTimerRef.current = setTimeout(() => {
+components/home/NexusCommandCenter.tsx:263:    lineTimerRef.current = setTimeout(advanceCrawler, 1200);
+components/home/NexusHeroCard.tsx:90:      Animated.loop(Animated.sequence([
+components/home/NexusHeroCard.tsx:96:      Animated.loop(Animated.sequence([
+components/home/NexusHeroCard.tsx:101:      Animated.loop(Animated.sequence([
+components/home/NexusHeroCard.tsx:106:      Animated.loop(Animated.sequence([
+components/home/NexusHeroCard.tsx:113:    const ti = setInterval(() => setTickerIdx(i => (i + 1) % TICKER_MSGS.length), 3000);
+components/home/RemoteAccessMonetizationCard.tsx:52:    const loop = Animated.loop(Animated.sequence([
+components/layout/TopBar.tsx:31:    const loop = Animated.loop(Animated.sequence([
+components/ui/AnimatedWire.tsx:59:    const loop = Animated.loop(
+components/ui/AnimatedWire.tsx:121:    Animated.loop(
+components/ui/AnimatedWire.tsx:316:    Animated.loop(
+components/ui/BiometricLockOverlay.tsx:85:    const l = Animated.loop(Animated.sequence([
+components/ui/BiometricLockOverlay.tsx:95:      Animated.loop(Animated.sequence([
+components/ui/BiometricLockOverlay.tsx:116:    const l = Animated.loop(Animated.sequence([
+components/ui/BiometricLockOverlay.tsx:130:        setTimeout(() => handleBiometric(), 600);
+components/ui/BiometricLockOverlay.tsx:185:      setTimeout(() => setPinError(''), 2000);
+components/ui/BiometricLockOverlay.tsx:326:                  <TouchableOpacity key={sec} onPress={() => biometricLock.setTimeout(sec)}
+components/ui/ButlerAITitle3D.tsx:55:    Animated.loop(
+components/ui/ButlerAITitle3D.tsx:64:    Animated.loop(
+components/ui/ButlerAtmosphere.tsx:15:    const loop = Animated.loop(Animated.sequence([
+components/ui/ButlerBackpackShowcase.tsx:17:    const loop = Animated.loop(Animated.sequence([
+components/ui/ButlerBuildModePanel.tsx:40:    const loop = Animated.loop(Animated.sequence([
+components/ui/ButlerDragonFlavorMoment.tsx:16:  useFocusEffect(useCallback(() => { focused.current = true; const timer = setInterval(reveal, 60 * 60 * 1000); return () => { focused.current = false; clearInterval(timer); setVisible(false); }; }, [reveal]));
+components/ui/ButlerFX.tsx:65:    Animated.loop(Animated.sequence([
+components/ui/ButlerFX.tsx:75:    Animated.loop(Animated.sequence([
+components/ui/ButlerFX.tsx:79:    Animated.loop(Animated.sequence([
+components/ui/ButlerFX.tsx:83:    const t = setInterval(() => {
+components/ui/ButlerFX.tsx:205:    const id = setInterval(() => {
+components/ui/ButlerFX.tsx:210:    Animated.loop(Animated.sequence([
+components/ui/ButlerFX.tsx:242:    Animated.loop(Animated.sequence([
+components/ui/ButlerFX.tsx:347:    Animated.loop(Animated.sequence([
+components/ui/ButlerFX.tsx:418:    Animated.loop(Animated.sequence([
+components/ui/ButlerFX.tsx:424:      setTimeout(() => setVisible(prev => [...prev, i]), i * 320);
+components/ui/ButlerFX.tsx:478:    Animated.loop(Animated.sequence([
+components/ui/ButlerFX.tsx:498:        setTimeout(() => setLastStatus('idle'), 3000);
+components/ui/ButlerLoadingScreen.tsx:31:    const loop = Animated.loop(Animated.parallel([
+components/ui/ButlerMascotMotion.tsx:19:    const movement = Animated.loop(Animated.sequence([
+components/ui/ButlerPackageSpotlight.tsx:22:  const start = useCallback(() => { if (timer.current) clearInterval(timer.current); if (!focused.current) return; timer.current = setInterval(rotate, 1800); }, [rotate]);
+components/ui/ButlerSignalIcon.tsx:24:    const loop = Animated.loop(Animated.sequence([
+components/ui/ButlerWelcomeHub.tsx:127:    const id = setInterval(() => setTipIdx(i => (i + 1) % TIPS.length), 6500);
+components/ui/ButlerWelcomeHub.tsx:133:    Animated.loop(Animated.sequence([
+components/ui/CompactPageHeader.tsx:71:    const glow = Animated.loop(Animated.sequence([
+components/ui/CompactPageHeader.tsx:75:    const dot = Animated.loop(Animated.sequence([
+components/ui/CyberPanel.tsx:39:    const glowLoop = Animated.loop(Animated.sequence([
+components/ui/CyberPanel.tsx:44:    const scanLoop = Animated.loop(Animated.sequence([
+components/ui/GitHubUpdateBanner.tsx:34:    const loop = Animated.loop(Animated.sequence([
+components/ui/GlitchText.tsx:35:    const timer = setTimeout(() => {
+components/ui/GlitchText.tsx:36:      const loop = Animated.loop(
+components/ui/Guard.tsx:46:      this.timer = setTimeout(() => {
+components/ui/MultiPCManager.tsx:50:    const l = Animated.loop(Animated.sequence([
+components/ui/NexusFX.tsx:65:    Animated.loop(Animated.sequence([
+components/ui/NexusFX.tsx:75:    Animated.loop(Animated.sequence([
+components/ui/NexusFX.tsx:79:    Animated.loop(Animated.sequence([
+components/ui/NexusFX.tsx:83:    const t = setInterval(() => {
+components/ui/NexusFX.tsx:205:    const id = setInterval(() => {
+components/ui/NexusFX.tsx:210:    Animated.loop(Animated.sequence([
+components/ui/NexusFX.tsx:242:    Animated.loop(Animated.sequence([
+components/ui/NexusFX.tsx:347:    Animated.loop(Animated.sequence([
+components/ui/NexusFX.tsx:418:    Animated.loop(Animated.sequence([
+components/ui/NexusFX.tsx:424:      setTimeout(() => setVisible(prev => [...prev, i]), i * 320);
+components/ui/NexusFX.tsx:478:    Animated.loop(Animated.sequence([
+components/ui/NexusFX.tsx:498:        setTimeout(() => setLastStatus('idle'), 3000);
+components/ui/NexusLiveCard.tsx:104:    const pulse = Animated.loop(Animated.sequence([
+components/ui/NexusLiveCard.tsx:108:    const shim = Animated.loop(Animated.sequence([
+components/ui/NexusPageBanner.tsx:134:    const t = setTimeout(() => {
+components/ui/NexusPageBanner.tsx:135:      const glow = Animated.loop(Animated.sequence([
+components/ui/NexusPageBanner.tsx:140:      const spin = Animated.loop(
+components/ui/NexusPageBanner.tsx:143:      const inner = Animated.loop(Animated.sequence([
+components/ui/NexusPageBanner.tsx:242:    const t = setTimeout(() => setParticlesReady(true), 500);
+components/ui/NexusPageBanner.tsx:248:    const p = Animated.loop(Animated.sequence([
+components/ui/NexusPageBanner.tsx:258:    const s = Animated.loop(Animated.sequence([
+components/ui/NexusPageBanner.tsx:277:        setTimeout(() => ctrl.abort(), 3500);
+components/ui/NexusPageBanner.tsx:293:    const t = setInterval(poll, 6000);
+components/ui/NexusTips.tsx:268:    const t = setInterval(() => {
+components/ui/NexusVaultCard.tsx:69:    const l = Animated.loop(Animated.sequence([
+components/ui/NexusVaultCard.tsx:98:      Animated.loop(Animated.sequence([
+components/ui/NexusVaultCard.tsx:105:    const spin = Animated.loop(
+components/ui/NexusVaultCard.tsx:108:    const glow = Animated.loop(Animated.sequence([
+components/ui/NexusVaultCard.tsx:547:      offlineTimerRef.current = setInterval(() => {
+components/ui/NexusVaultCard.tsx:579:    const l = Animated.loop(Animated.sequence([
+components/ui/OnboardingHeroStep.tsx:92:        t = setTimeout(() => { charRef.current++; setTyped(full.slice(0,charRef.current)); }, 40);
+components/ui/OnboardingHeroStep.tsx:93:      } else { t = setTimeout(() => setDel(true), 2400); }
+components/ui/OnboardingHeroStep.tsx:96:        t = setTimeout(() => { charRef.current--; setTyped(full.slice(0,charRef.current)); }, 20);
+components/ui/OnboardingHeroStep.tsx:106:      setTimeout(() => setBootN(n => Math.max(n,i+1)), 200 + i*280)
+components/ui/OnboardingHeroStep.tsx:115:    const l = Animated.loop(Animated.sequence([
+components/ui/OnboardingHeroStep.tsx:138:    const l = Animated.loop(Animated.sequence([
+components/ui/OnboardingHeroStep.tsx:148:    const l = Animated.loop(Animated.timing(ringA, { toValue:1, duration:9000, useNativeDriver:true, easing:Easing.linear }));
+components/ui/OnboardingHeroStep.tsx:155:    const l = Animated.loop(Animated.sequence([
+components/ui/OnboardingHeroStep.tsx:166:    const l = Animated.loop(Animated.sequence([
+components/ui/OnboardingHeroStep.tsx:475:    const l = Animated.loop(Animated.sequence([
+components/ui/PageMascot.tsx:114:    const float = Animated.loop(Animated.sequence([
+components/ui/PageMascot.tsx:118:    const glow = Animated.loop(Animated.sequence([
+components/ui/PageMascot.tsx:126:      const t = setTimeout(() => {
+components/ui/PageMascot.tsx:129:        setTimeout(() => {
+components/ui/PageMascot.tsx:152:      setTimeout(() => {
+components/ui/PerformanceMonitorWidget.tsx:70:    const glow = Animated.loop(Animated.sequence([
+components/ui/PerformanceMonitorWidget.tsx:233:    const a = Animated.loop(Animated.sequence([
+components/ui/PerformanceMonitorWidget.tsx:250:      setTimeout(() => ctrl.abort(), 5000);
+components/ui/PerformanceMonitorWidget.tsx:274:    const t = setInterval(() => { if (isConnected) fetchMetrics(); }, 5000);
+components/ui/QuickButlerBar.tsx:56:    const loop = Animated.loop(Animated.sequence([
+components/ui/QuickButlerBar.tsx:148:    const loop = Animated.loop(Animated.sequence([
+components/ui/RemoteAccessCard.tsx:43:    const l = Animated.loop(Animated.sequence([
+components/ui/RemoteAccessCard.tsx:71:    const g = Animated.loop(Animated.sequence([
+components/ui/RemoteAccessCard.tsx:112:      setTimeout(() => ctrl.abort(), 10000);
+components/ui/RemoteAccessCard.tsx:152:      setTimeout(() => setCopied(false), 3000);
+components/ui/RemoteAccessHomeBanner.tsx:52:    const g = Animated.loop(Animated.sequence([
+components/ui/RemoteAccessHomeBanner.tsx:56:    const sc = Animated.loop(Animated.sequence([
+components/ui/RemoteAccessHomeBanner.tsx:61:    const p = Animated.loop(Animated.sequence([
+components/ui/RemoteAccessHomeBanner.tsx:78:      setTimeout(() => ctrl.abort(), 8000);
+components/ui/RuntimeDiagnosticsHUD.tsx:79:      const pulse = Animated.loop(Animated.sequence([
+components/ui/RuntimeDiagnosticsHUD.tsx:83:      const glow = Animated.loop(Animated.sequence([
+components/ui/SecurityShowcase.tsx:50:    const loop = Animated.loop(Animated.sequence([
+components/ui/SecurityShowcase.tsx:179:    timer.current = setInterval(() => {
+components/ui/ServerConsolePanel.tsx:56:    const loop = Animated.loop(Animated.sequence([
+components/ui/SkinHeaderFX.tsx:39:    const a = Animated.loop(
+components/ui/SkinHeaderFX.tsx:51:    const b = Animated.loop(
+components/ui/TabErrorBoundary.tsx:71:        this._autoResetTimer = setTimeout(() => {
+services/autoConnectEngine.ts:113:    setTimeout(() => {
+services/autoConnectEngine.ts:161:    setTimeout(() => { try { (global as any).__kgeOnReconnect?.(); } catch {} }, 2000);
+services/autoConnectEngine.ts:300:    this._pingTimer = setInterval(async () => {
+services/autoConnectEngine.ts:340:            this._reconnTimer = setTimeout(async () => {
+services/autoConnectEngine.ts:414:    this._persistRetryTimer = setInterval(async () => {
+services/autoConnectEngine.ts:438:    this._reconnTimer = setTimeout(async () => {
+services/autoErrorLogger.ts:46:    this._saveTimer = setTimeout(() => this._persist(), 1500);
+services/biometricLock.ts:242:  async setTimeout(sec: number): Promise<void> {
+services/bootGuard.tsx:45:  try { setTimeout(() => hideSplash(), ms); } catch {}
+services/bootGuard.tsx:127:    const t = setTimeout(hideSplash, hardCapMs);
+services/bootGuard.tsx:219:    const t = setTimeout(() => { markBootSurvived().catch(() => {}); }, 3000);
+services/butlerAsk.ts:70:  const kill = setTimeout(() => { try { ctrl.abort(); } catch {} }, 8000);
+services/butlerAsk.ts:136:  const kill = setTimeout(() => { try { ctrl.abort(); } catch {} }, TIMEOUT_MS);
+services/connectionHub.ts:168:    this._startupTimer = setTimeout(() => {
+services/connectionHub.ts:191:        const tid  = setTimeout(() => ctrl.abort(), 3_000);
+services/connectionHub.ts:403:    const tid  = setTimeout(() => ctrl.abort(), timeoutMs);
+services/connectionHub.ts:414:        const retryTid  = setTimeout(() => retryCtrl.abort(), timeoutMs);
+services/connectionHub.ts:501:        const tid  = setTimeout(() => ctrl.abort(), 5_000);
+services/connectionHub.ts:517:        if (attempt === 0) await new Promise(r => setTimeout(r, 800)); // brief retry delay
+services/connectionHub.ts:522:    setTimeout(() => { this._probeOllama().catch(() => {}); }, 200);
+services/connectionHub.ts:532:      const tid  = setTimeout(() => ctrl.abort(), 4_000);
+services/connectionPersistence.ts:115:      const tid  = setTimeout(() => ctrl.abort(), 2000);
+services/connectionPersistence.ts:240:      this._reconnTimer = setTimeout(tick, this._backoffMs) as any;
+services/connectionPersistence.ts:242:    this._reconnTimer = setTimeout(tick, 4_000) as any;
+services/designCatalogSync.ts:32:    const timeout = setTimeout(() => controller.abort(), 3500);
+services/frameBudgetMonitor.ts:83:    this._raf = requestAnimationFrame((timestamp) => {
+services/haptics.ts:67:    setTimeout(() => imp('Light'), 100);
+services/haptics.ts:73:    setTimeout(() => imp('Medium'), 100);
+services/haptics.ts:74:    setTimeout(() => imp('Heavy'), 200);
+services/haptics.ts:80:    setTimeout(() => imp('Heavy'), 80);
+services/haptics.ts:86:    setTimeout(() => imp('Heavy'), 60);
+services/haptics.ts:87:    setTimeout(() => imp('Heavy'), 120);
+services/haptics.ts:93:    setTimeout(() => imp('Light'), 50);
+services/haptics.ts:94:    setTimeout(() => imp('Medium'), 150);
+services/haptics.ts:105:    setTimeout(() => notif('Success'), 120);
+services/haptics.ts:116:    setTimeout(() => imp('Light'), 80);
+services/haptics.ts:117:    setTimeout(() => imp('Light'), 180);
+services/haptics.ts:123:    setTimeout(() => imp('Light'), 150);
+services/haptics.ts:129:    setTimeout(() => imp('Medium'), 100);
+services/haptics.ts:130:    setTimeout(() => notif('Success'), 250);
+services/haptics.ts:136:    setTimeout(() => imp('Medium'), 100);
+services/haptics.ts:137:    setTimeout(() => imp('Light'), 200);
+services/haptics.ts:138:    setTimeout(() => notif('Success'), 350);
+services/haptics.ts:147:    setTimeout(() => imp('Rigid'), 100);
+services/heartbeatEngine.ts:97:      const tid = setTimeout(() => controller.abort(), 4000);
+services/knowledgeAccumulator.ts:352:    this.autoSaveInterval = setTimeout(() => {
+services/lanScanner.ts:147:      const tid  = setTimeout(() => ctrl.abort(), HOST_TIMEOUT_MS);
+services/lanScanner.ts:223:        const tid  = setTimeout(() => ctrl.abort(), 1500);
+services/lanScanner.ts:387:    const tid  = setTimeout(() => ctrl.abort(), 6000);
+services/networkMonitor.ts:131:    this._saveTimer = setTimeout(async () => {
+services/neuralTripwire.ts:233:      setTimeout(() => ctrl.abort(), 5000);
+services/nexusCrawlerEngine.ts:304:        await new Promise(res => setTimeout(res, CRAWL_DELAY_MS));
+services/nexusCrawlerEngine.ts:344:        await new Promise(r => setTimeout(r, delay));
+services/nexusCrawlerEngine.ts:357:        const timeoutId = setTimeout(() => ctrl.abort(), 14000);
+services/nexusCrawlerEngine.ts:470:        if (i < todo.length - 1) await new Promise(res => setTimeout(res, delay));
+services/nexusCrawlerEngine.ts:497:        await new Promise(res => setTimeout(res, CRAWL_DELAY_MS));
+services/nexusCrawlerEngine.ts:512:      await new Promise(res => setTimeout(res, CRAWL_DELAY_MS));
+services/otaUpdates.ts:137:    const kill = setTimeout(() => { try { ctrl.abort(); } catch {} }, 9000);
+services/otaUpdates.ts:227:      timer = setTimeout(tick, ms);
+services/otaUpdates.ts:239:    timer = setTimeout(tick, 6000);           // after first paint
+services/pcClipboard.ts:22:  const tid   = setTimeout(() => ctrl.abort(), 8_000);
+services/performanceGovernor.ts:150:      await new Promise<void>(resolve => setTimeout(resolve, Math.max(0, delayMs)));
+services/performanceGovernor.ts:177:        await new Promise<void>(resolve => setTimeout(resolve, 0));
+services/performanceGovernor.ts:188:    this._stallTimer = setTimeout(() => {
+services/performanceTuner.ts:92:      await new Promise(r => setTimeout(r, delayMs));
+services/performanceTuner.ts:118:      if (i + 2 < fetchers.length) await new Promise(r => setTimeout(r, 300));
+services/runtimeErrorMonitor.ts:146:        setTimeout(() => this.attemptFix(entry.id).catch(() => {}), 400);
+services/runtimeErrorMonitor.ts:341:    setTimeout(() => { this._runHealthCheck().catch(() => {}); }, 15_000);
+services/runtimeErrorMonitor.ts:372:          setTimeout(() => ctrl.abort(), 5000);
+services/runtimeErrorMonitor.ts:566:        setTimeout(() => {
+services/runtimeErrorMonitor.ts:583:        setTimeout(() => {
+services/scriptExecutor.ts:63:      const id = setTimeout(() => controller.abort(), 4000);
+services/scriptExecutor.ts:102:      const id = setTimeout(() => controller.abort(), timeout);
+services/scriptExecutor.ts:207:    const timer = setTimeout(() => controller.abort(), timeout);
+services/scriptExecutor.ts:283:    const tid   = setTimeout(() => ctrl.abort(), 90_000);
+services/scriptExecutor.ts:356:      setTimeout(() => ctrl.abort(), 8_000);
+services/scriptExecutor.ts:390:      setTimeout(() => ctrl.abort(), 8_000);
+services/scriptLibraryData.ts:201:  setTimeout(() => {
+services/serverConnection.ts:263:        const tid  = setTimeout(() => ctrl.abort(), 8000);
+services/serverConnection.ts:290:          const tid  = setTimeout(() => ctrl.abort(), 6000); // 6s for primary port
+services/serverConnection.ts:310:          const tid   = setTimeout(() => ctrl.abort(), 1500);
+services/serverConnection.ts:354:      const tid  = setTimeout(() => ctrl.abort(), 5000);
+services/serverConnection.ts:411:        const tid  = setTimeout(() => ctrl.abort(), 8000);
+services/serverConnection.ts:439:          const resetTid  = setTimeout(() => resetCtrl.abort(), 4000);
+services/serverConnection.ts:450:        await new Promise(r => setTimeout(r, 400));
+services/serverConnection.ts:548:      const tid  = setTimeout(() => ctrl.abort(), 5000);
+services/serverConnection.ts:568:        setTimeout(() => pc.abort(), 8000);
+services/serverConnection.ts:600:      const pc = new AbortController(); setTimeout(() => pc.abort(), 5000);
+services/serverConnection.ts:630:      setTimeout(() => ctrl.abort(), 5000);
+services/serverConnection.ts:707:    const timer = setTimeout(() => controller.abort(), 8000);
+services/serverCrawler.ts:89:      setTimeout(() => ctrl.abort(), 4000);
+services/serverCrawler.ts:143:      setTimeout(() => ctrl.abort(), 35000);
+services/serverCrawler.ts:263:        setTimeout(() => ctrl.abort(), 60000);
+services/serverCrawler.ts:298:        await new Promise(r => setTimeout(r, 400)); // rate limit
+services/serverMetrics.ts:79:      const tid  = setTimeout(() => ctrl.abort(), 6000);
+services/smokeBeacon.ts:113:  const timer = setTimeout(() => {
+services/timerBus.ts:39:  e.handle = setInterval(() => safeRun(e), e.ms);
+hooks/useAppActive.ts:45: *   loopRef.current = Animated.loop(...);
+hooks/useAppSync.ts:59:    const tid   = setTimeout(() => ctrl.abort(), 8_000);
+hooks/useAppSync.ts:106:    const t = setTimeout(() => {
+
+# Lifecycle and focus guards
+app/(tabs)/_layout.tsx:38:import { View, StyleSheet, Platform, AppState } from 'react-native';
+app/(tabs)/_layout.tsx:167:    const sub = AppState.addEventListener('change', (nextState) => {
+app/(tabs)/butler.tsx:20:import { useFocusEffect } from 'expo-router';
+app/(tabs)/butler.tsx:377:  useFocusEffect(useCallback(() => {
+app/(tabs)/connect.tsx:13:import { useFocusEffect } from 'expo-router';
+app/(tabs)/connect.tsx:169:  useFocusEffect(useCallback(() => {
+app/(tabs)/fileshare.tsx:20:import { useFocusEffect } from 'expo-router';
+app/(tabs)/fileshare.tsx:132:  useFocusEffect(useCallback(() => {
+app/(tabs)/home.tsx:15:  Animated, Platform, Dimensions, Linking, RefreshControl, TextInput, Alert, AppState, useWindowDimensions,
+app/(tabs)/home.tsx:23:import { useFocusEffect } from 'expo-router';
+app/(tabs)/home.tsx:838:  const appStateRef = useRef(AppState.currentState);
+app/(tabs)/home.tsx:898:  useFocusEffect(useCallback(() => {
+app/(tabs)/home.tsx:900:    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+app/(tabs)/knowledge.tsx:21:import { useFocusEffect } from 'expo-router';
+app/(tabs)/knowledge.tsx:847:  useFocusEffect(useCallback(() => {
+app/(tabs)/logs.tsx:17:import { useFocusEffect } from 'expo-router';
+app/(tabs)/logs.tsx:183:  useFocusEffect(useCallback(() => {
+app/(tabs)/onboarding.tsx:17: * NOTE: This screen no longer contains a useFocusEffect redirect guard.
+app/(tabs)/onboarding.tsx:20: * mounted for a returning user. Do NOT re-add a useFocusEffect redirect here.
+app/(tabs)/onboarding.tsx:1887:    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+app/(tabs)/onboarding.tsx:1938:  // NOTE: This screen no longer has a useFocusEffect redirect guard.
+app/(tabs)/onboarding.tsx:1941:  // a returning user. Do NOT re-add useFocusEffect redirect logic here.
+app/(tabs)/scripts.tsx:20:import { useFocusEffect } from 'expo-router';
+app/(tabs)/scripts.tsx:433:  useFocusEffect(useCallback(() => {
+app/(tabs)/settings.tsx:530:document.addEventListener('keydown',function(e){
+app/_layout.tsx:3:import { AppState } from 'react-native';
+app/_layout.tsx:210:    syncFrameMonitor(AppState.currentState);
+app/_layout.tsx:211:    const sub = AppState.addEventListener('change', syncFrameMonitor);
+components/home/LiveTerminalFeed.tsx:19:import { useIsFocused } from '@react-navigation/native';
+components/home/LiveTerminalFeed.tsx:232:  const isFocused = useIsFocused();
+components/home/NexusHeroCard.tsx:13:import { useIsFocused } from '@react-navigation/native';
+components/home/NexusHeroCard.tsx:50:  const isFocused = useIsFocused();
+components/ui/ButlerBackpackShowcase.tsx:3:import { useFocusEffect } from 'expo-router';
+components/ui/ButlerBackpackShowcase.tsx:25:  useFocusEffect(useCallback(() => { focused.current = true; start(); return () => { focused.current = false; loopRef.current?.stop(); loopRef.current = null; }; }, [start]));
+components/ui/ButlerDragonFlavorMoment.tsx:4:import { useFocusEffect } from 'expo-router';
+components/ui/ButlerDragonFlavorMoment.tsx:16:  useFocusEffect(useCallback(() => { focused.current = true; const timer = setInterval(reveal, 60 * 60 * 1000); return () => { focused.current = false; clearInterval(timer); setVisible(false); }; }, [reveal]));
+components/ui/ButlerPackageSpotlight.tsx:4:import { useFocusEffect } from 'expo-router';
+components/ui/ButlerPackageSpotlight.tsx:23:  useFocusEffect(useCallback(() => { focused.current = true; start(); return () => { focused.current = false; if (timer.current) clearInterval(timer.current); timer.current = null; }; }, [start]));
+components/ui/NexusVaultCard.tsx:24:  ScrollView, AppState, AppStateStatus, Dimensions,
+components/ui/NexusVaultCard.tsx:478:  const appStateRef      = useRef<AppStateStatus>('active');
+components/ui/NexusVaultCard.tsx:537:    const handleAppState = (state: AppStateStatus) => { appStateRef.current = state; };
+components/ui/NexusVaultCard.tsx:538:    const sub = AppState.addEventListener('change', handleAppState);
+components/ui/PerformanceMonitorWidget.tsx:14:import { useFocusEffect } from 'expo-router';
+components/ui/PerformanceMonitorWidget.tsx:272:  useFocusEffect(useCallback(() => {
+services/autoConnectEngine.ts:18:import { AppState, AppStateStatus } from 'react-native';
+services/autoConnectEngine.ts:110:    // before attaching the AppState listener. On New Architecture +
+services/autoConnectEngine.ts:114:      try { this._appStateSub = AppState.addEventListener('change', this._onAppState); }
+services/autoConnectEngine.ts:115:      catch (e) { console.warn('[autoConnectEngine] AppState listener attach failed:', e); }
+services/autoConnectEngine.ts:452:  private _onAppState = (nextState: AppStateStatus) => {
+services/biometricLock.ts:133:  // ── Called when app backgrounds (AppState = background) ─────
+services/biometricLock.ts:143:  // ── Called when app foregrounds (AppState = active) ──────────
+services/connectionDiagnostics.ts:76:  logAppState(state: string): void {
+services/scriptExecutor.ts:286:      opts.signal.addEventListener('abort', () => ctrl.abort());
+services/serverMetrics.ts:9:import { AppState } from 'react-native';
+services/serverMetrics.ts:67:    if (AppState.currentState !== 'active') return this.cache;
+services/timerBus.ts:13: * Pure React Native — AppState only, no web APIs.
+services/timerBus.ts:15:import { AppState, type AppStateStatus } from 'react-native';
+services/timerBus.ts:53:    AppState.addEventListener('change', (state: AppStateStatus) => {
+hooks/useAppActive.ts:7:import { AppState, AppStateStatus } from 'react-native';
+hooks/useAppActive.ts:14:    const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
+hooks/useAppSync.ts:14:import { AppState } from 'react-native';
+hooks/useAppSync.ts:114:    const sub = AppState.addEventListener('change', (state) => {
+hooks/useConnection.ts:5: *   useState isConnected + useState serverAddr + useFocusEffect × 3
+hooks/useConnection.ts:20:import { useFocusEffect } from 'expo-router';
+hooks/useConnection.ts:66:  useFocusEffect(
+
+# Networking patterns
+app/(tabs)/butler.tsx:386:      const res = await serverConnection.request('/api/ollama/models');
+app/(tabs)/butler.tsx:441:          const res = await serverConnection.request('/api/butler/chat', {
+app/(tabs)/fileshare.tsx:170:      const res  = await fetch(`http://${ip}:${prt}/api/receive_file`, { method:'POST', headers:h, body:fd, signal:ctrl.signal });
+app/(tabs)/fileshare.tsx:200:      await fetch(`http://${ip}:${prt}/api/clipboard`, { method:'POST', headers:h, body: JSON.stringify({ text:clip }) });
+app/(tabs)/home.tsx:867:          const res = await serverConnection.request('/api/metrics', { signal: ctrl.signal });
+app/(tabs)/home.tsx:876:          const learn = await serverConnection.request('/api/learn/status');
+app/(tabs)/monitor.tsx:32:    const next = await serverMetrics.fetch(force);
+app/(tabs)/scripts.tsx:481:      const res = await serverConnection.request('/api/undo/rollback', {
+app/(tabs)/serverSetup.tsx:66:      const response = await serverConnection.request('/api/status');
+components/home/AIBrainMasterpieceCard.tsx:638:          const res = await fetch(`http://${ip}:${port}/api/learn/status`, { headers:h, signal:c.signal }).finally(() => clearTimeout(t));
+components/home/AIBrainMasterpieceCard.tsx:662:        const res = await fetch(url, { headers:{'User-Agent':'Butler/1.0'}, signal:c.signal }).finally(() => clearTimeout(t));
+components/home/LiveTerminalFeed.tsx:337:    fetch();
+components/home/LiveTerminalFeed.tsx:361:        <TouchableOpacity onPress={() => { haptics.light(); setRefreshing(true); fetch(); }}
+components/ui/NexusPageBanner.tsx:278:        const res = await fetch(`http://${ip}:${port}/api/metrics`, {
+components/ui/PerformanceMonitorWidget.tsx:254:      const res = await fetch(`http://${ip}:${port}/api/metrics`, {
+components/ui/RemoteAccessCard.tsx:114:      const res = await fetch(`${url}/api/status`, { signal: ctrl.signal });
+components/ui/RemoteAccessHomeBanner.tsx:79:      const res = await fetch(`${url}/api/status`, { signal: ctrl.signal });
+services/butlerAsk.ts:74:    const res = await fetch(`http://${c.ip}:${c.port}/api/ollama/models`, { headers: h, signal: ctrl.signal });
+services/butlerAsk.ts:106:  return fetch(url, { method: 'POST', headers: h, body: JSON.stringify(body), signal });
+services/connectionHub.ts:27: *   const res = await connectionHub.fetch('/api/execute', { method: 'POST', body: ... });
+services/connectionHub.ts:192:        const res = await serverConnection.request('/api/status', { signal: ctrl.signal });
+services/connectionHub.ts:390:  async fetch(
+services/connectionHub.ts:405:      const res = await serverConnection.fetchWithAuth(url, {
+services/connectionHub.ts:416:          const retryRes = await serverConnection.fetchWithAuth(url, {
+services/connectionHub.ts:504:        const res = await globalThis.fetch(`http://${ip}:${port}/api/status`, {
+services/connectionHub.ts:535:      const res = await globalThis.fetch(`http://${ip}:${port}/api/ollama/status`, {
+services/connectionPersistence.ts:116:      const res  = await fetch(`http://${ip}:${port}/api/status`, { signal: ctrl.signal });
+services/designCatalogSync.ts:33:    const response = await fetch(`${baseUrl.replace(/\/$/, '')}/api/design-catalog`, { headers, signal: controller.signal });
+services/heartbeatEngine.ts:100:      await fetch(`http://${ip}:${port}/api/ping`, { signal: controller.signal });
+services/knowledgeAccumulator.ts:321:      fetch(`http://${ip}:${port}/api/kb/log`, {
+services/lanScanner.ts:148:      const res  = await fetch(`http://${ip}:${port}${path}`, {
+services/lanScanner.ts:224:        const res  = await fetch(`http://${ip}:${p}/api/status`, { signal: ctrl.signal });
+services/lanScanner.ts:390:      res = await fetch(`http://${ip}:${port}/api/status`, { signal: ctrl.signal });
+services/neuralTripwire.ts:234:      await fetch(`http://${ip}:${port}/api/security/network/baseline`, {
+services/nexusCrawlerEngine.ts:359:        const res = await fetch(
+services/opportunityEngine.ts:46:      const res = await serverConnection.request('/api/improvements/list', {
+services/opportunityEngine.ts:62:      const res = await serverConnection.request('/api/improvements/submit', {
+services/opportunityEngine.ts:78:      const res = await serverConnection.request('/api/improvements/review', {
+services/otaUpdates.ts:142:      const res = await fetch(
+services/pcClipboard.ts:25:    const res = await fetch(`http://${ip}:${port}${path}`, {
+services/runtimeErrorMonitor.ts:7: *   3. fetch() monkey-patch — captures every failed network request
+services/runtimeErrorMonitor.ts:244:  // ── 3. fetch() interceptor ────────────────────────────────────────
+services/runtimeErrorMonitor.ts:274:              source:     'fetch() interceptor',
+services/runtimeErrorMonitor.ts:284:              source:   'fetch() interceptor',
+services/runtimeErrorMonitor.ts:298:              source:   'fetch() interceptor',
+services/scriptExecutor.ts:64:      const res = await serverConnection.request('/api/status', { signal: controller.signal });
+services/scriptExecutor.ts:104:      const response = await serverConnection.request('/api/execute', {
+services/scriptExecutor.ts:137:          await serverConnection.request('/api/pip/install', {
+services/scriptExecutor.ts:216:      const intentRes = await serverConnection.request('/api/flow/script/intent', {
+services/scriptExecutor.ts:228:      const approvalRes = await serverConnection.request('/api/flow/script/approve', {
+services/scriptExecutor.ts:237:      const executeRes = await serverConnection.request('/api/flow/script/execute', {
+services/scriptExecutor.ts:290:            const res = await serverConnection.request('/api/execute/stream', {
+services/scriptExecutor.ts:357:      const res = await serverConnection.request('/api/pc_scripts/list', { headers, signal: ctrl.signal });
+services/scriptExecutor.ts:391:      const res = await serverConnection.request('/api/scripts/upload', {
+services/scriptLibraryExtensions.ts:2721:            _, data = mail.fetch(eid, '(RFC822)')
+services/serverConnection.ts:264:        const res  = await fetch(`${this.getBaseUrl(ip, port)}${path}`, { signal: ctrl.signal });
+services/serverConnection.ts:291:          const res  = await fetch(`${this.getBaseUrl(ip, port)}${path}`, { signal: ctrl.signal });
+services/serverConnection.ts:311:          const res   = await fetch(`${this.getBaseUrl(ip, tryPort)}${path}`, { signal: ctrl.signal });
+services/serverConnection.ts:357:      const res  = await fetch(`${this.getBaseUrl(this._ip, resolvedPort)}/reconnect`, {
+services/serverConnection.ts:412:        const res  = await fetch(`${this.getBaseUrl(ip, resolvedPort)}/pair`, {
+services/serverConnection.ts:440:          await fetch(`${this.getBaseUrl(ip, resolvedPort)}/api/reset_pair`, {
+services/serverConnection.ts:481:        fetch(`${this.getBaseUrl(ip, resolvedPort)}/api/verify`, {
+services/serverConnection.ts:549:      const res  = await fetch(`${this.getBaseUrl(ip, resolvedPort)}/reconnect`, {
+services/serverConnection.ts:570:          const pr  = await fetch(`${this.getBaseUrl(ip, resolvedPort)}/pair`, {
+services/serverConnection.ts:601:      const pr = await fetch(`${this.getBaseUrl(ip, resolvedPort)}/pair`, {
+services/serverConnection.ts:631:      const res = await fetch(`${this.getBaseUrl(ip, port)}/api/status`, { signal: ctrl.signal });
+services/serverConnection.ts:659:  async fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+services/serverConnection.ts:667:    let res = await fetch(url, { ...options, headers });
+services/serverConnection.ts:690:      res = await fetch(url, { ...options, headers: refreshed });
+services/serverConnection.ts:709:      return await this.fetchWithAuth(this.buildUrl(path), { ...options, signal: controller.signal });
+services/serverCrawler.ts:90:      const res = await fetch(`http://${ip}:${port}/api/status`, { signal: ctrl.signal });
+services/serverCrawler.ts:145:      const res = await fetch(
+services/serverCrawler.ts:266:        const res = await fetch(
+services/serverMetrics.ts:64:  async fetch(forceRefresh = false): Promise<MetricSnapshot | null> {
+services/serverMetrics.ts:80:      const res = await serverConnection.request('/api/metrics', { signal: ctrl.signal });
+services/trustLabClient.ts:22:  const response = await connectionHub.fetch('/api/trust/scan', {
+hooks/useAppSync.ts:61:    const res = await fetch(`http://${ip}:${port}/api/sync?since=${_cursor}`, {

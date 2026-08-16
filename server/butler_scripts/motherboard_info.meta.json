@@ -1,0 +1,13 @@
+{
+  "name": "Motherboard & BIOS Info",
+  "description": "Show motherboard manufacturer, model, serial, and BIOS version.",
+  "category": "System",
+  "tags": [
+    "hardware",
+    "bios",
+    "motherboard"
+  ],
+  "icon": "cpu",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

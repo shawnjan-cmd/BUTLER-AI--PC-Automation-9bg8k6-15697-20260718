@@ -34,6 +34,15 @@ export function installBootGuard(): void {
   installCrashCapture();
   // Keep the native splash up until React mounts.
   try { SplashScreen.preventAutoHideAsync().catch(() => {}); } catch {}
+  // Absolute failsafe: the tab layout normally hides the splash, but a deep
+  // link into a non-tab route (crash-report, legal pages) or an early render
+  // fault would otherwise leave the native splash on screen forever.
+  armSplashFailsafe();
+}
+
+/** Hard backstop — hides the splash no matter which route mounted. */
+export function armSplashFailsafe(ms = 6000): void {
+  try { setTimeout(() => hideSplash(), ms); } catch {}
 }
 
 // ── 1. DIMENSIONS SHIM ───────────────────────────────────────────
@@ -98,6 +107,8 @@ export async function markBootSurvived(): Promise<void> {
 
 // ── 3. SPLASH HIDE ───────────────────────────────────────────────
 let _splashHidden = false;
+/** Idempotent splash dismissal — safe to call from anywhere, any number of times. */
+export function forceHideSplash(): void { hideSplash(); }
 function hideSplash(): void {
   if (_splashHidden) return;
   _splashHidden = true;
@@ -127,6 +138,9 @@ export class BootErrorBoundary extends Component<{ children: ReactNode }, EBStat
   static getDerivedStateFromError(error: Error): EBState { return { error }; }
 
   componentDidCatch(error: Error) {
+    // Without this the fallback UI renders *behind* the native splash and the
+    // user sees a frozen splash instead of the recovery screen.
+    try { hideSplash(); } catch {}
     try {
       AsyncStorage.setItem(LAST_CRASH_KEY, JSON.stringify({
         at:      Date.now(),
@@ -185,13 +199,13 @@ const MONO: any = Platform.OS === 'ios' ? 'Courier' : 'monospace';
 
 const fallbackStyles = StyleSheet.create({
   root:       { flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center', padding: 28 },
-  title:      { fontSize: 22, fontWeight: '900', color: '#ef4444', letterSpacing: 4, fontFamily: MONO, marginBottom: 22 },
+  title:      { fontSize: 22, fontWeight: '900', color: '#FF4D5E', letterSpacing: 4, fontFamily: MONO, marginBottom: 22 },
   box:        { width: '100%', maxWidth: 360, borderWidth: 1, borderRadius: 10, borderColor: '#ef444444', backgroundColor: '#ef44440a', padding: 14, marginBottom: 22 },
-  msg:        { fontSize: 12, color: '#fecaca', lineHeight: 19 },
-  btn:        { borderWidth: 1.5, borderColor: '#ef4444', borderRadius: 10, paddingHorizontal: 22, paddingVertical: 12, backgroundColor: '#ef444415', marginBottom: 10 },
-  btnTxt:     { fontSize: 13, fontWeight: '900', color: '#ef4444', letterSpacing: 2, fontFamily: MONO },
-  clearBtn:   { borderColor: '#f97316', backgroundColor: '#f9731615' },
-  clearBtnTxt:{ color: '#f97316' },
+  msg:        { fontSize: 12, color: '#FF4D5E', lineHeight: 19 },
+  btn:        { borderWidth: 1.5, borderColor: '#FF4D5E', borderRadius: 10, paddingHorizontal: 22, paddingVertical: 12, backgroundColor: '#ef444415', marginBottom: 10 },
+  btnTxt:     { fontSize: 13, fontWeight: '900', color: '#FF4D5E', letterSpacing: 2, fontFamily: MONO },
+  clearBtn:   { borderColor: '#FF7A1F', backgroundColor: '#f9731615' },
+  clearBtnTxt:{ color: '#FF7A1F' },
   clearHint:  { fontSize: 10, color: '#555', fontFamily: MONO, textAlign: 'center', marginTop: 4, paddingHorizontal: 20 },
 });
 
@@ -227,9 +241,9 @@ export function PreviousCrashBanner() {
 
 const bannerStyles = StyleSheet.create({
   wrap:  { position: 'absolute', top: 0, left: 0, right: 0, padding: 12, paddingTop: Platform.OS === 'ios' ? 48 : 24, zIndex: 9999 },
-  card:  { backgroundColor: '#1a0204', borderWidth: 1.5, borderColor: '#ef4444', borderRadius: 10, padding: 14 },
-  title: { fontSize: 12, fontWeight: '900', color: '#ef4444', letterSpacing: 2, marginBottom: 8, fontFamily: MONO },
-  msg:   { fontSize: 13, color: '#FFCCCC', lineHeight: 18, marginBottom: 10 },
-  btn:   { alignSelf: 'flex-end', borderWidth: 1, borderColor: '#ef4444', borderRadius: 6, paddingHorizontal: 14, paddingVertical: 6 },
-  btnTxt:{ fontSize: 11, fontWeight: '900', color: '#ef4444', letterSpacing: 1.5, fontFamily: MONO },
+  card:  { backgroundColor: '#070A10', borderWidth: 1.5, borderColor: '#FF4D5E', borderRadius: 10, padding: 14 },
+  title: { fontSize: 12, fontWeight: '900', color: '#FF4D5E', letterSpacing: 2, marginBottom: 8, fontFamily: MONO },
+  msg:   { fontSize: 13, color: '#FF4D5E', lineHeight: 18, marginBottom: 10 },
+  btn:   { alignSelf: 'flex-end', borderWidth: 1, borderColor: '#FF4D5E', borderRadius: 6, paddingHorizontal: 14, paddingVertical: 6 },
+  btnTxt:{ fontSize: 11, fontWeight: '900', color: '#FF4D5E', letterSpacing: 1.5, fontFamily: MONO },
 });

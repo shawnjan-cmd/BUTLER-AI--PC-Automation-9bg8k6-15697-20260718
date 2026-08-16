@@ -15,6 +15,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { encryptedStorage } from './encryptedStorage';
 
 export const BEACON_PORT = 8764;
 
@@ -121,7 +122,7 @@ const PRIORITY_HOST_OCTETS = [
 // The "right" port is always whatever worked before.
 async function buildAdaptivePortList(): Promise<number[]> {
   try {
-    const savedPort = await AsyncStorage.getItem('commandcube_server_port');
+    const savedPort = await encryptedStorage.getItem('commandcube_server_port');
     if (savedPort) {
       const p = parseInt(savedPort, 10);
       if (!isNaN(p) && p > 0 && p < 65536) {
@@ -180,8 +181,8 @@ export async function fastProbeLastKnown(
   let savedIp: string | null = null;
   let savedPort: number | null = null;
   try {
-    savedIp   = await AsyncStorage.getItem('commandcube_server_ip');
-    const sp  = await AsyncStorage.getItem('commandcube_server_port');
+    savedIp   = await encryptedStorage.getItem('commandcube_server_ip');
+    const sp  = await encryptedStorage.getItem('commandcube_server_port');
     savedPort = sp ? parseInt(sp, 10) : null;
   } catch {}
 

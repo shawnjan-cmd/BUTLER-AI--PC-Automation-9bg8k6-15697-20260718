@@ -1,0 +1,13 @@
+{
+  "name": "Mirror Folder (One-Way Sync)",
+  "description": "Copy SRC into DST, preserving structure. Overwrites newer-in-source.",
+  "category": "Backup",
+  "tags": [
+    "sync",
+    "mirror",
+    "backup"
+  ],
+  "icon": "archive",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

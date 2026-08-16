@@ -17,6 +17,13 @@ export interface PackExtras {
   tabPulse:    boolean;
   typingStyle: 'dots' | 'wave' | 'pulse' | 'scan';
   chatShimmer: boolean;
+  mascot: 'bowtie' | 'atelier' | 'guardian' | 'neon' | 'terminal' | 'orbital' | 'snowman';
+  bubbleShape: 'soft' | 'bracket' | 'capsule' | 'terminal' | 'orbital';
+  headerStyle: 'bracket' | 'scanline' | 'halo' | 'terminal' | 'crystal';
+  motionProfile: 'calm' | 'neon' | 'terminal' | 'orbital' | 'frost';
+  hapticProfile: 'soft' | 'crisp' | 'heavy' | 'silent';
+  fontProfile: 'mono' | 'tech' | 'clean';
+  loadingVariant: 'boot' | 'orbit' | 'scan' | 'neural' | 'atelier' | 'frost';
 }
 
 const DEFAULT_EXTRAS: PackExtras = {
@@ -27,7 +34,23 @@ const DEFAULT_EXTRAS: PackExtras = {
   tabPulse:    true,
   typingStyle: 'dots',
   chatShimmer: false,
+  mascot: 'bowtie',
+  bubbleShape: 'soft',
+  headerStyle: 'bracket',
+  motionProfile: 'calm',
+  hapticProfile: 'soft',
+  fontProfile: 'mono',
+  loadingVariant: 'boot',
 };
+
+function profileForTheme(id: string): Partial<PackExtras> {
+  if (id === 'solar' || id === 'quantum') return { mascot: 'atelier', bubbleShape: 'capsule', headerStyle: 'halo', motionProfile: 'neon', hapticProfile: 'crisp', fontProfile: 'tech', loadingVariant: 'atelier', typingStyle: 'wave', sendEffect: 'flash', chatShimmer: true };
+  if (id === 'matrix' || id === 'phantom') return { mascot: 'terminal', bubbleShape: 'terminal', headerStyle: 'terminal', motionProfile: 'terminal', hapticProfile: 'crisp', fontProfile: 'mono', loadingVariant: 'scan', typingStyle: 'scan', sendEffect: 'pulse' };
+  if (id === 'sigma' || id === 'hologram') return { mascot: 'orbital', bubbleShape: 'orbital', headerStyle: 'scanline', motionProfile: 'orbital', hapticProfile: 'soft', fontProfile: 'tech', loadingVariant: 'orbit', typingStyle: 'pulse', sendEffect: 'flash', chatShimmer: true };
+  if (id === 'aurora' || id === 'sakura') return { mascot: 'neon', bubbleShape: 'capsule', headerStyle: 'halo', motionProfile: 'neon', hapticProfile: 'soft', fontProfile: 'clean', loadingVariant: 'neural', typingStyle: 'wave', sendEffect: 'ripple', chatShimmer: true };
+  if (id === 'void' || id === 'titanium') return { mascot: 'guardian', bubbleShape: 'bracket', headerStyle: 'bracket', motionProfile: 'calm', hapticProfile: 'silent', fontProfile: 'clean', loadingVariant: 'boot', typingStyle: 'dots', sendEffect: 'none', chatShimmer: false };
+  return { ...DEFAULT_EXTRAS };
+}
 
 // ─── FULL THEME DEFINITION ───────────────────────────────────────
 export interface AppTheme {
@@ -72,18 +95,18 @@ export interface AppTheme {
 // ─── THEME PACKS ────────────────────────────────────────────────
 export const PACK_THEMES: Record<string, AppTheme> = {
 
-  nexus: {
-    id: 'nexus', name: 'NEXUS CORE', isDefault: true, tier: 'free',
+  butler: {
+    id: 'butler', name: 'BUTLER CORE', isDefault: true, tier: 'free',
     tagline: 'Professional command grid — electric blue · violet sweep', category: 'SYSTEM',
     icon: 'hexagon-outline', badge: 'DEFAULT',
-    // NEXUS v5 palette — extracted from nexus-ultimate-v5 mockup
-    primary: '#3b82f6', secondary: '#a855f7', tertiary: '#f59e0b',
-    bg: '#07090f', panel: '#0f1219', panelBrt: '#141823',
-    textAccent: '#93c5fd', textDim: '#4a5270', textHi: '#dde2f0', textMid: '#8c95a6',
-    glowColor: '#3b82f6', borderColor: '#1e2538', borderBrt: '#3b82f6',
-    userBubble: '#0c2547', aiBubble: '#0f1219', aiBorder: 'rgba(59,130,246,0.22)',
-    chatBarBg: '#0a0d14', chatBarTopGlow: '#3b82f6', chatBarBorderTop: 'rgba(59,130,246,0.32)',
-    promptGlyph: '#3b82f6',
+    // BUTLER v5 palette — extracted from butler-ultimate-v5 mockup
+    primary: '#4A9EFF', secondary: '#A468FF', tertiary: '#FFB43D',
+    bg: '#050810', panel: '#0B0F17', panelBrt: '#4A9EFF',
+    textAccent: '#4A9EFF', textDim: '#4A9EFF', textHi: '#DCE6F2', textMid: '#9DAABE',
+    glowColor: '#4A9EFF', borderColor: '#4A9EFF', borderBrt: '#4A9EFF',
+    userBubble: '#4A9EFF', aiBubble: '#0B0F17', aiBorder: 'rgba(59,130,246,0.22)',
+    chatBarBg: '#0B0F17', chatBarTopGlow: '#4A9EFF', chatBarBorderTop: 'rgba(59,130,246,0.32)',
+    promptGlyph: '#4A9EFF',
     defaultExtras: { notifSound: 'chime', bubbleAnim: 'slide', sendEffect: 'ripple', headerGlow: true, tabPulse: true, typingStyle: 'dots', chatShimmer: false },
   },
 
@@ -91,13 +114,13 @@ export const PACK_THEMES: Record<string, AppTheme> = {
     id: 'cobalt', name: 'COBALT DEPTH', isDefault: false, tier: 'supporter',
     tagline: 'Deep ocean intelligence system', category: 'DARK',
     icon: 'waves',
-    primary: '#4488FF', secondary: '#2255CC', tertiary: '#88BBFF',
-    bg: '#020814', panel: '#060E1E', panelBrt: '#0C1830',
-    textAccent: '#88BBFF', textDim: '#223366', textHi: '#E8F0FF', textMid: '#5577AA',
-    glowColor: '#4488FF', borderColor: '#2255BB', borderBrt: '#66AAFF',
-    userBubble: '#112266', aiBubble: '#050A16', aiBorder: 'rgba(68,136,255,0.22)',
-    chatBarBg: '#040A14', chatBarTopGlow: '#4488FF', chatBarBorderTop: 'rgba(68,136,255,0.30)',
-    promptGlyph: '#4488FF',
+    primary: '#4A9EFF', secondary: '#4A9EFF', tertiary: '#4A9EFF',
+    bg: '#050810', panel: '#0B0F17', panelBrt: '#4A9EFF',
+    textAccent: '#4A9EFF', textDim: '#4A9EFF', textHi: '#F4F8FF', textMid: '#4A9EFF',
+    glowColor: '#4A9EFF', borderColor: '#4A9EFF', borderBrt: '#4A9EFF',
+    userBubble: '#4A9EFF', aiBubble: '#070A10', aiBorder: 'rgba(68,136,255,0.22)',
+    chatBarBg: '#070A10', chatBarTopGlow: '#4A9EFF', chatBarBorderTop: 'rgba(68,136,255,0.30)',
+    promptGlyph: '#4A9EFF',
     defaultExtras: { notifSound: 'chime', bubbleAnim: 'slide', sendEffect: 'ripple', headerGlow: true, tabPulse: true, typingStyle: 'dots', chatShimmer: false },
   },
 
@@ -105,13 +128,13 @@ export const PACK_THEMES: Record<string, AppTheme> = {
     id: 'titanium', name: 'TITANIUM GREY', isDefault: false, tier: 'supporter',
     tagline: 'Monochrome precision control', category: 'DARK',
     icon: 'shield-half-full',
-    primary: '#AABBCC', secondary: '#778899', tertiary: '#DDEEFF',
-    bg: '#080a0c', panel: '#101416', panelBrt: '#1A1E22',
-    textAccent: '#CCDDE8', textDim: '#3A4A55', textHi: '#F0F4F8', textMid: '#6A7A88',
-    glowColor: '#AABBCC', borderColor: '#667788', borderBrt: '#CCDDEE',
-    userBubble: '#2A3A44', aiBubble: '#080C10', aiBorder: 'rgba(170,187,204,0.22)',
-    chatBarBg: '#070A0C', chatBarTopGlow: '#AABBCC', chatBarBorderTop: 'rgba(170,187,204,0.28)',
-    promptGlyph: '#AABBCC',
+    primary: '#9DAABE', secondary: '#6B7A92', tertiary: '#DCE6F2',
+    bg: '#050810', panel: '#0B0F17', panelBrt: '#161C28',
+    textAccent: '#C3CFDF', textDim: '#4A9EFF', textHi: '#F4F8FF', textMid: '#6B7A92',
+    glowColor: '#9DAABE', borderColor: '#6B7A92', borderBrt: '#DCE6F2',
+    userBubble: '#4A9EFF', aiBubble: '#070A10', aiBorder: 'rgba(170,187,204,0.22)',
+    chatBarBg: '#050810', chatBarTopGlow: '#9DAABE', chatBarBorderTop: 'rgba(170,187,204,0.28)',
+    promptGlyph: '#9DAABE',
     defaultExtras: { notifSound: 'none', bubbleAnim: 'fade', sendEffect: 'none', headerGlow: false, tabPulse: false, typingStyle: 'dots', chatShimmer: false },
   },
 
@@ -119,13 +142,13 @@ export const PACK_THEMES: Record<string, AppTheme> = {
     id: 'void', name: 'VOID PROTOCOL', isDefault: false, tier: 'supporter',
     tagline: 'Absolute dark minimal system', category: 'SYSTEM',
     icon: 'circle-outline',
-    primary: '#EEEEEE', secondary: '#888888', tertiary: '#CCCCCC',
-    bg: '#000000', panel: '#0A0A0A', panelBrt: '#141414',
-    textAccent: '#FFFFFF', textDim: '#333333', textHi: '#FFFFFF', textMid: '#666666',
-    glowColor: '#FFFFFF', borderColor: '#555555', borderBrt: '#AAAAAA',
-    userBubble: '#1A1A1A', aiBubble: '#080808', aiBorder: 'rgba(255,255,255,0.15)',
-    chatBarBg: '#060606', chatBarTopGlow: '#EEEEEE', chatBarBorderTop: 'rgba(255,255,255,0.18)',
-    promptGlyph: '#EEEEEE',
+    primary: '#DCE6F2', secondary: '#6B7A92', tertiary: '#C3CFDF',
+    bg: '#000000', panel: '#050810', panelBrt: '#0B0F17',
+    textAccent: '#FFFFFF', textDim: '#2A3242', textHi: '#FFFFFF', textMid: '#6B7A92',
+    glowColor: '#FFFFFF', borderColor: '#3A4356', borderBrt: '#9DAABE',
+    userBubble: '#111621', aiBubble: '#050810', aiBorder: 'rgba(255,255,255,0.15)',
+    chatBarBg: '#050810', chatBarTopGlow: '#DCE6F2', chatBarBorderTop: 'rgba(255,255,255,0.18)',
+    promptGlyph: '#DCE6F2',
     defaultExtras: { notifSound: 'none', bubbleAnim: 'none', sendEffect: 'none', headerGlow: false, tabPulse: false, typingStyle: 'dots', chatShimmer: false },
   },
 
@@ -133,13 +156,13 @@ export const PACK_THEMES: Record<string, AppTheme> = {
     id: 'solar', name: 'SOLAR FLARE', isDefault: false, tier: 'pro',
     tagline: 'Amber-gold power interface', category: 'WARM',
     icon: 'white-balance-sunny',
-    primary: '#FF8C00', secondary: '#FFD700', tertiary: '#FF4400',
-    bg: '#0c0800', panel: '#18100a', panelBrt: '#241800',
-    textAccent: '#FFD088', textDim: '#5A3800', textHi: '#FFF8E8', textMid: '#AA7733',
-    glowColor: '#FF8C00', borderColor: '#AA5500', borderBrt: '#FFAA33',
-    userBubble: '#663300', aiBubble: '#0E0800', aiBorder: 'rgba(255,140,0,0.30)',
-    chatBarBg: '#0A0700', chatBarTopGlow: '#FF8C00', chatBarBorderTop: 'rgba(255,140,0,0.35)',
-    promptGlyph: '#FF8C00',
+    primary: '#FFB43D', secondary: '#FFC94A', tertiary: '#FF7A1F',
+    bg: '#050810', panel: '#0B0F17', panelBrt: '#0B0F17',
+    textAccent: '#FFB43D', textDim: '#FFB43D', textHi: '#F4F8FF', textMid: '#FFB43D',
+    glowColor: '#FFB43D', borderColor: '#FF7A1F', borderBrt: '#FFB43D',
+    userBubble: '#FF7A1F', aiBubble: '#050810', aiBorder: 'rgba(255,140,0,0.30)',
+    chatBarBg: '#050810', chatBarTopGlow: '#FFB43D', chatBarBorderTop: 'rgba(255,140,0,0.35)',
+    promptGlyph: '#FFB43D',
     defaultExtras: { notifSound: 'blip', bubbleAnim: 'pop', sendEffect: 'flash', headerGlow: true, tabPulse: true, typingStyle: 'dots', chatShimmer: false },
   },
 
@@ -147,13 +170,13 @@ export const PACK_THEMES: Record<string, AppTheme> = {
     id: 'sakura', name: 'SAKURA NEON', isDefault: false, tier: 'pro',
     tagline: 'Pink blossom cyber aesthetic', category: 'WARM',
     icon: 'flower', badge: 'HOT',
-    primary: '#FF6EB4', secondary: '#CC3388', tertiary: '#FFAACC',
-    bg: '#0d0509', panel: '#180a12', panelBrt: '#24101c',
-    textAccent: '#FFAAD4', textDim: '#5A2040', textHi: '#FFE8F4', textMid: '#AA6688',
-    glowColor: '#FF6EB4', borderColor: '#CC3366', borderBrt: '#FF88CC',
-    userBubble: '#881144', aiBubble: '#0D0609', aiBorder: 'rgba(255,110,180,0.25)',
-    chatBarBg: '#0C0508', chatBarTopGlow: '#FF6EB4', chatBarBorderTop: 'rgba(255,110,180,0.32)',
-    promptGlyph: '#FF6EB4',
+    primary: '#FF5FA8', secondary: '#FF5FA8', tertiary: '#FF5FA8',
+    bg: '#050810', panel: '#0B0F17', panelBrt: '#FF5FA8',
+    textAccent: '#FF5FA8', textDim: '#FF5FA8', textHi: '#F4F8FF', textMid: '#FF5FA8',
+    glowColor: '#FF5FA8', borderColor: '#FF5FA8', borderBrt: '#FF5FA8',
+    userBubble: '#FF5FA8', aiBubble: '#050810', aiBorder: 'rgba(255,110,180,0.25)',
+    chatBarBg: '#050810', chatBarTopGlow: '#FF5FA8', chatBarBorderTop: 'rgba(255,110,180,0.32)',
+    promptGlyph: '#FF5FA8',
     defaultExtras: { notifSound: 'chime', bubbleAnim: 'pop', sendEffect: 'ripple', headerGlow: true, tabPulse: true, typingStyle: 'wave', chatShimmer: true },
   },
 
@@ -161,13 +184,13 @@ export const PACK_THEMES: Record<string, AppTheme> = {
     id: 'matrix', name: 'MATRIX GREEN', isDefault: false, tier: 'pro',
     tagline: 'Classic terminal hacker mode', category: 'SYSTEM',
     icon: 'code-brackets',
-    primary: '#00FF44', secondary: '#00CC33', tertiary: '#44FF88',
-    bg: '#020d04', panel: '#061208', panelBrt: '#0c1e0e',
-    textAccent: '#88FF99', textDim: '#1A5028', textHi: '#E8FFE8', textMid: '#44AA55',
-    glowColor: '#00FF44', borderColor: '#00AA22', borderBrt: '#44FF66',
-    userBubble: '#004410', aiBubble: '#040E06', aiBorder: 'rgba(0,255,68,0.22)',
-    chatBarBg: '#030D05', chatBarTopGlow: '#00FF44', chatBarBorderTop: 'rgba(0,255,68,0.30)',
-    promptGlyph: '#00FF44',
+    primary: '#2FE38A', secondary: '#2FE38A', tertiary: '#2FE38A',
+    bg: '#050810', panel: '#070A10', panelBrt: '#0B0F17',
+    textAccent: '#2FE38A', textDim: '#2FE38A', textHi: '#F4F8FF', textMid: '#2FE38A',
+    glowColor: '#2FE38A', borderColor: '#2FE38A', borderBrt: '#2FE38A',
+    userBubble: '#2FE38A', aiBubble: '#050810', aiBorder: 'rgba(0,255,68,0.22)',
+    chatBarBg: '#050810', chatBarTopGlow: '#2FE38A', chatBarBorderTop: 'rgba(0,255,68,0.30)',
+    promptGlyph: '#2FE38A',
     defaultExtras: { notifSound: 'blip', bubbleAnim: 'slide', sendEffect: 'ripple', headerGlow: true, tabPulse: false, typingStyle: 'scan', chatShimmer: false },
   },
 
@@ -175,13 +198,13 @@ export const PACK_THEMES: Record<string, AppTheme> = {
     id: 'aurora', name: 'AURORA BOREALIS', isDefault: false, tier: 'pro',
     tagline: 'Northern lights gradient system', category: 'NEON',
     icon: 'weather-night', badge: 'POPULAR',
-    primary: '#00FFB2', secondary: '#BB33FF', tertiary: '#33AAFF',
-    bg: '#040c0f', panel: '#071218', panelBrt: '#0e1e24',
-    textAccent: '#88FFDD', textDim: '#2A4A40', textHi: '#E8FFF8', textMid: '#55AA88',
-    glowColor: '#00FFB2', borderColor: '#00AA77', borderBrt: '#44FFCC',
-    userBubble: '#004433', aiBubble: '#050F0D', aiBorder: 'rgba(0,255,178,0.22)',
-    chatBarBg: '#040E0C', chatBarTopGlow: '#00FFB2', chatBarBorderTop: 'rgba(0,255,178,0.30)',
-    promptGlyph: '#00FFB2',
+    primary: '#2FE38A', secondary: '#A468FF', tertiary: '#4A9EFF',
+    bg: '#050810', panel: '#0B0F17', panelBrt: '#111621',
+    textAccent: '#2FE38A', textDim: '#2FE38A', textHi: '#F4F8FF', textMid: '#2FE38A',
+    glowColor: '#2FE38A', borderColor: '#2FE38A', borderBrt: '#2FE38A',
+    userBubble: '#2FE38A', aiBubble: '#050810', aiBorder: 'rgba(0,255,178,0.22)',
+    chatBarBg: '#050810', chatBarTopGlow: '#2FE38A', chatBarBorderTop: 'rgba(0,255,178,0.30)',
+    promptGlyph: '#2FE38A',
     defaultExtras: { notifSound: 'chime', bubbleAnim: 'fade', sendEffect: 'ripple', headerGlow: true, tabPulse: true, typingStyle: 'wave', chatShimmer: true },
   },
 
@@ -189,13 +212,13 @@ export const PACK_THEMES: Record<string, AppTheme> = {
     id: 'phantom', name: 'PHANTOM RED', isDefault: false, tier: 'elite',
     tagline: 'Blood-dark stealth ops palette', category: 'DARK',
     icon: 'ghost',
-    primary: '#FF3355', secondary: '#CC1133', tertiary: '#FF6680',
-    bg: '#0a0508', panel: '#14060a', panelBrt: '#1e0a10',
-    textAccent: '#FF9999', textDim: '#5A2030', textHi: '#FFE8EE', textMid: '#AA7788',
-    glowColor: '#FF3355', borderColor: '#AA1133', borderBrt: '#FF5566',
-    userBubble: '#AA0022', aiBubble: '#110008', aiBorder: 'rgba(255,51,85,0.30)',
-    chatBarBg: '#09000A', chatBarTopGlow: '#FF3355', chatBarBorderTop: 'rgba(255,51,85,0.35)',
-    promptGlyph: '#FF3355',
+    primary: '#FF4D5E', secondary: '#FF4D5E', tertiary: '#FF4D5E',
+    bg: '#050810', panel: '#070A10', panelBrt: '#0B0F17',
+    textAccent: '#FF4D5E', textDim: '#FF4D5E', textHi: '#F4F8FF', textMid: '#FF5FA8',
+    glowColor: '#FF4D5E', borderColor: '#FF4D5E', borderBrt: '#FF4D5E',
+    userBubble: '#FF4D5E', aiBubble: '#050810', aiBorder: 'rgba(255,51,85,0.30)',
+    chatBarBg: '#050810', chatBarTopGlow: '#FF4D5E', chatBarBorderTop: 'rgba(255,51,85,0.35)',
+    promptGlyph: '#FF4D5E',
     defaultExtras: { notifSound: 'pulse', bubbleAnim: 'glow', sendEffect: 'pulse', headerGlow: true, tabPulse: true, typingStyle: 'scan', chatShimmer: false },
   },
 
@@ -203,13 +226,13 @@ export const PACK_THEMES: Record<string, AppTheme> = {
     id: 'sigma', name: 'SIGMA-NET', isDefault: false, tier: 'elite',
     tagline: 'Protocol purple crawler mode', category: 'NEON',
     icon: 'network', badge: 'NEW',
-    primary: '#CC33FF', secondary: '#8800CC', tertiary: '#FF33CC',
-    bg: '#08040d', panel: '#110818', panelBrt: '#1c0e28',
-    textAccent: '#DD99FF', textDim: '#4A2060', textHi: '#F5E8FF', textMid: '#9966BB',
-    glowColor: '#CC33FF', borderColor: '#8811BB', borderBrt: '#EE66FF',
-    userBubble: '#551188', aiBubble: '#080010', aiBorder: 'rgba(204,51,255,0.30)',
-    chatBarBg: '#080010', chatBarTopGlow: '#CC33FF', chatBarBorderTop: 'rgba(204,51,255,0.35)',
-    promptGlyph: '#CC33FF',
+    primary: '#A468FF', secondary: '#A468FF', tertiary: '#FF5FA8',
+    bg: '#050810', panel: '#0B0F17', panelBrt: '#A468FF',
+    textAccent: '#A468FF', textDim: '#A468FF', textHi: '#F4F8FF', textMid: '#A468FF',
+    glowColor: '#A468FF', borderColor: '#A468FF', borderBrt: '#A468FF',
+    userBubble: '#A468FF', aiBubble: '#050810', aiBorder: 'rgba(204,51,255,0.30)',
+    chatBarBg: '#050810', chatBarTopGlow: '#A468FF', chatBarBorderTop: 'rgba(204,51,255,0.35)',
+    promptGlyph: '#A468FF',
     defaultExtras: { notifSound: 'synth', bubbleAnim: 'fade', sendEffect: 'flash', headerGlow: true, tabPulse: true, typingStyle: 'pulse', chatShimmer: true },
   },
 
@@ -217,13 +240,13 @@ export const PACK_THEMES: Record<string, AppTheme> = {
     id: 'quantum', name: 'QUANTUM GOLD', isDefault: false, tier: 'elite',
     tagline: 'Luxury frequency intelligence', category: 'WARM',
     icon: 'atom', badge: 'ELITE',
-    primary: '#FFD700', secondary: '#CC9900', tertiary: '#FFF0AA',
-    bg: '#0a0900', panel: '#161200', panelBrt: '#221C00',
-    textAccent: '#FFE866', textDim: '#5A4800', textHi: '#FFF8E0', textMid: '#AA8855',
-    glowColor: '#FFD700', borderColor: '#AA8800', borderBrt: '#FFE044',
-    userBubble: '#664400', aiBubble: '#0A0800', aiBorder: 'rgba(255,215,0,0.28)',
-    chatBarBg: '#090800', chatBarTopGlow: '#FFD700', chatBarBorderTop: 'rgba(255,215,0,0.35)',
-    promptGlyph: '#FFD700',
+    primary: '#FFC94A', secondary: '#FFC94A', tertiary: '#FFC94A',
+    bg: '#050810', panel: '#050810', panelBrt: '#0B0F17',
+    textAccent: '#FFC94A', textDim: '#FFC94A', textHi: '#DCE6F2', textMid: '#FFB43D',
+    glowColor: '#FFC94A', borderColor: '#FFC94A', borderBrt: '#FFC94A',
+    userBubble: '#FFC94A', aiBubble: '#050810', aiBorder: 'rgba(255,215,0,0.28)',
+    chatBarBg: '#050810', chatBarTopGlow: '#FFC94A', chatBarBorderTop: 'rgba(255,215,0,0.35)',
+    promptGlyph: '#FFC94A',
     defaultExtras: { notifSound: 'synth', bubbleAnim: 'pop', sendEffect: 'flash', headerGlow: true, tabPulse: true, typingStyle: 'wave', chatShimmer: true },
   },
 
@@ -231,13 +254,13 @@ export const PACK_THEMES: Record<string, AppTheme> = {
     id: 'hologram', name: 'HOLOGRAM', isDefault: false, tier: 'elite',
     tagline: 'Iridescent projection interface', category: 'NEON',
     icon: 'cube-scan', badge: 'NEW',
-    primary: '#00FFFF', secondary: '#FF00FF', tertiary: '#FFFF00',
-    bg: '#040812', panel: '#080E1E', panelBrt: '#10162A',
-    textAccent: '#88FFFF', textDim: '#1A4466', textHi: '#E8FFFF', textMid: '#44AACC',
-    glowColor: '#00FFFF', borderColor: '#0099AA', borderBrt: '#44FFFF',
-    userBubble: '#004466', aiBubble: '#050C16', aiBorder: 'rgba(0,255,255,0.22)',
-    chatBarBg: '#040C14', chatBarTopGlow: '#00FFFF', chatBarBorderTop: 'rgba(0,255,255,0.30)',
-    promptGlyph: '#00FFFF',
+    primary: '#38D9E8', secondary: '#FF5FA8', tertiary: '#FFC94A',
+    bg: '#050810', panel: '#0B0F17', panelBrt: '#4A9EFF',
+    textAccent: '#38D9E8', textDim: '#4A9EFF', textHi: '#F4F8FF', textMid: '#38D9E8',
+    glowColor: '#38D9E8', borderColor: '#38D9E8', borderBrt: '#38D9E8',
+    userBubble: '#4A9EFF', aiBubble: '#070A10', aiBorder: 'rgba(0,255,255,0.22)',
+    chatBarBg: '#070A10', chatBarTopGlow: '#38D9E8', chatBarBorderTop: 'rgba(0,255,255,0.30)',
+    promptGlyph: '#38D9E8',
     defaultExtras: { notifSound: 'synth', bubbleAnim: 'glow', sendEffect: 'flash', headerGlow: true, tabPulse: true, typingStyle: 'scan', chatShimmer: true },
   },
 
@@ -247,93 +270,70 @@ export const PACK_THEMES: Record<string, AppTheme> = {
     tagline: 'The rarest theme — earned, not bought. Iridescent panels shift between every color.',
     category: 'NEON',
     icon: 'star-shooting', badge: 'RARE',
-    primary: '#EE44FF', secondary: '#00FFEE', tertiary: '#FFEE00',
-    bg: '#08040e', panel: '#120818', panelBrt: '#1c1028',
-    textAccent: '#EECCFF', textDim: '#4A2866', textHi: '#F8F0FF', textMid: '#9966CC',
-    glowColor: '#CC44FF', borderColor: '#8822AA', borderBrt: '#EE88FF',
-    userBubble: '#220044', aiBubble: '#0A0412', aiBorder: 'rgba(238,68,255,0.30)',
-    chatBarBg: '#070010', chatBarTopGlow: '#EE44FF', chatBarBorderTop: 'rgba(238,68,255,0.35)',
-    promptGlyph: '#EE44FF',
+    primary: '#A468FF', secondary: '#38D9E8', tertiary: '#FFC94A',
+    bg: '#050810', panel: '#0B0F17', panelBrt: '#A468FF',
+    textAccent: '#A468FF', textDim: '#A468FF', textHi: '#F4F8FF', textMid: '#A468FF',
+    glowColor: '#A468FF', borderColor: '#A468FF', borderBrt: '#A468FF',
+    userBubble: '#A468FF', aiBubble: '#050810', aiBorder: 'rgba(238,68,255,0.30)',
+    chatBarBg: '#050810', chatBarTopGlow: '#A468FF', chatBarBorderTop: 'rgba(238,68,255,0.35)',
+    promptGlyph: '#A468FF',
     defaultExtras: { notifSound: 'synth', bubbleAnim: 'glow', sendEffect: 'flash', headerGlow: true, tabPulse: true, typingStyle: 'scan', chatShimmer: true },
   },
 };
 
-// ─── TIER CONFIG ────────────────────────────────────────────────
+// ─── PRODUCT CONFIG ──────────────────────────────────────────────
+// Exactly two paid cosmetic products plus one separately entitled remote product.
+// Product IDs are stable placeholders until verified Play Billing IDs are configured.
 export const TIER_CONFIG = {
   free: {
-    name: 'NEXUS CORE',
+    name: 'BUTLER CORE',
     price: 'FREE',
-    color: '#00CCDD',
+    color: '#38D9E8',
     icon: 'hexagon-outline' as const,
-    themeIds: ['nexus'],
-    features: [
-      'Default NEXUS CORE theme',
-      'Full app functionality forever',
-      'All automation features',
-      'Local AI chat with Ollama',
-    ],
+    themeIds: ['butler'],
+    features: ['Default command-center theme', 'Full core chat, scripts, Flow Ledger, and Undo functionality', 'Local Ollama pairing when configured'],
   },
-  supporter: {
-    name: 'SUPPORTER',
-    price: '$2.99',
-    color: '#4488FF',
-    icon: 'heart-outline' as const,
-    themeIds: ['cobalt', 'titanium', 'void'],
-    features: [
-      '3 exclusive themes: Cobalt Depth, Titanium Grey, Void Protocol',
-      'Priority bug fixes',
-      'Supporter badge (coming soon)',
-      "Dev's eternal gratitude",
-    ],
+  studio10: {
+    name: 'BUTLER STUDIO',
+    price: '$10',
+    productId: 'butler_cosmetics_studio_10',
+    color: '#FFB43D',
+    icon: 'palette-swatch' as const,
+    themeIds: ['cobalt', 'titanium', 'void', 'solar', 'sakura', 'matrix'],
+    features: ['All Studio visual presets', 'Premium chat bubbles, message entrances, send effects, receipt reveals, sounds, haptics, mascots, and script icons', 'Cosmetic-only entitlement; no extra permissions or automation authority'],
   },
-  pro: {
-    name: 'PRO PATRON',
-    price: '$9.99',
-    color: '#FF6EB4',
-    icon: 'star-outline' as const,
-    isPopular: true,
-    themeIds: ['cobalt', 'titanium', 'void', 'solar', 'sakura', 'matrix', 'aurora'],
-    features: [
-      'All Supporter themes included',
-      '4 extra themes: Solar Flare, Sakura Neon, Matrix Green, Aurora Borealis',
-      'Name in credits (next release)',
-      'Direct feature request channel',
-      '10 bonus automation scripts',
-    ],
-  },
-  elite: {
-    name: 'ELITE BACKER',
-    price: '$24.99',
-    color: '#FFD700',
+  atelier20: {
+    name: 'BUTLER ATELIER',
+    price: '$20',
+    productId: 'butler_cosmetics_atelier_20',
+    color: '#A468FF',
     icon: 'diamond-outline' as const,
     themeIds: ['cobalt', 'titanium', 'void', 'solar', 'sakura', 'matrix', 'aurora', 'phantom', 'sigma', 'quantum', 'hologram'],
-    features: [
-      'ALL 11 premium themes included',
-      'Vote on next major feature',
-      'Listed as Elite Backer in-app',
-      '30+ curated script pack',
-      'Lifetime supporter status',
-      'Early access to beta builds',
-    ],
+    features: ['Everything in Butler Studio', 'Exclusive Atelier transitions, mascot expressions, sound set, and premium receipt styling', 'Priority bug-triage and support response target within a few hours during published support hours; no guarantee outside those hours'],
   },
-  review: {
-    name: 'REVIEW REWARD',
-    price: 'FREE',
-    color: '#EE44FF',
-    icon: 'star-shooting' as const,
-    isReviewReward: true,
-    themeIds: ['champion_holo'],
-    features: [
-      'Exclusive CHAMPION HOLO theme',
-      'Holographic iridescent panels shift color',
-      'Rarest Butler AI theme — earned, not bought',
-      'Community badge · Play Store reviewer',
-    ],
+  remoteConnection: {
+    name: 'REMOTE CONNECTION',
+    price: 'SEPARATE PRODUCT',
+    productId: 'butler_remote_connection',
+    color: '#4A9EFF',
+    icon: 'vpn' as const,
+    themeIds: [],
+    features: ['Explicit remote pairing to the user’s own PC', 'Private VPN or correctly configured TLS required', 'Runtime transport evidence, device lock, cancellation, and no hidden relay'],
   },
 } as const;
 
 export type TierId = keyof typeof TIER_CONFIG;
 export type ReviewUnlockStatus = 'locked' | 'verifying' | 'unlocked';
+
+const VERIFIED_COSMETIC_KEY = '@butler_verified_cosmetic_products_v1';
+const productForTheme = (packId: string): string | null => {
+  if (packId === 'butler' || packId === 'champion_holo') return null;
+  const studioThemes = new Set<string>(TIER_CONFIG.studio10.themeIds);
+  const atelierThemes = new Set<string>(TIER_CONFIG.atelier20.themeIds);
+  if (studioThemes.has(packId)) return TIER_CONFIG.studio10.productId;
+  if (atelierThemes.has(packId)) return TIER_CONFIG.atelier20.productId;
+  return null;
+};
 const REVIEW_UNLOCK_KEY = '@butler_review_reward_v1';
 export async function checkReviewUnlock(): Promise<boolean> {
   try { const v = await AsyncStorage.getItem(REVIEW_UNLOCK_KEY); return v === 'unlocked'; } catch { return false; }
@@ -368,6 +368,8 @@ interface CosmeticContextType {
   isUnlocked: (packId: string) => boolean;
   unlockedIds: Set<string>;
   addUnlocked: (packId: string) => Promise<void>;
+  verifiedProductIds: Set<string>;
+  syncVerifiedEntitlements: (productIds: string[]) => Promise<void>;
   reviewRewardUnlocked: boolean;
   setReviewRewardUnlocked: (v: boolean) => void;
   // Legacy
@@ -382,13 +384,13 @@ const STORAGE_UNLOCKED = '@butler_packs_unlocked_v5';
 const STORAGE_EXTRAS   = '@butler_packs_extras_v5';
 
 export const CosmeticContext = createContext<CosmeticContextType>({
-  activePackId:  'nexus',
-  currentPackId: 'nexus',
-  activeTheme:   PACK_THEMES.nexus,
-  T:             PACK_THEMES.nexus,
+  activePackId:  'butler',
+  currentPackId: 'butler',
+  activeTheme:   PACK_THEMES.butler,
+  T:             PACK_THEMES.butler,
   previewPackId: null,
   previewTheme:  null,
-  effectiveTheme: PACK_THEMES.nexus,
+  effectiveTheme: PACK_THEMES.butler,
   isPreviewMode: false,
   // Safe inert default — never constructed at module scope to avoid
   // react-native-web WeakMap registration crash before Provider mounts.
@@ -401,19 +403,22 @@ export const CosmeticContext = createContext<CosmeticContextType>({
   isUnlocked:    () => true,
   unlockedIds:   new Set(Object.keys(PACK_THEMES)),
   addUnlocked:   async () => {},
+  verifiedProductIds: new Set<string>(),
+  syncVerifiedEntitlements: async () => {},
   reviewRewardUnlocked: false,
   setReviewRewardUnlocked: () => {},
   isPrimeActive: false,
-  getColor:      () => '#00CCDD',
+  getColor:      () => '#38D9E8',
   extras:        DEFAULT_EXTRAS,
   updateExtras:  async () => {},
 });
 
 // ─── PROVIDER ────────────────────────────────────────────────────
 export function CosmeticProvider({ children }: { children: React.ReactNode }) {
-  const [activePackId,  setActivePackId]  = useState('nexus');
+  const [activePackId,  setActivePackId]  = useState('butler');
   const [previewPackId, setPreviewPackId] = useState<string | null>(null);
-  const [unlockedIds,   setUnlockedIds]   = useState<Set<string>>(new Set(Object.keys(PACK_THEMES)));
+  const [unlockedIds,   setUnlockedIds]   = useState<Set<string>>(new Set(['butler']));
+  const [verifiedProductIds, setVerifiedProductIds] = useState<Set<string>>(new Set());
   const [extras,        setExtras]        = useState<PackExtras>(DEFAULT_EXTRAS);
   const [packExtrasMap, setPackExtrasMap] = useState<Record<string, Partial<PackExtras>>>({});
   const [reviewRewardUnlocked, setReviewRewardUnlockedState] = useState(false);
@@ -428,8 +433,8 @@ export function CosmeticProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(STORAGE_UNLOCKED),
           AsyncStorage.getItem(STORAGE_EXTRAS),
         ]);
-        const resolvedPackId = (activeRaw && PACK_THEMES[activeRaw]) ? activeRaw : 'nexus';
-        if (resolvedPackId !== 'nexus') setActivePackId(resolvedPackId);
+        const resolvedPackId = (activeRaw && PACK_THEMES[activeRaw]) ? activeRaw : 'butler';
+        if (resolvedPackId !== 'butler') setActivePackId(resolvedPackId);
         // Load review reward status
         const reviewStatus = await AsyncStorage.getItem(REVIEW_UNLOCK_KEY).catch(() => null);
         if (reviewStatus === 'unlocked') {
@@ -440,17 +445,29 @@ export function CosmeticProvider({ children }: { children: React.ReactNode }) {
         if (unlockedRaw) {
           try {
             const saved = JSON.parse(unlockedRaw) as string[];
-            setUnlockedIds(new Set([...saved, ...Object.keys(PACK_THEMES)]));
+            const safeReviewOnly = saved.filter(id => id === 'butler' || id === 'champion_holo');
+            setUnlockedIds(new Set(['butler', ...safeReviewOnly]));
           } catch {}
+        }
+        const verifiedRaw = await AsyncStorage.getItem(VERIFIED_COSMETIC_KEY).catch(() => null);
+        if (verifiedRaw) {
+          try { setVerifiedProductIds(new Set(JSON.parse(verifiedRaw).filter((id: unknown) => typeof id === 'string'))); } catch {}
         }
         let map: Record<string, Partial<PackExtras>> = {};
         if (extrasRaw) { try { map = JSON.parse(extrasRaw); setPackExtrasMap(map); } catch {} }
-        const packDefaults = PACK_THEMES[resolvedPackId]?.defaultExtras ?? {};
+        const packDefaults = { ...profileForTheme(resolvedPackId), ...(PACK_THEMES[resolvedPackId]?.defaultExtras ?? {}) };
         const userOverrides = map[resolvedPackId] ?? {};
         setExtras({ ...DEFAULT_EXTRAS, ...packDefaults, ...userOverrides });
       } catch {}
     })();
   }, []);
+
+  const isPackUnlocked = useCallback((packId: string) => {
+    if (packId === 'butler') return true;
+    if (packId === 'champion_holo') return reviewRewardUnlocked;
+    const productId = productForTheme(packId);
+    return !!productId && verifiedProductIds.has(productId);
+  }, [reviewRewardUnlocked, verifiedProductIds]);
 
   // Fade animation whenever effective theme changes
   const animateTransition = useCallback((callback: () => void) => {
@@ -462,22 +479,24 @@ export function CosmeticProvider({ children }: { children: React.ReactNode }) {
   }, [fadeAnim]);
 
   const setActivePack = useCallback(async (packId: string) => {
-    const theme = PACK_THEMES[packId] || PACK_THEMES.nexus;
+    if (!isPackUnlocked(packId)) return;
+    const theme = PACK_THEMES[packId] || PACK_THEMES.butler;
     animateTransition(() => { setActivePackId(theme.id); setPreviewPackId(null); });
     try { await AsyncStorage.setItem(STORAGE_ACTIVE, theme.id); } catch {}
-    const packDefaults = theme.defaultExtras ?? {};
+    const packDefaults = { ...profileForTheme(theme.id), ...(theme.defaultExtras ?? {}) };
     const userOverrides = packExtrasMap[theme.id] ?? {};
     setExtras({ ...DEFAULT_EXTRAS, ...packDefaults, ...userOverrides });
-  }, [packExtrasMap, animateTransition]);
+  }, [packExtrasMap, animateTransition, isPackUnlocked]);
 
   const applyPack = useCallback((packId: string) => {
-    const theme = PACK_THEMES[packId] || PACK_THEMES.nexus;
+    if (!isPackUnlocked(packId)) return;
+    const theme = PACK_THEMES[packId] || PACK_THEMES.butler;
     animateTransition(() => { setActivePackId(theme.id); setPreviewPackId(null); });
     AsyncStorage.setItem(STORAGE_ACTIVE, theme.id).catch(() => {});
-    const packDefaults = theme.defaultExtras ?? {};
+    const packDefaults = { ...profileForTheme(theme.id), ...(theme.defaultExtras ?? {}) };
     const userOverrides = packExtrasMap[theme.id] ?? {};
     setExtras({ ...DEFAULT_EXTRAS, ...packDefaults, ...userOverrides });
-  }, [packExtrasMap, animateTransition]);
+  }, [packExtrasMap, animateTransition, isPackUnlocked]);
 
   const startPreview = useCallback((packId: string) => {
     animateTransition(() => setPreviewPackId(packId));
@@ -488,21 +507,25 @@ export function CosmeticProvider({ children }: { children: React.ReactNode }) {
   }, [animateTransition]);
 
   const confirmPreview = useCallback(() => {
-    if (previewPackId) applyPack(previewPackId);
-  }, [previewPackId, applyPack]);
+    if (previewPackId && isPackUnlocked(previewPackId)) applyPack(previewPackId);
+  }, [previewPackId, applyPack, isPackUnlocked]);
 
   const addUnlocked = useCallback(async (packId: string) => {
+    if (packId !== 'butler' && packId !== 'champion_holo') return;
     setUnlockedIds(prev => {
-      const next = new Set([...prev, packId, ...Object.keys(PACK_THEMES)]);
+      const next = new Set([...prev, packId]);
       AsyncStorage.setItem(STORAGE_UNLOCKED, JSON.stringify([...next])).catch(() => {});
       return next;
     });
   }, []);
 
-  const isUnlocked = useCallback((packId: string) => {
-    if (packId === 'champion_holo') return reviewRewardUnlocked;
-    return true; // all paid packs free during early access
-  }, [reviewRewardUnlocked]);
+  const syncVerifiedEntitlements = useCallback(async (productIds: string[]) => {
+    const allowed = new Set(productIds.filter(id => id === TIER_CONFIG.studio10.productId || id === TIER_CONFIG.atelier20.productId || id === TIER_CONFIG.remoteConnection.productId));
+    setVerifiedProductIds(allowed);
+    await AsyncStorage.setItem(VERIFIED_COSMETIC_KEY, JSON.stringify([...allowed])).catch(() => {});
+  }, []);
+
+  const isUnlocked = useCallback((packId: string) => isPackUnlocked(packId), [isPackUnlocked]);
 
   const setReviewRewardUnlocked = useCallback((v: boolean) => {
     setReviewRewardUnlockedState(v);
@@ -513,7 +536,7 @@ export function CosmeticProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const getColor = useCallback((key: keyof Pick<AppTheme, 'primary' | 'secondary' | 'tertiary' | 'glowColor' | 'borderColor' | 'textAccent'>) => {
-    return (PACK_THEMES[activePackId] || PACK_THEMES.nexus)[key] as string;
+    return (PACK_THEMES[activePackId] || PACK_THEMES.butler)[key] as string;
   }, [activePackId]);
 
   const updateExtras = useCallback(async (updates: Partial<PackExtras>) => {
@@ -524,10 +547,10 @@ export function CosmeticProvider({ children }: { children: React.ReactNode }) {
     try { await AsyncStorage.setItem(STORAGE_EXTRAS, JSON.stringify(newMap)); } catch {}
   }, [extras, packExtrasMap, activePackId]);
 
-  const activeTheme   = useMemo(() => PACK_THEMES[activePackId]   || PACK_THEMES.nexus, [activePackId]);
+  const activeTheme   = useMemo(() => PACK_THEMES[activePackId]   || PACK_THEMES.butler, [activePackId]);
   const previewTheme  = useMemo(() => previewPackId ? (PACK_THEMES[previewPackId] || null) : null, [previewPackId]);
   const effectiveTheme = previewTheme || activeTheme;
-  const isPrimeActive = activePackId !== 'nexus';
+  const isPrimeActive = activePackId !== 'butler';
 
   const contextValue = useMemo(() => ({
     activePackId, currentPackId: activePackId,
@@ -537,7 +560,7 @@ export function CosmeticProvider({ children }: { children: React.ReactNode }) {
     fadeAnim,
     applyPack, setActivePack,
     startPreview, endPreview, confirmPreview,
-    unlockedIds, isUnlocked, addUnlocked,
+    unlockedIds, isUnlocked, addUnlocked, verifiedProductIds, syncVerifiedEntitlements,
     reviewRewardUnlocked, setReviewRewardUnlocked,
     isPrimeActive,
     getColor, extras, updateExtras,
@@ -546,7 +569,7 @@ export function CosmeticProvider({ children }: { children: React.ReactNode }) {
     previewPackId, previewTheme,
     fadeAnim,
     applyPack, setActivePack, startPreview, endPreview, confirmPreview,
-    unlockedIds, isUnlocked, addUnlocked,
+    unlockedIds, isUnlocked, addUnlocked, verifiedProductIds, syncVerifiedEntitlements,
     reviewRewardUnlocked, setReviewRewardUnlocked,
     isPrimeActive, getColor, extras, updateExtras,
   ]);

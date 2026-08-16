@@ -1,0 +1,14 @@
+{
+  "name": "Cancel Scheduled Shutdown",
+  "description": "Abort a pending Windows shutdown (shutdown /a).",
+  "category": "Automation",
+  "tags": [
+    "shutdown",
+    "cancel",
+    "abort",
+    "windows"
+  ],
+  "icon": "x",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

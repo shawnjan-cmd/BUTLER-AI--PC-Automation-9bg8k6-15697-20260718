@@ -1,0 +1,13 @@
+{
+  "name": "Print Directory Tree",
+  "description": "Pretty-print a folder tree 3 levels deep.",
+  "category": "Files",
+  "tags": [
+    "tree",
+    "directory",
+    "list"
+  ],
+  "icon": "folder",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

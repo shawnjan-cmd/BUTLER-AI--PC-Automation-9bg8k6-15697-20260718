@@ -1,0 +1,13 @@
+{
+  "name": "Public IP + ISP",
+  "description": "Show public IP, country, city, and ISP via ipapi.co.",
+  "category": "Network",
+  "tags": [
+    "network",
+    "ip",
+    "geolocation"
+  ],
+  "icon": "public",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

@@ -22,8 +22,8 @@ import {
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { runtimeErrorMonitor, RuntimeError, HealthSnapshot, ErrorCategory, ErrorSeverity } from '@/services/runtimeErrorMonitor';
-import { securityAuditEngine, SecurityFinding, AuditReport, VulnSeverity } from '@/services/securityAuditEngine';
-import { appHealthEngine, HealthFinding } from '@/services/appHealthEngine';
+import { securityAuditEngine, SecurityFinding, AuditReport, VulnSeverity } from '../../services/securityAuditEngine';
+import { appHealthEngine, HealthFinding } from '../../services/appHealthEngine';
 import { haptics } from '@/services/haptics';
 
 const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';

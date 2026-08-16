@@ -3,9 +3,9 @@
 Full rewrite from scratch, scoped to the three core flows per the user request.
 
 ## Removed
-- All legacy tabs (builder, butler, cosmetic, fileshare, knowledge, logs, nexushome, scripts, support, terminal)
-- All legacy services (autoConnectEngine, nexusBridge, nexusChat, nexusWebSocket, serviceguard, etc.)
-- Supabase integration (was unused for the core flows)
+- All legacy tabs (builder, butler, cosmetic, fileshare, knowledge, logs, butlerhome, scripts, support, terminal)
+- All legacy services (autoConnectEngine, butlerBridge, butlerChat, butlerWebSocket, serviceguard, etc.)
+- the user's paired PC server integration (was unused for the core flows)
 - Camera / location / notifications / audio / video / charts / WebView / Paper / NativeWind / Zustand and ~70 other dependencies that the core does not need
 
 ## Added

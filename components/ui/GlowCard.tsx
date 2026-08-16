@@ -4,10 +4,19 @@
  * All new props default to off — safe drop-in for existing usages.
  */
 import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
-import { CornerFrame } from './CornerFrame';
-import { HexTag } from './HexTag';
-import { ScanlineOverlay } from './ScanlineOverlay';
+import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+
+function CornerFrame({ color = '#00E5FF', inset = 0 }: { color?: string; size?: number; thickness?: number; inset?: number }) {
+  return <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { borderColor: color, inset, borderWidth: 1, borderRadius: 14, opacity: 0.3 }]} />;
+}
+
+function HexTag({ seed, color = '#00E5FF' }: { seed?: string; color?: string }) {
+  return <Text style={{ color, fontSize: 10, fontWeight: '700' }}>{seed ?? 'HEX'}</Text>;
+}
+
+function ScanlineOverlay({ color = '#00E5FF' }: { color?: string }) {
+  return <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { borderTopColor: color, borderTopWidth: 1, opacity: 0.08 }]} />;
+}
 
 interface GlowCardProps {
   children: React.ReactNode;

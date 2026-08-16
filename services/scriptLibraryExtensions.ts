@@ -157,7 +157,7 @@ def decrypt_file(input_path, password, output_path=None):
     print(f"Decrypted: {out} ({out.stat().st_size} bytes)")
     return out
 
-PASSWORD = "my_secret_password"
+PASSWORD = ""  # supplied interactively at runtime
 # encrypt_file("secret.txt", PASSWORD)
 # decrypt_file("secret.txt.enc", PASSWORD)
 print("AES-256 encryptor ready. Uncomment usage examples.")`,
@@ -548,15 +548,15 @@ if disk.percent > 90: issues.append("LOW DISK"); status = "CRITICAL"
 html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>PC Health Report</title>
 <style>
-  body{{font-family:monospace;background:#05080F;color:#E8F0F8;padding:20px}}
-  h1{{color:#FF2A1F}} h2{{color:#00FF88;border-bottom:1px solid #1a2535;padding-bottom:8px}}
-  .card{{background:#0A0F18;border:1px solid #1a2535;border-radius:8px;padding:16px;margin:12px 0}}
-  .bar{{height:16px;background:#1a2535;border-radius:4px;overflow:hidden;margin:4px 0}}
+  body{{font-family:monospace;background:#050810;color:#DCE6F2;padding:20px}}
+  h1{{color:#FF4D5E}} h2{{color:#2FE38A;border-bottom:1px solid #4A9EFF;padding-bottom:8px}}
+  .card{{background:#0B0F17;border:1px solid #4A9EFF;border-radius:8px;padding:16px;margin:12px 0}}
+  .bar{{height:16px;background:#4A9EFF;border-radius:4px;overflow:hidden;margin:4px 0}}
   .bar-fill{{height:100%;border-radius:4px}}
-  .green{{background:#00FF88}} .amber{{background:#FF6A1F}} .red{{background:#FF3344}}
+  .green{{background:#2FE38A}} .amber{{background:#FF7A1F}} .red{{background:#FF4D5E}}
   table{{width:100%;border-collapse:collapse}}
-  td,th{{padding:8px 12px;border-bottom:1px solid #1a2535;text-align:left}}
-  .status-ok{{color:#00FF88}} .status-warn{{color:#FF6A1F}} .status-crit{{color:#FF3344}}
+  td,th{{padding:8px 12px;border-bottom:1px solid #4A9EFF;text-align:left}}
+  .status-ok{{color:#2FE38A}} .status-warn{{color:#FF7A1F}} .status-crit{{color:#FF4D5E}}
 </style></head><body>
 <h1>🖥 PC Health Report</h1>
 <p>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Host: {socket.gethostname()} | Status: <b class="{'status-ok' if status=='HEALTHY' else 'status-warn'}">{status}</b></p>
@@ -603,7 +603,7 @@ else: print("All systems healthy!")`,
     script: `import ssl, socket
 from datetime import datetime
 
-DOMAINS   = ["google.com", "github.com", "cloudflare.com", "api.openai.com"]
+DOMAINS   = ["google.com", "github.com", "cloudflare.com"]
 WARN_DAYS = 30
 
 def check_ssl(host, port=443):
@@ -703,7 +703,7 @@ SECRET_PATTERNS = {
     'GitHub Token':     r'ghp_[A-Za-z0-9]{36}',
     'Google API Key':   r'AIza[0-9A-Za-z\-_]{35}',
     'Stripe Key':       r'sk_live_[0-9a-zA-Z]{24}',
-    'OpenAI Key':       r'sk-[A-Za-z0-9]{48}',
+    'Cloud API Key':       r'sk-[A-Za-z0-9]{48}',
     'Slack Token':      r'xox[baprs]-[0-9A-Za-z\-]+',
     'Private Key':      r'-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY',
     'Password in Code': r'(?i)password[\s]*=[\s]*[\'"]([^\'"{\\s]{8,})',
@@ -2483,13 +2483,13 @@ import markdown
 
 CSS = """
 body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;padding:0 20px;line-height:1.6;color:#333}
-h1,h2,h3{color:#2c3e50;border-bottom:2px solid #eee;padding-bottom:8px}
-code{background:#f4f4f4;padding:2px 6px;border-radius:3px;font-family:monospace;font-size:0.9em}
+h1,h2,h3{color:#4A9EFF;border-bottom:2px solid #eee;padding-bottom:8px}
+code{background:#F4F8FF;padding:2px 6px;border-radius:3px;font-family:monospace;font-size:0.9em}
 pre code{display:block;padding:12px;overflow-x:auto}
-blockquote{border-left:4px solid #3498db;margin:0;padding:0 16px;color:#666}
+blockquote{border-left:4px solid #4A9EFF;margin:0;padding:0 16px;color:#666}
 table{border-collapse:collapse;width:100%}
 td,th{border:1px solid #ddd;padding:8px;text-align:left}
-th{background:#f2f2f2}
+th{background:#F4F8FF}
 """
 
 def md_to_html(md_file, out_file=None):
@@ -2684,7 +2684,7 @@ from datetime import datetime
 
 IMAP_HOST  = "imap.gmail.com"
 EMAIL_ADDR = "your.email@gmail.com"
-PASSWORD   = "your_app_password"
+PASSWORD   = ""  # supplied interactively at runtime
 MAILBOX    = "INBOX"
 MAX_EMAILS = 10
 

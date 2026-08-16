@@ -14,25 +14,39 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+/**
+ * Guarded RevenueCat loader.
+ * A literal require('react-native-purchases') makes Metro fail the whole
+ * bundle when the package is absent (it is an optional paid-tier module).
+ * The indirect lookup keeps it invisible to the bundler's static resolver.
+ */
+function loadPurchases(): any | null {
+  // Billing is intentionally disabled in the single free build. Cosmetic
+  // previews and opt-in remote connection do not depend on a purchase gate.
+  return null;
+}
+
+
 // ── Product IDs (match your Play Store / App Store product IDs) ──
 export const PRODUCT_IDS = {
-  PRO_MONTHLY:   'nexus_pro_monthly_499',
-  PRO_YEARLY:    'nexus_pro_yearly_4999',
-  ELITE_MONTHLY: 'nexus_elite_monthly_999',
-  ELITE_YEARLY:  'nexus_elite_yearly_9999',
-  TEAM_MONTHLY:  'nexus_team_monthly_1999',
+  PRO_MONTHLY:   'butler_pro_monthly_499',
+  PRO_YEARLY:    'butler_pro_yearly_4999',
+  ELITE_MONTHLY: 'butler_elite_monthly_999',
+  ELITE_YEARLY:  'butler_elite_yearly_9999',
+  TEAM_MONTHLY:  'butler_team_monthly_1999',
 } as const;
 
 // ── Entitlement IDs (RevenueCat dashboard) ───────────────────────
 export const ENTITLEMENT_IDS = {
-  PRO:   'nexus_pro',
-  ELITE: 'nexus_elite',
-  TEAM:  'nexus_team',
+  PRO:   'butler_pro',
+  ELITE: 'butler_elite',
+  TEAM:  'butler_team',
 } as const;
 
-// ── RevenueCat API Key — replace with your real key ──────────────
-const RC_API_KEY_ANDROID = 'goog_xxxxxxxxxxxxx';
-const RC_API_KEY_IOS     = 'appl_xxxxxxxxxxxxx';
+// No billing credentials are bundled. If billing is ever added, it must be
+// a separately reviewed Play Billing build with server-side verification.
+const RC_API_KEY_ANDROID = '';
+const RC_API_KEY_IOS = '';
 
 export type TierID = 'free' | 'pro' | 'elite' | 'team';
 
@@ -64,31 +78,32 @@ export interface Tier {
 export const TIERS: Record<TierID, Tier> = {
   free: {
     id:          'free',
-    name:        'NEXUS FREE',
+    name:        'BUTLER FREE',
     tagline:     'Local LAN control · Get started',
     monthlyPrice: '$0',
     yearlyPrice:  '$0',
-    color:        '#5A7A96',
-    accentColor:  '#243040',
+    color:        '#4A9EFF',
+    accentColor:  '#4A9EFF',
     icon:         'shield-outline',
     features: [
-      'LAN-only PC control',
+      'LAN-first PC control',
+      'Opt-in encrypted remote connection',
       '50 script executions/day',
       'Basic AI chat',
       'QR pairing',
       'Standard KB (25 articles)',
       'Community support',
     ],
-    limits: { scripts: 50, pcs: 1, users: 1, remoteAccess: false, tailscale: false, cloudflare: false, scheduler: false, teamKB: false, analytics: false, prioritySupport: false },
+    limits: { scripts: 50, pcs: 1, users: 1, remoteAccess: true, tailscale: false, cloudflare: false, scheduler: false, teamKB: false, analytics: false, prioritySupport: false },
   },
   pro: {
     id:          'pro',
-    name:        'NEXUS PRO',
+    name:        'BUTLER PRO',
     tagline:     'Unlock remote access · Control from anywhere',
     monthlyPrice: '$4.99',
     yearlyPrice:  '$49.99',
-    color:        '#00E5FF',
-    accentColor:  '#0A1E2E',
+    color:        '#38D9E8',
+    accentColor:  '#4A9EFF',
     icon:         'shield-star',
     badge:        'MOST POPULAR',
     features: [
@@ -105,12 +120,12 @@ export const TIERS: Record<TierID, Tier> = {
   },
   elite: {
     id:          'elite',
-    name:        'NEXUS ELITE',
+    name:        'BUTLER ELITE',
     tagline:     'Multi-PC command · Ultimate power',
     monthlyPrice: '$9.99',
     yearlyPrice:  '$99.99',
-    color:        '#CC44FF',
-    accentColor:  '#1A0A2E',
+    color:        '#A468FF',
+    accentColor:  '#A468FF',
     icon:         'shield-crown',
     badge:        'BEST VALUE',
     features: [
@@ -118,7 +133,6 @@ export const TIERS: Record<TierID, Tier> = {
       'Control up to 3 PCs',
       'Script scheduler (cron)',
       'Advanced analytics dashboard',
-      'Biometric app lock',
       'Unlimited KB growth',
       'Custom script packs',
       'Dedicated support channel',
@@ -127,12 +141,12 @@ export const TIERS: Record<TierID, Tier> = {
   },
   team: {
     id:          'team',
-    name:        'NEXUS TEAM',
+    name:        'BUTLER TEAM',
     tagline:     '5 users · Shared library · Collaboration',
     monthlyPrice: '$19.99',
     yearlyPrice:  '$199.99',
-    color:        '#FFB020',
-    accentColor:  '#1E1200',
+    color:        '#FFB43D',
+    accentColor:  '#0B0F17',
     icon:         'shield-account',
     features: [
       'Everything in ELITE',
@@ -236,22 +250,9 @@ class RemoteAccessTierService {
   }
 
   private async _initRevenueCat(): Promise<void> {
-    try {
-      const { Platform } = require('react-native');
-      const Purchases = require('react-native-purchases').default;
-      const key = Platform.OS === 'ios' ? RC_API_KEY_IOS : RC_API_KEY_ANDROID;
-      if (!key || key.includes('xxxxx')) return; // placeholder key — skip
-      await Purchases.configure({ apiKey: key });
-      this._rcReady = true;
-
-      // Sync entitlements
-      const info = await Purchases.getCustomerInfo();
-      await this._syncFromEntitlements(info.entitlements.active);
-      await AsyncStorage.setItem(KEY_RC_INITED, '1').catch(() => {});
-    } catch {
-      // RevenueCat not installed or placeholder key — graceful fallback
-      this._rcReady = false;
-    }
+    // Intentionally inert in the single-free build. No billing SDK, key, or
+    // entitlement synchronizer is allowed to influence remote connectivity.
+    this._rcReady = false;
   }
 
   private async _syncFromEntitlements(active: Record<string, any>): Promise<void> {
@@ -277,7 +278,10 @@ class RemoteAccessTierService {
 
   // ── Purchase flow ─────────────────────────────────────────────
   async purchase(tier: TierID, isYearly = false): Promise<{ success: boolean; error?: string }> {
-    if (tier === 'free') return { success: true };
+    // Single free build: never grant entitlements locally or simulate billing.
+    if (tier !== 'free') return { success: false, error: 'Paid entitlements are not enabled in this build.' };
+    return { success: true };
+    /*
     try {
       if (this._rcReady) {
         return await this._purchaseWithRevenueCat(tier, isYearly);
@@ -286,11 +290,13 @@ class RemoteAccessTierService {
     } catch (e: any) {
       return { success: false, error: e?.message ?? 'Purchase failed' };
     }
+    */
   }
 
   private async _purchaseWithRevenueCat(tier: TierID, isYearly: boolean): Promise<{ success: boolean; error?: string }> {
     try {
-      const Purchases = require('react-native-purchases').default;
+      const Purchases = loadPurchases();
+      if (!Purchases) return { success: false, error: 'In-app purchases unavailable on this build' };
       const offerings = await Purchases.getOfferings();
       const current   = offerings.current;
       if (!current) return { success: false, error: 'No offerings available' };
@@ -308,19 +314,9 @@ class RemoteAccessTierService {
     }
   }
 
-  private async _purchaseMock(tier: TierID, isYearly: boolean): Promise<{ success: boolean; error?: string }> {
-    // Development mode: grant tier locally (no real billing configured yet)
-    // In production this is replaced by _purchaseWithRevenueCat
-    this._tier      = tier;
-    this._expiresAt = isYearly
-      ? Date.now() + 365 * 24 * 60 * 60 * 1000
-      : Date.now() + 30  * 24 * 60 * 60 * 1000;
-    await this._persist();
-    this._emit();
-    await AsyncStorage.setItem(KEY_RECEIPT, JSON.stringify({
-      tier, isYearly, purchasedAt: Date.now(), mock: true,
-    })).catch(() => {});
-    return { success: true };
+  private async _purchaseMock(_tier: TierID, _isYearly: boolean): Promise<{ success: boolean; error?: string }> {
+    // Never simulate entitlements or receipts in a release build.
+    return { success: false, error: 'Mock purchases are disabled.' };
   }
 
   private _getPackageId(tier: TierID, isYearly: boolean): string {
@@ -334,7 +330,8 @@ class RemoteAccessTierService {
   async restore(): Promise<{ success: boolean; tier: TierID; error?: string }> {
     try {
       if (this._rcReady) {
-        const Purchases = require('react-native-purchases').default;
+        const Purchases = loadPurchases();
+      if (!Purchases) return { success: false, tier: this._tier, error: 'In-app purchases unavailable on this build' };
         const info = await Purchases.restorePurchases();
         await this._syncFromEntitlements(info.entitlements.active);
         return { success: true, tier: this._tier };

@@ -1,0 +1,13 @@
+{
+  "name": "IP Geolocation",
+  "description": "Show country/city/ISP for your public IP (or edit IP below).",
+  "category": "Network",
+  "tags": [
+    "ip",
+    "geo",
+    "location"
+  ],
+  "icon": "map-pin",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

@@ -1,0 +1,12 @@
+{
+  "name": "Install Latest Python",
+  "description": "Install the latest stable Python 3 release via winget.",
+  "category": "Install",
+  "tags": [
+    "install",
+    "python"
+  ],
+  "icon": "code",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

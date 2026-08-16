@@ -16,7 +16,7 @@ export const PC_CHECK_SCRIPTS: AutomationScript[] = [
     requirements: ['psutil'],
     script: `import psutil, platform, socket, datetime, os
 print("=" * 52)
-print("  NEXUS PC DIAGNOSIS REPORT")
+print("  BUTLER PC DIAGNOSIS REPORT")
 print(f"  {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 print("=" * 52)
 print(f"\nOS:       {platform.system()} {platform.release()}")
@@ -409,7 +409,7 @@ else:
     description: 'Run CPU, RAM, and disk speed benchmarks to measure PC performance',
     requirements: ['psutil'],
     script: `import time, hashlib, os, psutil, tempfile
-print("=== NEXUS FULL SYSTEM BENCHMARK ===\n")
+print("=== BUTLER FULL SYSTEM BENCHMARK ===\n")
 
 # CPU benchmark
 print("[CPU] Calculating 100k MD5 hashes...")
@@ -430,7 +430,7 @@ print(f"  Alloc: {alloc*1000:.1f}ms")
 
 # Disk benchmark
 print("\n[DISK] Sequential write 16MB...")
-tmp = os.path.join(tempfile.gettempdir(), 'nexus_bench.tmp')
+tmp = os.path.join(tempfile.gettempdir(), 'butler_bench.tmp')
 t = time.perf_counter()
 with open(tmp, 'wb') as f: f.write(os.urandom(16 * 1024 * 1024))
 write_time = time.perf_counter() - t

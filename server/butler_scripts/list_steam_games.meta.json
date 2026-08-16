@@ -1,0 +1,13 @@
+{
+  "name": "List Installed Steam Games (Win)",
+  "description": "Scan default Steam library and list installed games.",
+  "category": "Gaming",
+  "tags": [
+    "steam",
+    "games",
+    "windows"
+  ],
+  "icon": "gamepad",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

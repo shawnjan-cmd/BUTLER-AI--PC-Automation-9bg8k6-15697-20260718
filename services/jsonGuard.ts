@@ -76,7 +76,7 @@ function hashFiles(files: FileInfo[]): string {
 // These are soft warnings only, never blockers.
 const DEFAULT_MINIMUMS: Record<string, number> = {
   'app/(tabs)/_layout.tsx':    180,
-  'app/(tabs)/nexushome.tsx':  250,
+  'app/(tabs)/home.tsx':  250,
   'app/(tabs)/scripts.tsx':    300,
   'app/(tabs)/butler.tsx':     200,
   'app/(tabs)/settings.tsx':   100,

@@ -1,0 +1,30 @@
+{
+  "schema": "butler.design-catalog.v1",
+  "catalogVersion": "2026.08.14.1",
+  "source": "paired-local-server",
+  "assetsAreExecutable": false,
+  "allowedMimeTypes": ["image/png", "image/jpeg", "image/webp", "image/svg+xml", "application/json"],
+  "maxAssetBytes": 5242880,
+  "styles": [
+    {"id":"butler-core","creature":"bowtie-butler","accent":"#4A9EFF"},
+    {"id":"terminal-forge","creature":"terminal-hound","accent":"#2FE38A"},
+    {"id":"ember-dragon","creature":"robot-dragon-3d","accent":"#FF4D5E"},
+    {"id":"hologram-relay","creature":"hologram-orbital","accent":"#38D9E8"},
+    {"id":"titanium-guardian","creature":"titanium-rhino","accent":"#9DAABE"},
+    {"id":"aqua-tide","creature":"aqua-leviathan","accent":"#27C7D8"},
+    {"id":"aurora-veil","creature":"aurora-moth","accent":"#6BE7B4"},
+    {"id":"frostbound-butler","creature":"robot-snowman","accent":"#B9F3FF"}
+  ],
+  "categories": ["styles","headers","headers-non-homepage","homepage-header","toolbars","icons","fonts","buttons","chat","ai-chat-box","bubbles","mascots","graphs","graph-titles","number-displays","page-backgrounds","accessibility","animations","transitions","loading-pages","tip-bubbles","rotating-tips","script-icons","haptics","sounds","shapes","media","shortcuts","grid","builder"],
+  "audioProfiles": ["none","chime","pulse","blip","synth","ember-alarm","frost-chime","snow-tick"],
+  "audioPolicy": {"localOnly": true, "maxDurationMs": 900, "maxPeakDb": -18, "defaultMuted": true, "requiresUserGesture": true, "disabledWithReducedMotion": true},
+  "assetPolicy": {
+    "localOnly": true,
+    "requireSha256": true,
+    "rejectScripts": true,
+    "rejectArchives": true,
+    "rejectUnknownMime": true,
+    "cacheDirectory": "butler_design_cache",
+    "fallback": "bundled-token-renderer"
+  }
+}

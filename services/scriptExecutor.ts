@@ -5,8 +5,11 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { encryptedStorage } from './encryptedStorage';
 import { aiLogger } from './aiLogger';
 import { serverConnection } from './serverConnection';
+import { createCapabilityIntentEnvelope } from './capabilityIntentEnvelope';
+import { automationWatchdog } from './automationWatchdog';
 
 export interface ExecutionResult {
   success: boolean;
@@ -25,8 +28,8 @@ class ScriptExecutorService {
   // ── Get saved server ────────────────────────────────────────
   private async getServer(): Promise<{ ip: string; port: string } | null> {
     try {
-      const ip = await AsyncStorage.getItem('commandcube_server_ip');
-      const port = await AsyncStorage.getItem('commandcube_server_port');
+      const ip = serverConnection.getIP();
+      const port = serverConnection.getPort();
       if (ip && port) return { ip, port };
       return null;
     } catch {
@@ -37,13 +40,12 @@ class ScriptExecutorService {
   // ── Get session token (with auto-refresh via /reconnect) ────
   private async getToken(): Promise<string | null> {
     try {
-      const token = await AsyncStorage.getItem('commandcube_session_token');
+      const token = serverConnection.getToken();
       if (token) return token;
       // No token stored — try to reconnect to get a fresh one
-      const { serverConnection } = await import('./serverConnection');
       const result = await serverConnection.reconnect();
       if (result.success) {
-        return await AsyncStorage.getItem('commandcube_session_token');
+        return serverConnection.getToken() || null;
       }
       return null;
     } catch {
@@ -59,9 +61,7 @@ class ScriptExecutorService {
     try {
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), 4000);
-      const res = await fetch(`http://${server.ip}:${server.port}/api/status`, {
-        signal: controller.signal,
-      });
+      const res = await serverConnection.request('/api/status', { signal: controller.signal });
       clearTimeout(id);
       return res.ok;
     } catch {
@@ -97,20 +97,12 @@ class ScriptExecutorService {
       serverPort = server.port;
     }
 
-    // Build endpoint
-    const url = `http://${serverIp}:${serverPort}/api/execute`;
-    const token = serverConnection.getToken() || await this.getToken();
-
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
     try {
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), timeout);
 
-      const response = await fetch(url, {
+      const response = await serverConnection.request('/api/execute', {
         method: 'POST',
-        headers,
         body: JSON.stringify({ script: scriptCode, language }),
         signal: controller.signal,
       });
@@ -140,11 +132,10 @@ class ScriptExecutorService {
       if (missingModule && serverConnection.isConnected()) {
         const pkg = missingModule[1].split('.')[0]; // top-level package
         onOutput?.(`\u{1F4E6} Auto-installing ${pkg}...\n`);
-        (global as any).__showConnectionToast?.(`Auto-installing ${pkg}...`, '#FF6A1F');
+        (global as any).__showConnectionToast?.(`Auto-installing ${pkg}...`, '#FF7A1F');
         try {
-          await fetch(`http://${serverIp}:${serverPort}/api/pip/install`, {
+          await serverConnection.request('/api/pip/install', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
             body: JSON.stringify({ package: pkg }),
           });
           // #10 INFINITE LOOP GUARD: _retry flag prevents infinite retry loop
@@ -158,17 +149,27 @@ class ScriptExecutorService {
 
       if (data.status === 'error' || exitCode !== 0) {
         aiLogger.error(`❌ Script exited with code ${exitCode}`);
-        return {
+        const errResult: ExecutionResult = {
           success: false,
           output: finalOutput,
           exitCode,
           executionTime: elapsed,
           error: serverError || `Exit code ${exitCode}`,
         };
+        // Watchdog: report failure (fire-and-forget, skip retry path)
+        if (!(options as any)?._retry) {
+          automationWatchdog.report('user_script', 'Script Execution', finalOutput, false).catch(() => {});
+        }
+        return errResult;
       }
 
       aiLogger.success(`✅ Script completed in ${elapsed}ms`);
       onOutput?.(finalOutput);
+
+      // Watchdog: scan successful output for silent file-system anomalies (skip retry path)
+      if (!(options as any)?._retry) {
+        automationWatchdog.report('user_script', 'Script Execution', finalOutput, true).catch(() => {});
+      }
 
       return {
         success: true,
@@ -184,6 +185,71 @@ class ScriptExecutorService {
 
       aiLogger.error(`❌ Execution failed: ${msg}`);
       return { success: false, output: '', executionTime: elapsed, error: msg };
+    }
+  }
+
+  /**
+   * Execute a saved PC library script through the single Flow Ledger path.
+   * The Android client never approves mutable code; the server binds the
+   * approval to the immutable saved-script digest and revalidates it again
+   * immediately before execution.
+   */
+  async executeSavedScript(
+    scriptId: string,
+    options: ExecutionOptions = {},
+  ): Promise<ExecutionResult & { receipt?: unknown; undoId?: string }> {
+    const start = Date.now();
+    const timeout = Math.min(Math.max(options.timeout ?? 90000, 1000), 120000);
+    if (!scriptId.trim()) return { success: false, output: '', error: 'Missing script id', executionTime: 0 };
+    if (!serverConnection.isConnected()) return { success: false, output: '', error: 'No server connected. Go to CONNECT tab and pair with your PC.', executionTime: 0 };
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+    try {
+      const envelope = await createCapabilityIntentEnvelope({
+        capability: 'pc.script.run',
+        args: { scriptId },
+        scope: ['allowlisted_script', 'declared_paths', 'declared_hosts', 'time_budget', 'resource_budget'],
+        risk: 'side_effect',
+        undo: 'required_when_possible',
+      });
+      const intentRes = await serverConnection.request('/api/flow/script/intent', {
+        method: 'POST', body: JSON.stringify({ id: scriptId, envelope }), signal: controller.signal,
+      });
+      const intentBody = await intentRes.json().catch(() => ({}));
+      if (!intentRes.ok || intentBody.status === 'blocked') {
+        return { success: false, output: '', error: intentBody.error || intentBody.safety?.reason || `Intent blocked (${intentRes.status})`, executionTime: Date.now() - start };
+      }
+      const ledgerId = intentBody.intent?.ledgerId || intentBody.intent?.ledger_id;
+      const intentDigest = intentBody.intent?.intentDigest || intentBody.intent?.intent_digest;
+      if (!ledgerId || !intentDigest) return { success: false, output: '', error: 'Server returned an incomplete Flow Ledger intent', executionTime: Date.now() - start };
+      options.onOutput?.('Intent verified. Safety cleared. Waiting for approval…\n');
+
+      const approvalRes = await serverConnection.request('/api/flow/script/approve', {
+        method: 'POST', body: JSON.stringify({ ledgerId, intentDigest }), signal: controller.signal,
+      });
+      const approvalBody = await approvalRes.json().catch(() => ({}));
+      if (!approvalRes.ok) return { success: false, output: '', error: approvalBody.error || `Approval rejected (${approvalRes.status})`, executionTime: Date.now() - start };
+      const approvalToken = approvalBody.approvalToken;
+      if (!approvalToken) return { success: false, output: '', error: 'Server returned no single-use approval token', executionTime: Date.now() - start };
+      options.onOutput?.('Approval recorded. Executing the exact approved script…\n');
+
+      const executeRes = await serverConnection.request('/api/flow/script/execute', {
+        method: 'POST', body: JSON.stringify({ approvalToken }), signal: controller.signal,
+      });
+      const executeBody = await executeRes.json().catch(() => ({}));
+      const output = String(executeBody.output || executeBody.error || '').trim();
+      const exitCode = Number(executeBody.receipt?.payload?.resource_summary?.exit_code ?? executeBody.exit_code ?? (executeBody.success ? 0 : 1));
+      if (!executeRes.ok || executeBody.success === false) {
+        return { success: false, output, exitCode, receipt: executeBody.receipt, undoId: executeBody.undoId, error: executeBody.error || `Execution rejected (${executeRes.status})`, executionTime: Date.now() - start };
+      }
+      options.onOutput?.(output);
+      return { success: true, output, exitCode: 0, receipt: executeBody.receipt, undoId: executeBody.undoId, executionTime: Date.now() - start };
+    } catch (err: any) {
+      const msg = err?.name === 'AbortError' ? `Timeout after ${timeout / 1000}s` : err?.message || 'Flow Ledger execution failed';
+      return { success: false, output: '', error: msg, executionTime: Date.now() - start };
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -213,8 +279,6 @@ class ScriptExecutorService {
 
     const server = await this.getServer();
     if (!server) throw new Error('Not connected');
-    const token = await this.getToken();
-
     const ctrl = new AbortController();
     const tid   = setTimeout(() => ctrl.abort(), 90_000);
     // Merge caller signal with our timeout
@@ -223,12 +287,9 @@ class ScriptExecutorService {
     }
 
     try {
-      const res = await fetch(`http://${server.ip}:${server.port}/api/execute/stream`, {
+            const res = await serverConnection.request('/api/execute/stream', {
         method:  'POST',
-        headers: {
-          'Content-Type':  'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+
         body:   JSON.stringify({ script: scriptCode, language: 'python' }),
         signal: ctrl.signal,
       });
@@ -286,20 +347,18 @@ class ScriptExecutorService {
     const token = await this.getToken();
 
     try {
-      const savedEtag = await AsyncStorage.getItem('@scripts_etag_v1');
+      const savedEtag = await encryptedStorage.getItem('@scripts_etag_v1');
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
       if (savedEtag) headers['If-None-Match'] = savedEtag;
 
       const ctrl = new AbortController();
       setTimeout(() => ctrl.abort(), 8_000);
-      const res = await fetch(`http://${server.ip}:${server.port}/api/scripts/library`, {
-        headers, signal: ctrl.signal,
-      });
+      const res = await serverConnection.request('/api/pc_scripts/list', { headers, signal: ctrl.signal });
 
       // 304 Not Modified — use cached data
       if (res.status === 304) {
-        const cached = await AsyncStorage.getItem('@scripts_data_v1');
+        const cached = await encryptedStorage.getItem('@scripts_data_v1');
         return cached ? JSON.parse(cached) : null;
       }
 
@@ -308,8 +367,8 @@ class ScriptExecutorService {
       const etag = res.headers.get('ETag');
       const j    = await res.json();
 
-      if (etag) await AsyncStorage.setItem('@scripts_etag_v1', etag).catch(() => {});
-      await AsyncStorage.setItem('@scripts_data_v1', JSON.stringify(j)).catch(() => {});
+      if (etag) await encryptedStorage.setItem('@scripts_etag_v1', etag).catch(() => {});
+      await encryptedStorage.setItem('@scripts_data_v1', JSON.stringify(j)).catch(() => {});
 
       return j;
     } catch { return null; }
@@ -326,14 +385,11 @@ class ScriptExecutorService {
 
     const server = await this.getServer();
     if (!server) return { ok: false, error: 'Not connected' };
-    const token = await this.getToken();
-
     try {
       const ctrl = new AbortController();
       setTimeout(() => ctrl.abort(), 8_000);
-      const res = await fetch(`http://${server.ip}:${server.port}/api/scripts/upload`, {
+      const res = await serverConnection.request('/api/scripts/upload', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body:    JSON.stringify({ name, script }),
         signal:  ctrl.signal,
       });

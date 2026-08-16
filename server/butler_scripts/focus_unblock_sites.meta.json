@@ -1,0 +1,14 @@
+{
+  "name": "Focus Mode: Unblock Sites",
+  "description": "Remove the Butler focus block from the hosts file.",
+  "category": "Productivity",
+  "tags": [
+    "focus",
+    "productivity",
+    "unblock",
+    "hosts"
+  ],
+  "icon": "shield-check",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

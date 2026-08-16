@@ -1,0 +1,13 @@
+{
+  "name": "Open Several URLs in Browser",
+  "description": "Open a list of URLs in your default browser.",
+  "category": "Automation",
+  "tags": [
+    "urls",
+    "browser",
+    "batch"
+  ],
+  "icon": "globe",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

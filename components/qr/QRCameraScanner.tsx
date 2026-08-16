@@ -18,6 +18,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { haptics } from '@/services/haptics';
 // ⚠️  DO NOT re-add a static `import from 'expo-camera'` here.
 // expo-camera must NEVER be imported at module-load time on Android + New Architecture.
 // The CameraView and useCameraPermissions are loaded lazily below via dynamic import()
@@ -25,7 +26,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 let _CameraView: any = null;
 let _useCameraPermissions: any = null;
 let _cameraModuleReady = false;
-import { haptics } from '@/services/haptics';
 
 const MONO: any = Platform.OS === 'ios' ? 'Courier' : 'monospace';
 

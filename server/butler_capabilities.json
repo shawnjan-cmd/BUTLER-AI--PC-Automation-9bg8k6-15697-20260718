@@ -1,0 +1,70 @@
+{
+  "manifestVersion": "1.0.0",
+  "policyVersion": "1.0.0",
+  "defaultDecision": "deny",
+  "capabilities": [
+    {
+      "id": "pc.metrics.read",
+      "risk": "read_only",
+      "approval": "session",
+      "scope": ["metrics", "process_summary"],
+      "network": "none",
+      "undo": false,
+      "enabledByDefault": true
+    },
+    {
+      "id": "pc.chat.ollama",
+      "risk": "read_only",
+      "approval": "session",
+      "scope": ["local_ollama", "approved_memory"],
+      "network": "loopback_only",
+      "undo": false,
+      "enabledByDefault": true
+    },
+    {
+      "id": "pc.research.crawl",
+      "risk": "external_read",
+      "approval": "per_job",
+      "scope": ["approved_sources", "bounded_links", "text_content"],
+      "network": "approved_hosts_only",
+      "undo": "delete_records",
+      "enabledByDefault": false
+    },
+    {
+      "id": "pc.files.read",
+      "risk": "private_read",
+      "approval": "per_scope",
+      "scope": ["user_selected_paths"],
+      "network": "none",
+      "undo": false,
+      "enabledByDefault": false
+    },
+    {
+      "id": "pc.files.write",
+      "risk": "side_effect",
+      "approval": "per_action",
+      "scope": ["user_selected_paths", "sandbox_only_by_default"],
+      "network": "none",
+      "undo": "required_when_possible",
+      "enabledByDefault": false
+    },
+    {
+      "id": "pc.script.run",
+      "risk": "side_effect",
+      "approval": "per_action",
+      "scope": ["allowlisted_script", "declared_paths", "declared_hosts", "time_budget", "resource_budget"],
+      "network": "deny_by_default",
+      "undo": "required_when_possible",
+      "enabledByDefault": false
+    },
+    {
+      "id": "pc.remote.connect",
+      "risk": "remote_side_effect",
+      "approval": "explicit_setup_and_per_session",
+      "scope": ["user_managed_endpoint", "pinned_identity", "revocable_session"],
+      "network": "encrypted_user_configured_transport",
+      "undo": "revoke_session",
+      "enabledByDefault": false
+    }
+  ]
+}

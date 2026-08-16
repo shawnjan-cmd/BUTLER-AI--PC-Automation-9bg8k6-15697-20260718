@@ -1,0 +1,14 @@
+{
+  "name": "Set System Volume (Win)",
+  "description": "Set Windows master volume 0-100 via pycaw.",
+  "category": "Automation",
+  "tags": [
+    "volume",
+    "audio",
+    "windows",
+    "control"
+  ],
+  "icon": "volume",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

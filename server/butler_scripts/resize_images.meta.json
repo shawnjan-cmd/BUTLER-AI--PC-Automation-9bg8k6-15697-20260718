@@ -1,0 +1,14 @@
+{
+  "name": "Resize Images in Folder",
+  "description": "Resize every .jpg/.png in a folder to max 1920px wide (Pillow).",
+  "category": "Media",
+  "tags": [
+    "image",
+    "resize",
+    "pillow",
+    "batch"
+  ],
+  "icon": "image",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

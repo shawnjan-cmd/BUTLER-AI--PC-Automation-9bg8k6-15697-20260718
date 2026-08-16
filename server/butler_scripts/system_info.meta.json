@@ -1,0 +1,13 @@
+{
+  "name": "System Information",
+  "description": "Show OS, CPU, RAM, Python and uptime in one report.",
+  "category": "System",
+  "tags": [
+    "system",
+    "info",
+    "hardware"
+  ],
+  "icon": "chip",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

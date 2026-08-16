@@ -4,7 +4,8 @@
  * Local-only, encrypted via AsyncStorage. Zero cloud.
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { encryptedStorage } from './encryptedStorage';
+import { admitMemory, memoryFingerprint } from './memoryAdmission';
 
 const KEY = '@butler_personal_memory_v1';
 const EVENTS_KEY = '@butler_events_v1';
@@ -45,9 +46,9 @@ class PersonalMemoryService {
     if (this.loaded) return;
     try {
       const [factsRaw, eventsRaw, crawlRaw] = await Promise.all([
-        AsyncStorage.getItem(KEY),
-        AsyncStorage.getItem(EVENTS_KEY),
-        AsyncStorage.getItem(CRAWL_HISTORY_KEY),
+        encryptedStorage.getItem(KEY),
+        encryptedStorage.getItem(EVENTS_KEY),
+        encryptedStorage.getItem(CRAWL_HISTORY_KEY),
       ]);
       this.facts  = factsRaw  ? JSON.parse(factsRaw)  : this.getDefaultFacts();
       this.events = eventsRaw ? JSON.parse(eventsRaw) : this.getDefaultEvents();
@@ -61,11 +62,9 @@ class PersonalMemoryService {
   }
 
   private getDefaultFacts(): PersonalFact[] {
-    return [
-      { id: 'u1', key: 'AI Name',      value: 'Butler',              category: 'identity',    addedAt: Date.now() },
-      { id: 'u2', key: 'Privacy Mode', value: 'Zero Cloud · LAN',    category: 'preferences', addedAt: Date.now() },
-      { id: 'u3', key: 'System',       value: 'Local AI · No Cloud', category: 'preferences', addedAt: Date.now() },
-    ];
+    // Real-data rule: never seed user memory with fabricated personal facts.
+    // Product identity and privacy status belong to UI/system metadata, not memory.
+    return [];
   }
 
   private getDefaultEvents(): MemoryEvent[] {
@@ -74,9 +73,9 @@ class PersonalMemoryService {
 
   async save(): Promise<void> {
     await Promise.all([
-      AsyncStorage.setItem(KEY, JSON.stringify(this.facts)),
-      AsyncStorage.setItem(EVENTS_KEY, JSON.stringify(this.events)),
-      AsyncStorage.setItem(CRAWL_HISTORY_KEY, JSON.stringify(this.crawlHistory.slice(-50))),
+      encryptedStorage.setItem(KEY, JSON.stringify(this.facts)),
+      encryptedStorage.setItem(EVENTS_KEY, JSON.stringify(this.events)),
+      encryptedStorage.setItem(CRAWL_HISTORY_KEY, JSON.stringify(this.crawlHistory.slice(-50))),
     ]);
   }
 
@@ -87,6 +86,16 @@ class PersonalMemoryService {
 
   async addFact(key: string, value: string, category: PersonalFact['category'] = 'custom'): Promise<PersonalFact> {
     await this.load();
+    const admission = admitMemory({
+      text: `${key}: ${value}`,
+      source: 'user-entered-memory',
+      confidence: 1,
+      sensitivity: 'personal',
+      userApproved: true,
+      provenanceId: memoryFingerprint(`${key}:${value}`),
+      durable: true,
+    });
+    if (!admission.admitted) throw new Error(`Memory rejected: ${admission.reason}`);
     const existing = this.facts.findIndex(f => f.key.toLowerCase() === key.toLowerCase());
     if (existing >= 0) {
       this.facts[existing].value = value;

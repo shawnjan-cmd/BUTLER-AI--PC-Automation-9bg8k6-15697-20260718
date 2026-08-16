@@ -1,0 +1,15 @@
+{
+  "name": "SSL Certificate Info",
+  "description": "Inspect SSL certificate for a host: issuer, expiry, days remaining.",
+  "category": "Network",
+  "tags": [
+    "ssl",
+    "certificate",
+    "tls",
+    "https",
+    "expiry"
+  ],
+  "icon": "shield-check",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

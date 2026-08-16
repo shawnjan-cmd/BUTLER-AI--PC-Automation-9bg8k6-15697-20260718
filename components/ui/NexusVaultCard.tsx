@@ -329,7 +329,7 @@ function DeadManPanel({ triggered, offlineSec, threshold = 90 }: {
     <View style={vlt.section}>
       <View style={vlt.secHdr}>
         <MaterialCommunityIcons name="timer-alert" size={10} color={col} />
-        <Text style={[vlt.secTitle, { color: col }]}>DEAD MAN'S SWITCH</Text>
+        <Text style={[vlt.secTitle, { color: col }]}>{`DEAD MAN'S SWITCH`}</Text>
         <View style={[vlt.statusChip, { borderColor: col + '50', backgroundColor: col + '0C', marginLeft: 'auto' }]}>
           <Text style={{ fontFamily: MONO, fontSize: 7.5, color: col, fontWeight: '900' }}>
             {triggered ? 'TRIGGERED' : offlineSec > 0 ? 'ARMED' : 'STANDBY'}

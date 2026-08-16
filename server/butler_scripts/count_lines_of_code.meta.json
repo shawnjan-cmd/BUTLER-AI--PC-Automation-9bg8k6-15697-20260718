@@ -1,0 +1,13 @@
+{
+  "name": "Count Lines of Code",
+  "description": "Count non-blank lines of code in a project folder.",
+  "category": "Files",
+  "tags": [
+    "loc",
+    "code",
+    "stats"
+  ],
+  "icon": "code",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

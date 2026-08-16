@@ -1,0 +1,13 @@
+{
+  "name": "Count Files by Extension",
+  "description": "Recursively count files by extension in the current directory.",
+  "category": "Files",
+  "tags": [
+    "files",
+    "stats",
+    "extension"
+  ],
+  "icon": "file-search",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

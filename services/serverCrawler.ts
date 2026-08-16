@@ -21,8 +21,21 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { serverConnection } from './serverConnection';
 import { knowledgeAccumulator, CompressedKnowledge } from './knowledgeAccumulator';
+import { performanceGovernor } from './performanceGovernor';
 
 // ── Types ────────────────────────────────────────────────────────
+export interface ResearchConsent {
+  approved: true;
+  approvedAt: number;
+  scope: 'research' | 'knowledge' | 'crawler';
+  domains?: string[];
+}
+
+/** Call only immediately after a visible user approval action. */
+export function createResearchConsent(scope: ResearchConsent['scope'] = 'research', domains?: string[]): ResearchConsent {
+  return { approved: true, approvedAt: Date.now(), scope, ...(domains?.length ? { domains: domains.slice(0, 20) } : {}) };
+}
+
 export interface SigmaRelayRequest {
   url: string;
   domain: string;
@@ -30,6 +43,7 @@ export interface SigmaRelayRequest {
   mode?: 'fetch' | 'deep' | 'multi'; // multi = crawl + follow links
   maxLinks?: number;
   keywords?: string[]; // focus keywords for extraction
+  consent?: ResearchConsent; // required for server-side research
 }
 
 export interface SigmaRelayResult {
@@ -90,6 +104,20 @@ class SigmaNetRelayCrawler {
     req: SigmaRelayRequest,
     onLog?: RelayLogCallback
   ): Promise<SigmaRelayResult> {
+    if (!req.consent?.approved) {
+      return {
+        url: req.url, domain: req.domain, topic: req.topic, cleanText: '', wordCount: 0,
+        error: 'Explicit research consent is required before crawling', teleportedVia: 'BLOCKED',
+        latencyMs: 0, method: 'SIGMA-NET-RELAY',
+      };
+    }
+    if (!performanceGovernor.canRunOptional('crawler')) {
+      return {
+        url: req.url, domain: req.domain, topic: req.topic, cleanText: '', wordCount: 0,
+        error: 'Optional crawler work is temporarily paused to protect core functions', teleportedVia: 'PAUSED',
+        latencyMs: 0, method: 'SIGMA-NET-RELAY',
+      };
+    }
     const start = Date.now();
     const log = (msg: string, type: Parameters<RelayLogCallback>[1] = 'info') => onLog?.(msg, type);
 
@@ -123,6 +151,7 @@ class SigmaNetRelayCrawler {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({
+            consent: req.consent,
             url: req.url,
             domain: req.domain,
             topic: req.topic,
@@ -138,9 +167,13 @@ class SigmaNetRelayCrawler {
 
       if (!res.ok) {
         if (res.status === 404) {
-          // Server doesn't have /api/crawl yet — execute via /api/execute
-          log('[SIGMA-NET] /api/crawl not found, using execute relay', 'warn');
-          return this._executeRelayCrawl(req, onLog);
+          // Never fall back to arbitrary script execution for crawling.
+          log('[SIGMA-NET] Dedicated crawl endpoint unavailable; no execute fallback', 'warn');
+          return {
+            url: req.url, domain: req.domain, topic: req.topic, cleanText: '', wordCount: 0,
+            error: 'Dedicated authenticated crawl endpoint unavailable', teleportedVia: 'BLOCKED',
+            latencyMs, method: 'SIGMA-NET-RELAY',
+          };
         }
         throw new Error(`Relay HTTP ${res.status}`);
       }
@@ -166,8 +199,8 @@ class SigmaNetRelayCrawler {
         result.compressed = knowledgeAccumulator.compressResearch(
           result.cleanText, req.domain, req.topic, req.url
         );
-        knowledgeAccumulator.addFinding(result.compressed);
-        log(`[SIGMA-NET] Compressed + saved to KB`, 'ok');
+        await knowledgeAccumulator.addFindingDeduped(result.compressed);
+        log(`[SIGMA-NET] Compressed + deduplicated + saved to KB`, 'ok');
       }
 
       return result;
@@ -188,8 +221,33 @@ class SigmaNetRelayCrawler {
   async batchCrawlViaRelay(
     requests: SigmaRelayRequest[],
     onLog?: RelayLogCallback,
-    onProgress?: (done: number, total: number) => void
+    onProgress?: (done: number, total: number) => void,
+    consent?: ResearchConsent
   ): Promise<BatchRelayResult> {
+    if (!consent?.approved) {
+      return {
+        completed: 0,
+        failed: requests.length,
+        results: requests.map(req => ({
+          url: req.url, domain: req.domain, topic: req.topic, cleanText: '', wordCount: 0,
+          error: 'Explicit research consent is required before crawling', teleportedVia: 'BLOCKED',
+          latencyMs: 0, method: 'SIGMA-NET-RELAY',
+        })),
+        totalWords: 0, totalMs: 0,
+      };
+    }
+    if (!performanceGovernor.canRunOptional('crawler')) {
+      return {
+        completed: 0,
+        failed: requests.length,
+        results: requests.map(req => ({
+          url: req.url, domain: req.domain, topic: req.topic, cleanText: '', wordCount: 0,
+          error: 'Optional crawler work is temporarily paused to protect core functions', teleportedVia: 'PAUSED',
+          latencyMs: 0, method: 'SIGMA-NET-RELAY',
+        })),
+        totalWords: 0, totalMs: 0,
+      };
+    }
     const log = (msg: string, type: Parameters<RelayLogCallback>[1] = 'info') => onLog?.(msg, type);
     log(`[SIGMA-NET BATCH] Starting ${requests.length} relay crawls`, 'info');
 
@@ -213,7 +271,7 @@ class SigmaNetRelayCrawler {
               'Content-Type': 'application/json',
               ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
-            body: JSON.stringify({ requests }),
+            body: JSON.stringify({ requests, consent }),
             signal: ctrl.signal,
           }
         );
@@ -232,7 +290,7 @@ class SigmaNetRelayCrawler {
       const req = requests[i];
       log(`[${i + 1}/${requests.length}] Relaying: ${req.url.slice(0, 50)}...`, 'info');
       try {
-        const result = await this.crawlViaRelay(req, onLog);
+        const result = await this.crawlViaRelay({ ...req, consent }, onLog);
         results.push(result);
         totalWords += result.wordCount;
         if (result.error) failed++;
@@ -260,162 +318,8 @@ class SigmaNetRelayCrawler {
     };
   }
 
-  // ── Execute-relay fallback: uses /api/execute + Python urllib ─
-  private async _executeRelayCrawl(
-    req: SigmaRelayRequest,
-    onLog?: RelayLogCallback
-  ): Promise<SigmaRelayResult> {
-    const start = Date.now();
-    const log = (msg: string, type: Parameters<RelayLogCallback>[1] = 'info') => onLog?.(msg, type);
-    const token = serverConnection.getToken();
-
-    // Craft a Python script that fetches the URL and returns clean text
-    const pythonScript = `
-import urllib.request, re, json
-
-url = ${JSON.stringify(req.url)}
-headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    'Accept': 'text/html,application/xhtml+xml,text/plain',
-}
-req_obj = urllib.request.Request(url, headers=headers)
-try:
-    with urllib.request.urlopen(req_obj, timeout=20) as r:
-        html = r.read().decode('utf-8', errors='replace')
-    # Strip tags
-    clean = re.sub(r'<script[\\s\\S]*?</script>', '', html, flags=re.I)
-    clean = re.sub(r'<style[\\s\\S]*?</style>', '', clean, flags=re.I)
-    clean = re.sub(r'<[^>]+>', ' ', clean)
-    clean = re.sub(r'\\s+', ' ', clean).strip()[:8000]
-    # Extract title
-    title_m = re.search(r'<title[^>]*>([^<]+)</title>', html, re.I)
-    title = title_m.group(1).strip() if title_m else '${req.topic}'
-    words = len(clean.split())
-    print(json.dumps({'text': clean, 'title': title, 'words': words, 'ok': True}))
-except Exception as e:
-    print(json.dumps({'text': '', 'title': '', 'words': 0, 'ok': False, 'error': str(e)}))
-`;
-
-    try {
-      const ctrl = new AbortController();
-      setTimeout(() => ctrl.abort(), 30000);
-      const res = await fetch(
-        `http://${this._relayIp}:${this._relayPort}/api/execute`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({ script: pythonScript }),
-          signal: ctrl.signal,
-        }
-      );
-
-      const latencyMs = Date.now() - start;
-      if (!res.ok) throw new Error(`Execute relay HTTP ${res.status}`);
-
-      const execData = await res.json();
-      const output = (execData.output || '').trim();
-
-      // Parse JSON from Python output
-      const jsonLine = output.split('\n').find((l: string) => l.trim().startsWith('{'));
-      if (!jsonLine) throw new Error('No JSON output from relay script');
-
-      const parsed = JSON.parse(jsonLine);
-      if (!parsed.ok) throw new Error(parsed.error || 'Relay script failed');
-
-      log(`[EXEC-RELAY] ✓ ${parsed.words} words via Python urllib`, 'ok');
-
-      const result: SigmaRelayResult = {
-        url: req.url,
-        domain: req.domain,
-        topic: req.topic,
-        cleanText: parsed.text,
-        title: parsed.title,
-        wordCount: parsed.words,
-        teleportedVia: `${this._relayIp}:${this._relayPort} (exec)`,
-        latencyMs,
-        method: 'SIGMA-NET-RELAY',
-      };
-
-      if (result.cleanText.length > 50) {
-        result.compressed = knowledgeAccumulator.compressResearch(
-          result.cleanText, req.domain, req.topic, req.url
-        );
-        knowledgeAccumulator.addFinding(result.compressed);
-        log('[EXEC-RELAY] Compressed + saved to KB', 'ok');
-      }
-
-      return result;
-    } catch (err: any) {
-      log(`[EXEC-RELAY] Failed: ${err?.message}`, 'warn');
-      return {
-        url: req.url, domain: req.domain, topic: req.topic,
-        cleanText: '', wordCount: 0, error: `Exec relay failed: ${err?.message}`,
-        teleportedVia: 'SKIPPED', latencyMs: Date.now() - start, method: 'SIGMA-NET-RELAY' as any,
-      };
-    }
-  }
-
-  // ── Direct crawl fallback (Android, limited) ─────────────────
-  private async _directCrawl(
-    req: SigmaRelayRequest,
-    onLog?: RelayLogCallback
-  ): Promise<SigmaRelayResult> {
-    const start = Date.now();
-    const log = (msg: string, type: Parameters<RelayLogCallback>[1] = 'info') => onLog?.(msg, type);
-    log(`[DIRECT] Attempting direct crawl: ${req.url}`, 'info');
-
-    try {
-      let url = req.url;
-      if (!url.startsWith('http')) url = 'https://' + url;
-      const ctrl = new AbortController();
-      setTimeout(() => ctrl.abort(), 15000);
-
-      const res = await fetch(url, {
-        signal: ctrl.signal,
-        headers: { 'User-Agent': 'ButlerBot/4.0', 'Accept': 'text/html,text/plain' },
-      });
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const html = await res.text();
-      const clean = html
-        .replace(/<script[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[\s\S]*?<\/style>/gi, '')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/\s+/g, ' ').trim().slice(0, 8000);
-
-      if (clean.length < 50) throw new Error('Page content too short or blocked');
-
-      const latencyMs = Date.now() - start;
-      log(`[DIRECT] ✓ ${clean.split(' ').length} words`, 'ok');
-
-      const result: SigmaRelayResult = {
-        url: req.url, domain: req.domain, topic: req.topic,
-        cleanText: clean, wordCount: clean.split(' ').length,
-        teleportedVia: 'DIRECT (no relay)',
-        latencyMs, method: 'DIRECT',
-      };
-
-      if (result.cleanText.length > 50) {
-        result.compressed = knowledgeAccumulator.compressResearch(
-          result.cleanText, req.domain, req.topic, req.url
-        );
-        knowledgeAccumulator.addFinding(result.compressed);
-      }
-
-      return result;
-    } catch (err: any) {
-      return {
-        url: req.url, domain: req.domain, topic: req.topic,
-        cleanText: '', wordCount: 0,
-        error: err?.message || 'Direct crawl failed',
-        teleportedVia: 'FAILED', latencyMs: Date.now() - start,
-        method: 'DIRECT',
-      };
-    }
-  }
+  // Dedicated server crawling is the only supported path. The client never
+  // generates Python fetch scripts or performs a direct internet fallback.
 
   // ── Getters ───────────────────────────────────────────────────
   isRelayAvailable() { return this._relayAvailable; }

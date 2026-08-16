@@ -1,0 +1,85 @@
+
+BROKEN IMPORTS (0)
+
+DEAD FILES (nothing imports these) (68)
+  • components/home/AIBrainMasterpieceCard.tsx
+  • components/home/LiveTerminalFeed.tsx
+  • components/home/NetworkTopologyCard.tsx
+  • components/home/NexusCommandCenter.tsx
+  • components/home/NexusHeroCard.tsx
+  • components/home/RemoteAccessMonetizationCard.tsx
+  • components/layout/TopBar.tsx
+  • components/qr/QRCameraScanner.tsx
+  • components/ui/BiometricLockOverlay.tsx
+  • components/ui/ButlerAITitle3D.tsx
+  • components/ui/ButlerGraphVariantRenderer.tsx
+  • components/ui/ButlerLoadingScreen.tsx
+  • components/ui/ButlerMascotMotion.tsx
+  • components/ui/ButlerResponsiveFrame.tsx
+  • components/ui/ButlerWelcomeHub.tsx
+  • components/ui/CircularMetricRing.tsx
+  • components/ui/CompactPageHeader.tsx
+  • components/ui/ConnectionBadge.tsx
+  • components/ui/GeminiKeyCard.tsx
+  • components/ui/GitHubUpdateBanner.tsx
+  • components/ui/GlitchText.tsx
+  • components/ui/GlowCard.tsx
+  • components/ui/IconBadge.tsx
+  • components/ui/LiveWidgetStudio.tsx
+  • components/ui/NexusButton.tsx
+  • components/ui/NexusFX.tsx
+  • components/ui/NexusGlowButton.tsx
+  • components/ui/NexusLiveCard.tsx
+  • components/ui/NexusPageBanner.tsx
+  • components/ui/NexusTips.tsx
+  • components/ui/NexusVaultCard.tsx
+  • components/ui/OnboardingHeroStep.tsx
+  • components/ui/PageMascot.tsx
+  • components/ui/PerformanceMonitorWidget.tsx
+  • components/ui/RemoteAccessCard.tsx
+  • components/ui/RemoteAccessHomeBanner.tsx
+  • components/ui/RuntimeDiagnosticsHUD.tsx
+  • components/ui/SectionHeader.tsx
+  • services/connectionDiagnostics.ts
+  • services/cosmeticProducts.ts
+  • services/cpuHistory.ts
+  • services/creatorBatchFactory.ts
+  • services/designCatalogSync.ts
+  • services/flowLedger.ts
+  • services/jsonGuard.ts
+  • services/memoryIntegrityMonitor.ts
+  • services/nexusCrawlerEngine.ts
+  • services/pcActionScripts.ts
+  • services/performanceTuner.ts
+  • services/powerhouseImport.ts
+  • services/proofCarryingStatus.test.ts
+  • services/pythonDeveloperProtocol.test.ts
+  • services/remoteConnectionPolicy.test.ts
+  • services/scriptConcierge.test.ts
+  • services/selfHealingSupervisor.test.ts
+  • services/storage.ts
+  • services/taskMemory.ts
+  • services/transitionLibrary.ts
+  • services/voiceLane.ts
+  • services/voicePrivacy.ts
+  • hooks/useAppActive.ts
+  • hooks/useAppSync.ts
+  • hooks/useServerConnection.ts
+  • constants/Colors.ts
+  • constants/HeaderConstants.ts
+  • constants/tabSourcesBundle.ts
+  • constants/typography.ts
+  • utils/contextManager.ts
+
+THEME MODULES (3)
+  • constants/Colors.ts
+  • constants/theme.ts
+  • constants/typography.ts
+
+WEB API LEAKS (0)
+
+UNREGISTERED TAB SCREENS (0)
+
+────────────────────────────────────────────────────
+Scanned 228 modules · 0 fatal · 70 warnings
+✓ guard-scan clean — no broken paths, no web leaks, no orphan screens.

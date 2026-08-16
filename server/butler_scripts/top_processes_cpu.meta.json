@@ -1,0 +1,13 @@
+{
+  "name": "Top 10 Processes by CPU",
+  "description": "Print the 10 most CPU-hungry processes right now.",
+  "category": "Monitoring",
+  "tags": [
+    "processes",
+    "cpu",
+    "top"
+  ],
+  "icon": "chart",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

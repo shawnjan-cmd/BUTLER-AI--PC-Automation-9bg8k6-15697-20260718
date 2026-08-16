@@ -1,0 +1,16 @@
+{
+  "name": "Certificate Store Audit",
+  "description": "List trusted root certificates \u2014 spot unauthorized CA certs that could enable MITM attacks.",
+  "category": "Security",
+  "tags": [
+    "security",
+    "certificates",
+    "ssl",
+    "tls",
+    "mitm",
+    "audit"
+  ],
+  "icon": "verified_user",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

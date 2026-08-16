@@ -322,7 +322,7 @@ export function NexusCommandCenter({
         <View style={s.bootLeft}>
           {/* SYS.BOOT label */}
           <View style={s.sysBootRow}>
-            <Text style={s.sysBoot}>// SYS.BOOT · v7.3.0</Text>
+            <Text style={s.sysBoot}>{'// SYS.BOOT · v7.3.0'}</Text>
             <SafePulseDot color={C.green} size={5} />
           </View>
           {/* Main title */}
