@@ -1,0 +1,83 @@
+name: Unzip and Deploy
+
+on:
+  # Option A: auto-trigger when a .zip is pushed to deploy branch
+  push:
+    branches:
+      - deploy
+    paths:
+      - '*.zip'
+  # Option B: manual trigger with a direct download URL
+  workflow_dispatch:
+    inputs:
+      zip_url:
+        description: 'Public URL to download the ZIP file from'
+        required: false
+        type: string
+
+jobs:
+  unzip-and-replace:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout deploy branch
+        uses: actions/checkout@v4
+        with:
+          ref: deploy
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine ZIP source
+        id: zip-source
+        run: |
+          # Find a committed .zip file, or use the provided URL
+          COMMITTED_ZIP=$(find . -maxdepth 1 -name '*.zip' | head -n 1)
+          if [ -n "$COMMITTED_ZIP" ]; then
+            echo "mode=committed" >> "$GITHUB_OUTPUT"
+            echo "zip_path=$COMMITTED_ZIP" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ inputs.zip_url }}" ]; then
+            echo "mode=url" >> "$GITHUB_OUTPUT"
+          else
+            echo "No ZIP file found and no URL provided. Exiting."
+            exit 1
+          fi
+
+      - name: Download ZIP from URL
+        if: steps.zip-source.outputs.mode == 'url'
+        run: |
+          curl -fsSL "${{ inputs.zip_url }}" -o upload.zip
+
+      - name: Rename committed ZIP for consistency
+        if: steps.zip-source.outputs.mode == 'committed'
+        run: |
+          cp "${{ steps.zip-source.outputs.zip_path }}" upload.zip
+
+      - name: Extract ZIP and replace all files
+        run: |
+          # Save the workflow itself so it survives the wipe
+          mkdir -p /tmp/keep/.github/workflows
+          cp .github/workflows/unzip-deploy.yml /tmp/keep/.github/workflows/unzip-deploy.yml
+
+          # Wipe everything except .git
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name 'upload.zip' -exec rm -rf {} +
+
+          # Extract the zip
+          unzip -o upload.zip -d .
+
+          # Restore the workflow
+          mkdir -p .github/workflows
+          cp /tmp/keep/.github/workflows/unzip-deploy.yml .github/workflows/unzip-deploy.yml
+
+          # Remove the zip itself from the working tree
+          rm -f upload.zip
+
+      - name: Commit and push replacement
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && echo "Nothing to commit." && exit 0
+          git commit -m "chore: replace repo contents from uploaded ZIP"
+          git push origin deploy
