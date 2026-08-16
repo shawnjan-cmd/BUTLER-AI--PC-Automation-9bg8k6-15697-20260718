@@ -1,0 +1,15 @@
+{
+  "name": "Battery Discharge Rate Monitor",
+  "description": "Monitor live battery percentage and calculate current discharge rate over 1 minute.",
+  "category": "Tools",
+  "tags": [
+    "tools",
+    "battery",
+    "laptop",
+    "power",
+    "monitor"
+  ],
+  "icon": "battery_5_bar",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

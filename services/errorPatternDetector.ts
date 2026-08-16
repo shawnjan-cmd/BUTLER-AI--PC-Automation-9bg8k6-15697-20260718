@@ -1,5 +1,5 @@
 /**
- * 🔍 ERROR PATTERN DETECTOR — Φ-NEXUS Error Intelligence
+ * 🔍 ERROR PATTERN DETECTOR — Butler AI Error Intelligence
  *
  * Parses Python execution error output and returns:
  *  - Error type (ModuleNotFoundError, SyntaxError, etc.)
@@ -103,7 +103,7 @@ const PATTERNS: Array<{
         fixes,
         severity: 'critical',
         docsUrl: `https://pypi.org/project/${installPkg}/`,
-        color: '#FF6A1F',
+        color: '#FF7A1F',
       };
     },
   },
@@ -123,7 +123,7 @@ const PATTERNS: Array<{
           { label: 'Validate with pylint', command: 'pip install pylint && pylint script.py', icon: 'check-circle' },
         ],
         severity: 'critical',
-        color: '#FF3C5A',
+        color: '#FF4D5E',
       };
     },
   },
@@ -140,7 +140,7 @@ const PATTERNS: Array<{
         { label: 'Expand tabs to spaces', command: 'python -c "import sys; open(sys.argv[1],\'w\').write(open(sys.argv[1]).read().expandtabs(4))" script.py', icon: 'code' },
       ],
       severity: 'critical',
-      color: '#FF3C5A',
+      color: '#FF4D5E',
     }),
   },
 
@@ -160,7 +160,7 @@ const PATTERNS: Array<{
           { label: 'Fix permissions (macOS/Linux)', command: `chmod 755 "${filePath}"`, icon: 'lock-open' },
         ],
         severity: 'critical',
-        color: '#FF3C5A',
+        color: '#FF4D5E',
       };
     },
   },
@@ -180,7 +180,7 @@ const PATTERNS: Array<{
           { label: 'List files in parent directory', command: `python -c "import os; print(os.listdir('.'))"`, icon: 'folder-open' },
         ],
         severity: 'critical',
-        color: '#FFC400',
+        color: '#FFC94A',
       };
     },
   },
@@ -198,7 +198,7 @@ const PATTERNS: Array<{
         { label: 'Use threading with timeout', command: 'from concurrent.futures import ThreadPoolExecutor; ex.submit(fn).result(timeout=30)', icon: 'schedule' },
       ],
       severity: 'warning',
-      color: '#FFC400',
+      color: '#FFC94A',
     }),
   },
 
@@ -218,7 +218,7 @@ const PATTERNS: Array<{
           { label: 'Check firewall', command: 'Windows Firewall → Allow app through firewall', icon: 'security' },
         ],
         severity: 'critical',
-        color: '#FF3C5A',
+        color: '#FF4D5E',
       };
     },
   },
@@ -236,7 +236,7 @@ const PATTERNS: Array<{
         { label: 'Update package', command: 'pip install --upgrade PACKAGE_NAME', icon: 'upgrade' },
       ],
       severity: 'warning',
-      color: '#FFC400',
+      color: '#FFC94A',
     }),
   },
 
@@ -252,7 +252,7 @@ const PATTERNS: Array<{
         { label: 'Convert to correct type', command: 'int(x)  # or str(x) or float(x)', icon: 'code' },
       ],
       severity: 'warning',
-      color: '#FFC400',
+      color: '#FFC94A',
     }),
   },
 
@@ -268,7 +268,7 @@ const PATTERNS: Array<{
         { label: 'Check variable scope', command: `# Ensure "${m[1]}" is defined before use`, icon: 'code' },
       ],
       severity: 'critical',
-      color: '#FF3C5A',
+      color: '#FF4D5E',
     }),
   },
 
@@ -284,7 +284,7 @@ const PATTERNS: Array<{
         { label: 'Add try/except for safety', command: 'try:\n    result = operation(value)\nexcept ValueError as e:\n    print(f"Bad value: {e}")', icon: 'security' },
       ],
       severity: 'warning',
-      color: '#FFC400',
+      color: '#FFC94A',
     }),
   },
 
@@ -300,7 +300,7 @@ const PATTERNS: Array<{
         { label: 'Go to CONNECT tab and pair', command: 'Open CONNECT tab → Scan QR or enter IP manually', icon: 'link' },
       ],
       severity: 'critical',
-      color: '#FF3C5A',
+      color: '#FF4D5E',
     }),
   },
 
@@ -316,7 +316,7 @@ const PATTERNS: Array<{
         { label: 'Refactor to iterative approach', command: '# Convert recursive function to use a loop + stack', icon: 'loop' },
       ],
       severity: 'warning',
-      color: '#FFC400',
+      color: '#FFC94A',
     }),
   },
 
@@ -332,7 +332,7 @@ const PATTERNS: Array<{
         { label: 'Free unused variables', command: 'import gc; del large_var; gc.collect()', icon: 'delete' },
       ],
       severity: 'critical',
-      color: '#FF3C5A',
+      color: '#FF4D5E',
     }),
   },
 
@@ -350,7 +350,7 @@ const PATTERNS: Array<{
           { label: 'Run with verbose output', command: 'python -v script.py 2>&1', icon: 'terminal' },
         ],
         severity: 'warning',
-        color: '#FF6A1F',
+        color: '#FF7A1F',
       };
     },
   },

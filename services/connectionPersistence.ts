@@ -12,6 +12,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { encryptedStorage } from './encryptedStorage';
 import { serverConnection, ConnResult } from './serverConnection';
 
 const CP_GOLDEN_KEY    = '@cp_golden_ips_v2';
@@ -134,7 +135,7 @@ class ConnectionPersistenceService {
     };
 
     // Saved port first
-    const saved = await AsyncStorage.getItem('commandcube_server_port').catch(() => null);
+    const saved = await encryptedStorage.getItem('commandcube_server_port').catch(() => null);
     add(saved);
 
     // Golden port for this IP
@@ -181,8 +182,8 @@ class ConnectionPersistenceService {
       await this.load();
 
       // 1. Saved IP/port (fastest path — worked before)
-      const savedIp   = await AsyncStorage.getItem('commandcube_server_ip').catch(() => null);
-      const savedPort = await AsyncStorage.getItem('commandcube_server_port').catch(() => null);
+      const savedIp   = await encryptedStorage.getItem('commandcube_server_ip').catch(() => null);
+      const savedPort = await encryptedStorage.getItem('commandcube_server_port').catch(() => null);
       if (savedIp) {
         const r = await serverConnection.connectManual(savedIp, savedPort || '');
         if (r.connected) {
@@ -258,8 +259,8 @@ class ConnectionPersistenceService {
   async restore(): Promise<void> {
     try {
       await this.load();
-      const savedIp   = await AsyncStorage.getItem('commandcube_server_ip').catch(() => null);
-      const savedPort = await AsyncStorage.getItem('commandcube_server_port').catch(() => null);
+      const savedIp   = await encryptedStorage.getItem('commandcube_server_ip').catch(() => null);
+      const savedPort = await encryptedStorage.getItem('commandcube_server_port').catch(() => null);
       if (savedIp && savedPort) {
         // Pre-seed serverConnection so getIP()/getPort() return values immediately
         await serverConnection.saveManual(savedIp, savedPort).catch(() => {});

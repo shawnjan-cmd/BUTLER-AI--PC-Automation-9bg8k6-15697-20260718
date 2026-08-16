@@ -4,8 +4,9 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { redactDiagnosticText, sanitizeDiagnosticMeta } from './privateDataPolicy';
 
-const MAX_LOGS = 100;
+const MAX_LOGS = 50;
 const STORAGE_KEY = '@butler_auto_error_logs_v1';
 
 export type LogLevel = 'error' | 'warn' | 'info' | 'debug';
@@ -17,7 +18,23 @@ export interface ErrorLogEntry {
   message: string;
   stack?: string;
   timestamp: number;
-  meta?: Record<string, any>;
+  meta?: Record<string, unknown>;
+}
+
+const VALID_LEVELS = new Set<LogLevel>(['error', 'warn', 'info', 'debug']);
+
+function sanitizeEntry(value: unknown): ErrorLogEntry | null {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as Partial<ErrorLogEntry>;
+  if (!raw.level || !VALID_LEVELS.has(raw.level)) return null;
+  return {
+    id: typeof raw.id === 'string' ? raw.id.slice(0, 64) : `restored-${Date.now()}`,
+    level: raw.level,
+    source: redactDiagnosticText(String(raw.source ?? 'unknown'), 90),
+    message: redactDiagnosticText(String(raw.message ?? ''), 500),
+    timestamp: typeof raw.timestamp === 'number' ? raw.timestamp : Date.now(),
+    meta: sanitizeDiagnosticMeta(raw.meta),
+  };
 }
 
 class AutoErrorLogger {
@@ -30,10 +47,10 @@ class AutoErrorLogger {
     const entry: ErrorLogEntry = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       level,
-      source,
-      message: String(message).slice(0, 500),
+      source: redactDiagnosticText(source, 90),
+      message: redactDiagnosticText(message, 500),
       timestamp: Date.now(),
-      meta,
+      meta: sanitizeDiagnosticMeta(meta),
     };
 
     this._buffer.push(entry);
@@ -45,11 +62,14 @@ class AutoErrorLogger {
     if (this._saveTimer) clearTimeout(this._saveTimer);
     this._saveTimer = setTimeout(() => this._persist(), 1500);
 
-    // Console mirror
-    const prefix = `[AutoErrorLogger:${source}]`;
-    if (level === 'error') console.error(prefix, message, meta || '');
-    else if (level === 'warn') console.warn(prefix, message, meta || '');
-    else console.log(prefix, `[${level.toUpperCase()}]`, message, meta || '');
+    // Keep verbose diagnostic output in development only. Production has local,
+    // redacted records but never mirrors private details to system logs.
+    if (__DEV__) {
+      const prefix = `[AutoErrorLogger:${entry.source}]`;
+      if (level === 'error') console.error(prefix, entry.message, entry.meta || '');
+      else if (level === 'warn') console.warn(prefix, entry.message, entry.meta || '');
+      else console.log(prefix, `[${level.toUpperCase()}]`, entry.message, entry.meta || '');
+    }
   }
 
   /** Convenience wrappers */
@@ -108,8 +128,12 @@ class AutoErrorLogger {
     try {
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const parsed: ErrorLogEntry[] = JSON.parse(raw);
-        this._buffer = Array.isArray(parsed) ? parsed.slice(-MAX_LOGS) : [];
+        const parsed: unknown[] = JSON.parse(raw);
+        this._buffer = Array.isArray(parsed)
+          ? parsed.map(sanitizeEntry).filter((entry): entry is ErrorLogEntry => !!entry).slice(-MAX_LOGS)
+          : [];
+        // Persist the redacted migration so prior logs cannot survive unfiltered.
+        void this._persist();
       }
     } catch {}
     this._loaded = true;
@@ -131,7 +155,8 @@ class AutoErrorLogger {
   private async _persist(): Promise<void> {
     this._saveTimer = null;
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(this._buffer));
+      const persisted = this._buffer.filter((entry) => entry.level === 'error' || entry.level === 'warn');
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
     } catch {}
   }
 }

@@ -1,0 +1,55 @@
+# Butler AI small-device and performance preflight
+
+- [x] Inventory route-level scroll, animation, polling, and connection refresh patterns.
+- [x] Check layout behavior at narrow Android widths and constrained heights.
+- [x] Research official Expo and React Native guidance for low-end-device performance.
+- [x] Evaluate compatible graph and component patterns without adding unneeded native dependencies.
+- [x] Validate blocked location and foreground-service configuration against the generated Android manifest.
+- [x] Add foreground-only polling, overlap protection, request timeouts, and reconnect de-duplication.
+- [x] Run type/export/guard scans and prepare the audited OnSpace import archive.
+- [x] Inventory all active routes, layouts, service entry points, and archived modules.
+- [x] Scan for unresolved imports, web-only globals, unsupported APIs, and unsafe dynamic requires.
+- [x] Audit timers, intervals, reconnect loops, lifecycle cleanup, and overlapping network requests.
+- [x] Audit generated Android permissions and validate the exact effective manifest allowlist.
+- [x] Check package metadata, Expo config, lockfile consistency, native dependency footprint, and license notices.
+- [x] Run TypeScript, route/import guard scan, resolved Expo config, and Android Metro export.
+- [x] Record evidence-backed findings, repairs, and the remaining tests that require a physical Android device or cloud AAB build.
+- [ ] Run release-build acceptance testing on representative physical Android devices.
+- [ ] Generate the cloud AAB, inspect its final manifest, and run an install/smoke test.
+- [x] Map current onboarding first-page composition, scroll behavior, mascot assets, and home visual primitives.
+- [x] Document a bounded robot-butler visual and motion plan for compact and standard devices.
+- [x] Implement the onboarding first-page composition, mascot helper, and border-breaking progress effects.
+- [x] Align the home command deck with the same tokens, hierarchy, and motion budget.
+- [x] Re-run source, export, and manifest validations; package the updated OnSpace import archive.
+- [x] Map all active network, telemetry, analytics, persistence, permission, and lifecycle paths.
+- [x] Inspect app configuration, tracking integrations, dependencies, generated Android behavior, and release artifacts for hidden or unexpected behavior.
+- [x] Strengthen only evidence-based privacy, safety, and performance controls where an active gap is found.
+- [x] Inspect the active Butler Memory data model and Knowledge screen render path.
+- [x] Design and implement a responsive, data-driven Butler Memory visual component without inventing stored metrics.
+- [x] Run final source, dependency, manifest, and bundle checks; update the evidence report and package the hardened archive.
+- [x] Research comparable permissioned PC-automation projects and official Python automation/security guidance.
+- [x] Document an original Butler task-intent, plan, approval, execution, and audit architecture that keeps consequential actions user-authorized.
+- [x] Select a phased implementation path for natural-language PC automation without copying third-party code or adding hidden background execution.
+- [x] Inventory the user-supplied server archives and source files; record ownership/provenance signals and active interfaces.
+- [x] Compare the supplied paired-PC protocol against the audited Expo client without executing untrusted server code.
+- [x] Identify safe, original integration opportunities and reject conflicts with the privacy-first, attended-automation boundary.
+- [x] Document the self-hosted local-model and executor terminology, architecture, and staged integration plan.
+- [x] Revalidate the strict token-required pairing change and package the updated hardened archive.
+- [ ] Inspect the existing GitHub repository, connector status, and deployment workflow files without using exposed credentials.
+- [ ] Prepare a least-privilege GitHub deployment workflow that contains no secrets in tracked files.
+- [ ] Validate the workflow configuration locally and request approval before pushing, triggering, or publishing any remote deployment.
+- [ ] Restrict the existing ZIP-to-main workflow to a deliberate validated archive and prevent ambiguous first-ZIP selection.
+- [ ] Repair GitHub Pages privacy-policy deployment permissions, artifact publication, and deployment visibility.
+- [ ] Align the EAS build workflow with the repository’s pnpm lockfile and keep `EXPO_TOKEN` secret-only.
+- [ ] Format, validate, commit, and push the repaired Actions workflows to the selected private repository.
+- [ ] Run and verify the GitHub Pages privacy-policy deployment; inspect whether the Android build secret is configured.
+- [ ] Inspect and repair the repository’s OnSpace compatibility/sync workflow and its current failure history.
+- [ ] Verify that the GitHub Pages policy workflow can bootstrap the Pages site and publish the policy artifact.
+- [ ] Upload the validated Butler source archive to the repository update branch with its integrity hash.
+- [ ] Run the repaired deployment workflow in dry-run mode against the exact staged archive.
+- [ ] Run the approved deployment workflow to sync the validated archive to `main`, then verify the OnSpace compatibility run.
+- [ ] Record and address the remaining non-blocking OnSpace compatibility warnings without adding unneeded permissions or cloud dependencies.
+- [ ] Make the privacy-policy workflow non-blocking and retain the live OnSpace policy URL as the supported public policy host.
+- [ ] Validate and synchronize the targeted configuration improvements to the tracked repository.
+- [ ] Remove verified unused UI/state dependencies that produce false OnSpace compatibility warnings, then revalidate the package graph.
+- [x] Add and maintain a project-level provenance rule: original Butler implementation, documented user-supplied sources, and no unnecessary rewrites or scanning.

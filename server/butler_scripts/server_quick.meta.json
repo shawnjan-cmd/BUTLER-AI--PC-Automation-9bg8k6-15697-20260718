@@ -1,0 +1,13 @@
+{
+  "name": "Serve Current Folder over HTTP",
+  "description": "Start an http.server on port 8765 serving the working directory. Ctrl+C to stop.",
+  "category": "Developer",
+  "tags": [
+    "http",
+    "serve",
+    "static"
+  ],
+  "icon": "globe",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

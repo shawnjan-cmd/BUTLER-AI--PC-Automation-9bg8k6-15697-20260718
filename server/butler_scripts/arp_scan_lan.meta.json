@@ -1,0 +1,15 @@
+{
+  "name": "ARP Network Scanner",
+  "description": "Scan LAN for live hosts using ARP table \u2014 no external tools needed.",
+  "category": "Security",
+  "tags": [
+    "security",
+    "network",
+    "scan",
+    "arp",
+    "lan"
+  ],
+  "icon": "wifi_find",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

@@ -1,0 +1,14 @@
+{
+  "name": "Backup Documents to Zip",
+  "description": "Zip the entire Documents folder to a timestamped archive in Desktop.",
+  "category": "Backup",
+  "tags": [
+    "backup",
+    "zip",
+    "documents",
+    "archive"
+  ],
+  "icon": "archive",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

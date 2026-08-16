@@ -1,0 +1,13 @@
+{
+  "name": "Rename This PC",
+  "description": "Rename the computer (requires admin + reboot to take effect).",
+  "category": "System",
+  "tags": [
+    "hostname",
+    "rename",
+    "system"
+  ],
+  "icon": "computer",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

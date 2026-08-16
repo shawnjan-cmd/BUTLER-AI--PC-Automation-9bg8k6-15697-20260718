@@ -1,0 +1,13 @@
+{
+  "name": "Install Chocolatey",
+  "description": "Install the Chocolatey package manager (admin required).",
+  "category": "Install",
+  "tags": [
+    "install",
+    "chocolatey",
+    "package-manager"
+  ],
+  "icon": "inventory",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

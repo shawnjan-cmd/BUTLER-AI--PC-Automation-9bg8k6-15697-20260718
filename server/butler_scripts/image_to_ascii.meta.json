@@ -1,0 +1,13 @@
+{
+  "name": "Image \u2192 ASCII Art",
+  "description": "Convert input.jpg/png in current folder to ASCII art in the console.",
+  "category": "Fun",
+  "tags": [
+    "ascii",
+    "image",
+    "art"
+  ],
+  "icon": "image",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

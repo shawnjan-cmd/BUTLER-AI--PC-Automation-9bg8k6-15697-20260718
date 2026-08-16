@@ -1,0 +1,15 @@
+{
+  "name": "Unsigned Services Scanner",
+  "description": "Find Windows services running executables that are not digitally signed.",
+  "category": "Security",
+  "tags": [
+    "security",
+    "services",
+    "unsigned",
+    "malware",
+    "detection"
+  ],
+  "icon": "warning",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

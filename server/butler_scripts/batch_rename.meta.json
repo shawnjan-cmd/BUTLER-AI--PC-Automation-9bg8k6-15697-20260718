@@ -1,0 +1,13 @@
+{
+  "name": "Batch Rename to Lowercase",
+  "description": "Rename every file in a folder to lowercase with spaces \u2192 underscore.",
+  "category": "Files",
+  "tags": [
+    "rename",
+    "batch",
+    "files"
+  ],
+  "icon": "folder",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

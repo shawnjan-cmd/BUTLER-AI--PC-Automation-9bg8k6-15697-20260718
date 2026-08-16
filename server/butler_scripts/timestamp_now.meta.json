@@ -1,0 +1,13 @@
+{
+  "name": "Current Timestamp (All Formats)",
+  "description": "Show the current time in epoch, ISO, RFC, and local formats.",
+  "category": "Developer",
+  "tags": [
+    "time",
+    "timestamp",
+    "epoch"
+  ],
+  "icon": "clock",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

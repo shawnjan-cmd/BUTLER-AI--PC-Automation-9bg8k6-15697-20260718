@@ -1,0 +1,13 @@
+{
+  "name": "Install Docker Desktop",
+  "description": "Install Docker Desktop for Windows silently.",
+  "category": "Install",
+  "tags": [
+    "install",
+    "docker",
+    "container"
+  ],
+  "icon": "layers",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

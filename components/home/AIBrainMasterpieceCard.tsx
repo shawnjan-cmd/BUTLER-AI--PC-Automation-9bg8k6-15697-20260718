@@ -596,7 +596,7 @@ export function AIBrainMasterpieceCard({ isConnected, serverAddr, onNavigateToKn
       // Seed starter memory facts on first load (only once)
       if (!starterSeeded.current && personalMemory.getFacts().length === 0) {
         starterSeeded.current = true;
-        const starters: Array<[string, string, PersonalFact['category']]> = [
+        const starters: [string, string, PersonalFact['category']][] = [
           ['App', 'Butler AI v8.0', 'custom'],
           ['Mode', 'LAN-only · AES-256', 'custom'],
           ['AI Engine', 'Ollama on your PC', 'custom'],

@@ -372,7 +372,7 @@
         </p>
         <br />
         <p>
-          <strong>Optional AI Relay (Φ-NEXUS Bridge):</strong> If you explicitly enable the optional cloud AI relay in Settings, Butler AI may send your typed question text to a Supabase Edge Function, which queries Google Gemini. This feature is <strong>disabled by default</strong>. No personal identity, IP address, scripts, or location is included in these requests. You can permanently disable this under Settings → Φ-NEXUS Bridge → Local-Only Mode.
+          <strong>Optional AI Relay (Butler AI Relay):</strong> If you explicitly enable the optional cloud AI relay in Settings, Butler AI may send your typed question text to a the user's paired PC server Edge Function, which queries local Ollama on the user's paired PC. This feature is <strong>disabled by default</strong>. No personal identity, IP address, scripts, or location is included in these requests. You can permanently disable this under Settings → Butler AI Relay → Local-Only Mode.
         </p>
       </div>
 
@@ -382,8 +382,8 @@
         <h3>Ollama Local AI (Optional, 100% Local)</h3>
         <p>If you install Ollama on your PC, your AI chat conversations are processed entirely on your own hardware. No data leaves your local network. Ollama is open source (MIT License). <a href="https://ollama.com/privacy" style="color:#00ccdd;">Ollama Privacy Policy →</a></p>
         <br />
-        <h3>Supabase / Google Gemini (Optional, Opt-In Only)</h3>
-        <p>Used only if you enable the Φ-NEXUS Bridge relay. Only anonymized query text is sent — no personal data. <a href="https://supabase.com/privacy" style="color:#00ccdd;">Supabase Privacy →</a> &nbsp; <a href="https://policies.google.com/privacy" style="color:#00ccdd;">Google Privacy →</a></p>
+        <h3>the user's paired PC server / local Ollama on the user's paired PC (Optional, Opt-In Only)</h3>
+        <p>Used only if you enable the local Butler PC relay. Only anonymized query text is sent — no personal data. <a href="https://support.google.com/googleplay/android-developer" style="color:#00ccdd;">the user's paired PC server Privacy →</a> &nbsp; <a href="https://policies.google.com/privacy" style="color:#00ccdd;">Google Privacy →</a></p>
         <br />
         <h3>No Analytics SDKs</h3>
         <p>Butler AI contains <strong>zero</strong> analytics, crash reporting, or advertising SDKs. No Firebase Analytics, Crashlytics, Facebook SDK, Amplitude, Mixpanel, Sentry, or any tracking library is included.</p>
@@ -574,10 +574,10 @@
             <td>Chat text (AI relay only)</td>
             <td><span class="yes">YES*</span></td>
             <td><span class="yes">YES*</span></td>
-            <td>App functionality — AI response via Supabase/Gemini (opt-in only)</td>
+            <td>App functionality — AI response via local Ollama on the user's paired PC</td>
           </tr>
         </table>
-        <p style="font-size:11px; color:#336677; margin-top:10px;">* Only applies if user explicitly enables the optional Φ-NEXUS cloud AI relay in Settings. Disabled by default. No personal identifiers included.</p>
+        <p style="font-size:11px; color:#336677; margin-top:10px;">* Only applies if user explicitly enables the optional Φ-optional cloud AI relay in Settings. Disabled by default. No personal identifiers included.</p>
       </div>
 
       <div class="card safety-card">

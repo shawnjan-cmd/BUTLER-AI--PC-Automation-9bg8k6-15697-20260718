@@ -1,0 +1,15 @@
+{
+  "name": "Network Share Auditor",
+  "description": "List all SMB network shares and their access permissions on this machine.",
+  "category": "Security",
+  "tags": [
+    "security",
+    "smb",
+    "shares",
+    "network",
+    "audit"
+  ],
+  "icon": "folder_shared",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

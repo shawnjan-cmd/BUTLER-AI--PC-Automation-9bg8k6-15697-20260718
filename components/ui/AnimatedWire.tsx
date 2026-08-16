@@ -155,7 +155,7 @@ function WireCap({ color, size }: { color: string; size: number }) {
 export default function AnimatedWire({
   direction = 'vertical',
   length = 120,
-  color = '#CC1100',
+  color = '#FF4D5E',
   thickness = 1.5,
   dotCount = 2,
   speed = 2200,
@@ -225,7 +225,7 @@ export default function AnimatedWire({
  */
 export function WirePair({
   height,
-  color = '#CC1100',
+  color = '#FF4D5E',
   accentColor,
   leftStyle,
   rightStyle,
@@ -270,7 +270,7 @@ export function WirePair({
  */
 export function HorizontalWire({
   width,
-  color = '#CC1100',
+  color = '#FF4D5E',
   style,
   speed = 2000,
   dotCount = 3,
@@ -299,7 +299,7 @@ export function HorizontalWire({
  */
 export function WireCorner({
   size = 40,
-  color = '#CC1100',
+  color = '#FF4D5E',
   corner = 'tl',
   style,
 }: {

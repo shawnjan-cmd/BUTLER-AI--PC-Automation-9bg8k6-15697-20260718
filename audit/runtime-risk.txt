@@ -1,0 +1,670 @@
+# Web API references in native source
+app/(tabs)/_layout.tsx:22: *     that is NOT part of the Tabs navigator — it is returned from
+app/(tabs)/_layout.tsx:101:// It MUST NOT be a Tabs navigator — just a plain View.
+app/(tabs)/_layout.tsx:255:  // NOT a Tabs navigator. This prevents Expo Router from trying to
+app/(tabs)/builder.tsx:32:const SW   = Math.max(320, Dimensions.get('window').width);
+app/(tabs)/butler.tsx:39:const SW    = Math.max(320, Dimensions.get('window').width);
+app/(tabs)/butler.tsx:480:  // After 15 user turns the context window grows large and responses slow down.
+app/(tabs)/connect.tsx:30:const SW   = Math.max(320, Dimensions.get('window').width);
+app/(tabs)/cosmetic.tsx:41:const SW   = Math.max(320, Dimensions.get('window').width);
+app/(tabs)/fileshare.tsx:14:import * as DocumentPicker from 'expo-document-picker';
+app/(tabs)/fileshare.tsx:37:const SW   = Math.max(320, Dimensions.get('window').width);
+app/(tabs)/home.tsx:50:const SW    = Math.max(320, Dimensions.get('window').width);
+app/(tabs)/index.tsx:3: * Uses router.replace inside useEffect so the navigator is fully
+app/(tabs)/knowledge.tsx:44:const SW    = Math.max(320, Dimensions.get('window').width);
+app/(tabs)/logs.tsx:35:const SW   = Math.max(320, Dimensions.get('window').width);
+app/(tabs)/onboarding.tsx:45:const { width: SW, height: SH } = Dimensions.get('window');
+app/(tabs)/onboarding.tsx:57:  { title: 'LEGAL DOCS',    body: 'Tap any card to read the full document. Required by Google Play.', icon: 'file-document', iconLib: 'community' },
+app/(tabs)/onboarding.tsx:97:  { accent: T.mint,   icon: 'file-document-multiple',iconLib: 'community', label: 'LEGAL',       title: 'LEGAL DOCUMENTS',   sub: 'Read before accepting' },
+app/(tabs)/onboarding.tsx:1036:        <Text style={{ fontSize:11, fontFamily:MONO, color:T.textMid, lineHeight:17 }}>Required by Google Play. Tap any card to read the full document in-app.</Text>
+app/(tabs)/onboarding.tsx:1165:        <Text style={{ fontSize:11, fontFamily:MONO, color:T.textMid, lineHeight:17 }}>We document exactly what the server does. No surprises. Fully open source.</Text>
+app/(tabs)/onboarding.tsx:1203:        'Windows: start_server.bat opens the console window',
+app/(tabs)/onboarding.tsx:1621:        <MaterialCommunityIcons name="file-document" size={58} color={accent} />
+app/(tabs)/onboarding.tsx:1624:          {'This document is publicly hosted and opens only when you choose to continue. Verify the address before accepting.'}
+app/(tabs)/scripts.tsx:41:const SW   = Math.max(320, Dimensions.get('window').width);
+app/(tabs)/serverSetup.tsx:15:  { icon: 'cellphone-key' as const, title: 'Pair this phone', body: 'Enter the one-time pairing code visible on the PC server window or QR screen. Pairing locks the server to this device.' },
+app/(tabs)/settings.tsx:29:import * as DocumentPicker from 'expo-document-picker';
+app/(tabs)/settings.tsx:44:const SW   = Math.max(320, Dimensions.get('window').width);
+app/(tabs)/settings.tsx:86:  { type:'link',   label:'Privacy Policy',           sub:'View full privacy document',        icon:'shield',         color:GREEN, url:'https://react-9b68z0.onspace.build' },
+app/(tabs)/settings.tsx:325:    <p>Open OnSpace Code View (top-right &lt;&gt; button) &rarr; select a file &rarr; copy all content &rarr; paste below.<br>All pasted sources are saved in your browser's localStorage.</p>
+app/(tabs)/settings.tsx:357:  try{var sv=localStorage.getItem('butler_ide_src');if(sv)sources=JSON.parse(sv);}catch(e){}
+app/(tabs)/settings.tsx:358:  try{var ev=localStorage.getItem('butler_ide_edits');if(ev)edits=JSON.parse(ev);}catch(e){}
+app/(tabs)/settings.tsx:400:  document.getElementById('file-list').innerHTML=html;
+app/(tabs)/settings.tsx:404:  document.getElementById('welcome').style.display='none';
+app/(tabs)/settings.tsx:405:  document.getElementById('tb-path').textContent=p;
+app/(tabs)/settings.tsx:408:  document.getElementById('edit-ta').value=src;
+app/(tabs)/settings.tsx:413:  document.getElementById('line-nums').textContent=lines.map(function(_,i){return i+1;}).join('\\n');
+app/(tabs)/settings.tsx:416:  document.getElementById('code-body').innerHTML=h;
+app/(tabs)/settings.tsx:433:  document.getElementById('edit-panel').classList.add('open');
+app/(tabs)/settings.tsx:434:  document.getElementById('edit-ta').value=edits[current]||sources[current]||'';
+app/(tabs)/settings.tsx:435:  document.getElementById('edit-ta').focus();
+app/(tabs)/settings.tsx:437:function closeEdit(){document.getElementById('edit-panel').classList.remove('open');}
+app/(tabs)/settings.tsx:440:  var n=document.getElementById('edit-ta').value;
+app/(tabs)/settings.tsx:443:  try{localStorage.setItem('butler_ide_edits',JSON.stringify(edits));}catch(e){}
+app/(tabs)/settings.tsx:449:  try{localStorage.setItem('butler_ide_edits',JSON.stringify(edits));}catch(e){}
+app/(tabs)/settings.tsx:451:  document.getElementById('edit-ta').value=src;
+app/(tabs)/settings.tsx:476:  document.getElementById('prompt-text').textContent=p;
+app/(tabs)/settings.tsx:477:  document.getElementById('prompt-panel').classList.toggle('open');
+app/(tabs)/settings.tsx:482:  nc(p,function(){toast('AI prompt copied!');document.getElementById('prompt-panel').classList.remove('open');});
+app/(tabs)/settings.tsx:496:  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+app/(tabs)/settings.tsx:501:  navigator.clipboard.writeText(txt).then(cb).catch(function(){
+app/(tabs)/settings.tsx:502:    var ta=document.createElement('textarea');ta.value=txt;
+app/(tabs)/settings.tsx:503:    document.body.appendChild(ta);ta.select();document.execCommand('copy');
+app/(tabs)/settings.tsx:504:    document.body.removeChild(ta);if(cb)cb();
+app/(tabs)/settings.tsx:508:  if(p)document.getElementById('paste-path').value=p;
+app/(tabs)/settings.tsx:509:  document.getElementById('paste-ta').value='';
+app/(tabs)/settings.tsx:510:  document.getElementById('paste-overlay').classList.add('open');
+app/(tabs)/settings.tsx:511:  setTimeout(function(){document.getElementById('paste-ta').focus();},100);
+app/(tabs)/settings.tsx:513:function overlayClick(e){if(e.target===document.getElementById('paste-overlay'))closePaste();}
+app/(tabs)/settings.tsx:514:function closePaste(){document.getElementById('paste-overlay').classList.remove('open');}
+app/(tabs)/settings.tsx:516:  var p=document.getElementById('paste-path').value.trim();
+app/(tabs)/settings.tsx:517:  var s=document.getElementById('paste-ta').value;
+app/(tabs)/settings.tsx:521:  try{localStorage.setItem('butler_ide_src',JSON.stringify(sources));}catch(e){}
+app/(tabs)/settings.tsx:525:  var t=document.createElement('div');
+app/(tabs)/settings.tsx:528:  document.body.appendChild(t);setTimeout(function(){t.remove();},2200);
+app/(tabs)/settings.tsx:530:document.addEventListener('keydown',function(e){
+app/(tabs)/settings.tsx:532:  if((e.ctrlKey||e.metaKey)&&e.key==='f'){e.preventDefault();document.getElementById('search-inp').focus();}
+app/(tabs)/settings.tsx:533:  if(e.key==='Escape'){closeEdit();document.getElementById('prompt-panel').classList.remove('open');}
+app/(tabs)/settings.tsx:652:                { t:'Changes saved to browser localStorage permanently', c:GREEN },
+app/category/[id].tsx:50:      await (navigator as any).clipboard.writeText(text);
+components/LegalDocView.tsx:2: * Reusable lightweight legal/document screen.
+components/cyber/HackerGrid.tsx:25:const { width, height } = Dimensions.get('window');
+components/home/AIBrainMasterpieceCard.tsx:19:const { width: SW } = Dimensions.get('window');
+components/home/LiveTerminalFeed.tsx:26:const SW   = Math.max(320, Dimensions.get('window').width);
+components/home/NetworkTopologyCard.tsx:22:const { width: SW } = Dimensions.get('window');
+components/home/NexusCommandCenter.tsx:27:const { width: SCREEN_W } = Dimensions.get('window');
+components/home/NexusHeroCard.tsx:16:const SW = Math.max(320, Dimensions.get('window').width);
+components/home/RemoteAccessMonetizationCard.tsx:26:const SW = Math.max(320, Dimensions.get('window').width);
+components/ui/BiometricLockOverlay.tsx:24:const { width: SW, height: SH } = Dimensions.get('window');
+components/ui/ButlerFX.tsx:15:const _DIM_NFX = Dimensions.get('window'); /* cold-start safe */
+components/ui/ButlerMediaBlockEditor.tsx:4:import * as DocumentPicker from 'expo-document-picker';
+components/ui/CompactPageHeader.tsx:19:const SW   = Math.max(1, Dimensions.get('window').width || 375);
+components/ui/LiveWidgetStudio.tsx:38:const _d = Dimensions.get('window');
+components/ui/NexusFX.tsx:15:const _DIM_NFX = Dimensions.get('window'); /* cold-start safe */
+components/ui/NexusPageBanner.tsx:17:const SW = Math.max(1, (Dimensions.get('window').width || 375) || 375);
+components/ui/NexusTips.tsx:10:const SW = Math.max(1, (Dimensions.get('window').width || 375) || 375);
+components/ui/NexusVaultCard.tsx:37:const SW = Math.max(320, Dimensions.get('window').width);
+components/ui/OnboardingHeroStep.tsx:25:const { width: _W, height: _H } = Dimensions.get('window');
+components/ui/PerformanceMonitorWidget.tsx:19:const { width: SW } = Dimensions.get('window');
+components/ui/QuickButlerBar.tsx:23:const SW   = Math.max(320, Dimensions.get('window').width);
+components/ui/RuntimeDiagnosticsHUD.tsx:30:const { width: SW } = Dimensions.get('window');
+components/ui/SkinHeaderFX.tsx:16:const SW = Math.max(1, Dimensions.get('window').width || 375);
+services/bootGuard.tsx:57:    (Dimensions as any).get = (dim: 'window' | 'screen') => {
+services/connectionDiagnostics.ts:101:      fixes.push(`FIX 1: Make sure butler_server.py is running on your PC (check the terminal window).`);
+services/jsonGuard.ts:5: * v7.6: Replaced localStorage with AsyncStorage.
+services/jsonGuard.ts:6: * localStorage does not exist in React Native — every read/write was silently
+services/jsonGuard.ts:18:// ── AsyncStorage wrapper (replaces localStorage which doesn't exist in RN) ──
+services/localVault.ts:1:import * as DocumentPicker from 'expo-document-picker';
+services/neuralTripwire.ts:119:    if (this._samples.length > 100) this._samples.shift(); // keep rolling window
+services/pythonAutomationKnowledge.ts:1848:# extract_text('document.pdf')
+services/pythonAutomationKnowledge.ts:2181:    tags: ['text', 'document', 'pdf', 'word', 'extract', 'parse'],
+services/scriptConcierge.ts:38:const FILE_WORDS = /\b(file|files|folder|directory|rename|move|copy|backup|delete|compress|pdf|csv|excel|document|desktop|drive)\b/i;
+services/scriptLibraryExtensions.ts:1471:opts.add_argument(f"--window-size={WIDTH},{HEIGHT}")
+services/scriptLibraryExtensions.ts:2847:    id: 'window-layout-manager',
+services/scriptLibraryExtensions.ts:2850:    tags: ['window', 'position', 'layout', 'multi-monitor', 'resize', 'arrange', 'tile'],
+services/smokeBeacon.ts:111:  // Give one settle window for late errors (effects, images, async state)
+utils/contextManager.ts:5: * Prevents the context window from growing unbounded as conversations get long.
+utils/contextManager.ts:13: *    from eating the entire context window
+constants/appSourceBundle.ts:10: *  - Removed all references to expo-clipboard, expo-document-picker, expo-sharing
+constants/appSourceBundle.ts:136:  • expo-document-picker  — use: lazy require('expo-document-picker') inside function
+constants/appSourceBundle.ts:171:  • Never import react-native-web or browser APIs (window/document/localStorage)
+constants/appSourceBundle.ts:203:  const result = await require('expo-document-picker').getDocumentAsync({ ... });
+constants/appSourceBundle.ts:439:        'expo-document-picker — REMOVED: black screen on APK install; use lazy require inside function',
+constants/appSourceBundle.ts:450:        'All expo-document-picker static imports → replaced with lazy require() inside functions',
+constants/appSourceBundle.ts:506:    '// ║  IMPORTANT: expo-clipboard/document-picker/sharing REMOVED             ║',
+constants/appSourceBundle.ts:515:    '// expo-document-picker → use: lazy require() inside function only',
+constants/appSourceBundle.ts:521:    '// • All static expo-clipboard/document-picker/sharing → RN equivalents',
+constants/dataSafety.ts:1:export const dataSafetyText: string = "# BOTER \u2014 Google Play Data Safety Form Answers\n\n**App Name:** BOTER: Remote PC Script Automation  \n**Package:** com.butlerai.pc.automation  \n**Last Updated:** April 1, 2026  \n\nThis document contains the **exact answers** to fill in the Google Play Console **Data Safety** section.  \nGo to: Play Console \u2192 Your App \u2192 Policy \u2192 Data Safety\n\n---\n\n## SECTION 1: Data Collection and Security\n\n### Question: \"Does your app collect or share any of the required user data types?\"\n\n**Answer: NO \u2014 with the following exception:**\n\nThe app only optionally transmits **chat message text** to the user's own paired PC server running local Ollama when the AI Butler feature is used. This text contains no personal identifiers (no name, email, phone, location, or device ID is included).\n\nNo personal data is collected, stored in the cloud, or shared with any data broker or advertiser.\n\n---\n\n### Question: \"Is all of the user data collected by your app encrypted in transit?\"\n\n**Answer: YES**\n\n- Chat messages to the local Ollama service on the user's paired PC use **HTTPS/TLS 1.2+** (the paired PC)\n- Chat relay via the user's paired PC server uses **HTTPS/TLS** (the paired PC)\n- Local PC communication uses **Bearer token authentication** over LAN, with optional self-signed **TLS/HTTPS** (generated by butler_server.py)\n\n---\n\n### Question: \"Do you provide a way for users to request that their data is deleted?\"\n\n**Answer: YES**\n\nUsers can delete all their data by:\n1. **Uninstalling the app** \u2014 Android deletes all AsyncStorage data automatically\n2. **Clear Knowledge Base** \u2014 Settings tab \u2192 Clear Knowledge Base button\n3. **Clear Chat** \u2014 Butler AI tab \u2192 trash icon \u2192 \"Clear Chat\"\n4. **Disconnect** \u2014 Connect tab \u2192 DISCONNECT removes server credentials\n\n---\n\n## SECTION 2: Data Types \u2014 Fill In These Answers Exactly\n\n### \u25b6 LOCATION\n\n| Sub-type | Collected? | Shared? |\n|---------|-----------|--------|\n| Approximate location | \u274c Not collected | N/A |\n| Precise location | \u274c Not collected | N/A |\n\n**\u2192 Answer: NO for all location types**\n\n---\n\n### \u25b6 PERSONAL INFO\n\n| Sub-type | Collected? | Shared? |\n|---------|-----------|--------|\n| Name | \u274c Not collected | N/A |\n| Email address | \u274c Not collected | N/A |\n| User IDs | \u274c Not collected | N/A |\n| Address | \u274c Not collected | N/A |\n| Phone number | \u274c Not collected | N/A |\n| Race and ethnicity | \u274c Not collected | N/A |\n| Political or religious beliefs | \u274c Not collected | N/A |\n| Sexual orientation | \u274c Not collected | N/A |\n| Other personal info | \u274c Not collected | N/A |\n\n**\u2192 Answer: NO for all personal info types**\n\n---\n\n### \u25b6 FINANCIAL INFO\n\n| Sub-type | Collected? | Shared? |\n|---------|-----------|--------|\n| User payment info | \u274c Not collected | N/A |\n| Purchase history | \u274c Not collected | N/A |\n| Credit score | \u274c Not collected | N/A |\n| Other financial info | \u274c Not collected | N/A |\n\n**\u2192 Answer: NO for all financial info types**\n\n---\n\n### \u25b6 HEALTH AND FITNESS\n\n| Sub-type | Collected? | Shared? |\n|---------|-----------|--------|\n| Health info | \u274c Not collected | N/A |\n| Fitness info | \u274c Not collected | N/A |\n\n**\u2192 Answer: NO**\n\n---\n\n### \u25b6 MESSAGES\n\n| Sub-type | Collected? | Shared? |\n|---------|-----------|--------|\n| Emails | \u274c Not collected | N/A |\n| SMS or MMS | \u274c Not collected | N/A |\n| Other in-app messages | \u26a0\ufe0f See note | \u26a0\ufe0f See note |\n\n**Note on in-app messages (Butler AI chat):**  \nChat text typed into the Butler AI chat is optionally transmitted to the local Ollama service on the user's paired PC via the user's paired PC server. This is the user's own typed messages about Python scripting and automation \u2014 no personal identity data is included. Chat history is stored locally on-device only and deleted when the user clears the chat or uninstalls the app.\n\n**\u2192 For \"Other in-app messages\": YES \u2014 collected (chat text), processed by the user's paired PC for local Ollama functionality; no developer-operated cloud AI service is enabled by this build**\n\nFill in this sub-section as follows:\n- **Data type:** Other in-app messages (chat text)\n- **Collected:** Yes\n- **Shared:** Yes \u2014 with the local Ollama service on the user's paired PC and the user's paired PC server for AI response generation\n- **Ephemeral:** No (stored locally until user clears)\n- **Required or optional:** Optional (user can use app without Butler AI)\n- **Purpose:** App functionality (AI assistant responses)\n\n---\n\n### \u25b6 PHOTOS AND VIDEOS\n\n| Sub-type | Collected? | Shared? |\n|---------|-----------|--------|\n| Photos | \u274c Not collected | N/A |\n| Videos | \u274c Not collected | N/A |\n\n**Note on Camera permission:** The camera is used for QR code scanning (pairing with PC server). No photos or images are captured, stored, or transmitted. The camera stream is processed in real-time on-device only.\n\n**\u2192 Answer: NO for photos and videos**\n\n---\n\n### \u25b6 AUDIO FILES\n\n**\**→ Answer: Conditional — the optional voice lane can use microphone audio only after a visible user action and permission. Raw audio is intended to be ephemeral and is not persisted by default. Verify the final Android manifest, runtime implementation, and Play Console declaration before release.**\n\n---\n\n### \u25b6 FILES AND DOCS\n\n**\u2192 Answer: NO \u2014 App does not access device files**\n\n---\n\n### \u25b6 CALENDAR\n\n**\u2192 Answer: NO**\n\n---\n\n### \u25b6 CONTACTS\n\n**\u2192 Answer: NO**\n\n---\n\n### \u25b6 APP ACTIVITY\n\n| Sub-type | Collected? | Shared? |\n|---------|-----------|--------|\n| App interactions | \u274c Not collected | N/A |\n| In-app search history | \u274c Not collected | N/A |\n| Installed apps | \u274c Not collected | N/A |\n| Other user-generated content | \u274c Not collected | N/A |\n| Other actions | \u274c Not collected | N/A |\n\n**\u2192 Answer: NO for all app activity types**\n\n---\n\n### \u25b6 WEB BROWSING\n\n**\u2192 Answer: NO**\n\n---\n\n### \u25b6 APP INFO AND PERFORMANCE\n\n| Sub-type | Collected? | Shared? |\n|---------|-----------|--------|\n| Crash logs | \u274c Not collected | N/A |\n| Diagnostics | \u274c Not collected | N/A |\n| Other app performance data | \u274c Not collected | N/A |\n\n**\u2192 Answer: NO \u2014 No crash reporting SDK is used**\n\n---\n\n### \u25b6 DEVICE OR OTHER IDs\n\n| Sub-type | Collected? | Shared? |\n|---------|-----------|--------|\n| Device or other IDs | \u26a0\ufe0f See note | \u274c Not shared |\n\n**Note:** A random UUID `deviceId` is generated locally and stored in AsyncStorage. It is transmitted only to the user's own PC server on their local network for pairing authentication purposes. It is never transmitted to any external server, advertiser, or data broker.\n\n**\u2192 Answer: YES \u2014 Device ID collected; NOT shared with third parties**\n\nFill in this sub-section:\n- **Data type:** Device or other IDs\n- **Collected:** Yes\n- **Shared:** No\n- **Ephemeral:** No (persists until disconnect or uninstall)\n- **Required or optional:** Required (for PC pairing)\n- **Purpose:** App functionality (device authentication with user's own PC)\n\n---\n\n## SECTION 3: Security Practices Checklist\n\nUse these answers in the Play Console security practices section:\n\n### \"Is your app's data encrypted in transit?\"\n**\u2705 YES** \u2014 The app makes no external AI or analytics calls. The paired PC connection is authenticated; TLS is required for remote use. Local PC communication uses optional TLS with Bearer token authentication.\n\n### \"Do you provide a way for users to request data deletion?\"\n**\u2705 YES** \u2014 Users can delete all data by clearing the Knowledge Base in Settings, clearing chat history in the Butler AI tab, or uninstalling the app (which removes all AsyncStorage data).\n\n### \"Does your app follow the Families Policy?\"\n**\u274c NO** \u2014 App is not designed for children and is not in the Families Program.\n\n### \"Has your app been independently security reviewed?\"\n**\u274c NO** *(unless you have obtained a security audit \u2014 leave unchecked)*\n\n---\n\n## SECTION 4: Privacy Policy URL\n\nEnter this URL in Play Console \u2192 Store Listing \u2192 Privacy Policy:\n\n```\nhttps://[YOUR_GITHUB_USERNAME].github.io/boter-privacy/\n```\n\n**Recommended free hosting options:**\n1. **GitHub Pages** \u2014 Push `PRIVACY_POLICY.md` as `index.md` to a repo, enable Pages\n2. **Notion** \u2014 Paste the content into a public Notion page, copy the share URL\n3. **Google Sites** \u2014 Create a free site at sites.google.com, paste content\n4. **Carrd.co** \u2014 Free single-page site builder\n\nThe URL must be publicly accessible (no login required) and must not be a PDF.\n\n---\n\n## SECTION 5: Store Listing \u2014 Short Description for Data Safety\n\nUse this text in the \"Data Safety\" short description shown to users on the Play Store:\n\n> **BOTER does not collect personal data.** The app connects directly to your own PC over your home Wi-Fi. No data is stored in the cloud. Camera permission is used only for QR code scanning. Optional AI chat uses local Ollama on the user's paired PC (your messages only \u2014 no personal identity data). All data is deleted when you uninstall the app.\n\n---\n\n## SECTION 6: Data Safety Summary Table (for Play Console)\n\n| Category | Data Collected | Shared with 3rd Party | Purpose |\n|---------|---------------|----------------------|---------|\n| Location | None | No | \u2014 |\n| Personal info | None | No | \u2014 |\n| Financial info | None | No | \u2014 |\n| Health & fitness | None | No | \u2014 |\n| Messages | Chat text (optional) | User's paired PC only | App functionality |\n| Photos/Videos | None | No | \u2014 |\n| Audio | Conditional voice input | User's paired PC only | Optional voice functionality |\u2014 |\n| Files & docs | None | No | \u2014 |\n| Contacts | None | No | \u2014 |\n| App activity | None | No | \u2014 |\n| Crash logs | None | No | \u2014 |\n| Device IDs | Random UUID (local) | No (LAN only) | Device pairing |\n\n---\n\n## SECTION 7: Play Store Compliance Checklist\n\nBefore submitting to Play Store, verify:\n\n- [x] `CAMERA` permission declared in AndroidManifest with description\n- [x] `INTERNET` permission declared in AndroidManifest  \n- [x] `network_security_config.xml` allows local network HTTP (for LAN server)\n- [x] Privacy policy URL is publicly accessible\n- [x] No prohibited content (no deceptive UX, no unauthorized data collection)\n- [x] Target API Level meets current Play Store requirements (check `app.json` targetSdkVersion)\n- [x] App does not impersonate other apps or developers\n- [x] Content rating questionnaire completed (likely \"Everyone\" or \"Everyone 10+\")\n- [x] Data Safety form completed per this document\n- [x] App description accurately describes what the app does\n\n---\n\n## SECTION 8: Content Rating Questionnaire Answers\n\nWhen prompted for IARC content rating:\n\n| Question | Answer |\n|---------|--------|\n| Does app contain violence? | No |\n| Does app contain sexual content? | No |\n| Does app contain profanity? | No |\n| Does app simulate gambling? | No |\n| Does app share location with others? | No |\n| Does app allow users to interact with strangers? | No |\n| Does app allow users to purchase digital goods? | No |\n| Is app primarily for children? | No |\n\n**Expected Rating:** EVERYONE (E) \u2014 No content restrictions\n\n---\n\n*Document prepared for BOTER v4.4 | April 1, 2026*  \n*Review against latest Google Play Developer Programme Policies before submission.*\n";
+constants/tabSourcesBundle.ts:15: *  - Removed expo-clipboard/document-picker/sharing from haptics stub
+constants/tabSourcesBundle.ts:168: * FIXED: Removed expo-document-picker, expo-sharing, expo-clipboard
+constants/tabSourcesBundle.ts:169: *   - File import: lazy require('expo-document-picker') inside function
+
+# Dynamic requires
+app/(tabs)/onboarding.tsx:138:    const { haptics: hp } = require('@/services/haptics');
+app/(tabs)/onboarding.tsx:508:  try { src = require('@/assets/images/butler-robot-face.jpg'); } catch {
+app/(tabs)/onboarding.tsx:509:    try { src = require('@/assets/images/mascot_shield.png'); } catch {
+app/(tabs)/onboarding.tsx:510:      try { src = require('@/assets/images/butler_hud_robot.jpg'); } catch {}
+app/(tabs)/onboarding.tsx:550:try { _QA_BG = require('@/assets/images/qa-bg-metal.jpg'); } catch {}
+app/(tabs)/onboarding.tsx:557:    require('@/assets/images/butler_hud_robot.jpg'),
+app/(tabs)/onboarding.tsx:558:    require('@/assets/images/butler-robot-face.jpg'),
+app/(tabs)/onboarding.tsx:559:    require('@/assets/images/mascot_shield.png'),
+app/(tabs)/onboarding.tsx:560:    require('@/assets/images/butler-ai-shield-logo.jpg'),
+app/(tabs)/onboarding.tsx:1522:  try { _SHIELD = require('@/assets/images/butler-ai-shield-logo.jpg'); } catch {
+app/(tabs)/onboarding.tsx:1523:    try { _SHIELD = require('@/assets/images/mascot_shield.png'); } catch {}
+app/(tabs)/onboarding.tsx:1823:      require('@/services/autoErrorLogger').autoErrorLogger
+app/(tabs)/onboarding.tsx:2054:  try { _BG = require('@/assets/images/butler-circuit-grid.jpg'); } catch {}
+app/(tabs)/settings.tsx:582:        const FS = require('expo-file-system');
+app/(tabs)/settings.tsx:583:        const SH = require('expo-sharing');
+app/_layout.tsx:73:        require('@/services/autoErrorLogger').autoErrorLogger
+app/_layout.tsx:108:        const AS = require('@react-native-async-storage/async-storage').default;
+app/_layout.tsx:145:        try { require('@/services/bootGuard').forceHideSplash?.(); } catch {}
+app/_layout.tsx:149:            try { require('expo-router').router.replace('/(tabs)/home'); } catch {
+app/_layout.tsx:150:              try { require('expo-router').router.navigate('/(tabs)/home'); } catch {}
+app/_layout.tsx:179:          require('@/services/autoErrorLogger').autoErrorLogger
+app/_layout.tsx:185:          require('@react-native-async-storage/async-storage').default
+app/category/[id].tsx:52:      try { require('react-native').Clipboard.setString(text); } catch {}
+app/security-trust.tsx:36:try { SHIELD_IMG = require('@/assets/images/mascot_shield.png'); } catch {
+app/security-trust.tsx:37:  try { SHIELD_IMG = require('@/assets/images/mascot_shield_v2.png'); } catch {}
+components/home/NexusHeroCard.tsx:22:try { HERO_IMG = require('@/assets/images/mascot_shield_v2.png'); } catch {
+components/home/NexusHeroCard.tsx:23:  try { HERO_IMG = require('@/assets/images/mascot_shield.png'); } catch {
+components/home/NexusHeroCard.tsx:24:    try { HERO_IMG = require('@/assets/images/butler_hud_robot.jpg'); } catch {}
+components/ui/ButlerAtmosphere.tsx:9:const CIRCUIT_GRID = require('@/assets/images/butler-circuit-grid.jpg');
+components/ui/LiveWidgetStudio.tsx:31:  const { autoErrorLogger } = require('@/services/autoErrorLogger');
+components/ui/OnboardingHeroStep.tsx:179:  try { robotImg = require('@/assets/images/mascot_shield_v2.png'); } catch {
+components/ui/OnboardingHeroStep.tsx:180:    try { robotImg = require('@/assets/images/mascot_shield.png'); } catch {
+components/ui/OnboardingHeroStep.tsx:181:      try { robotImg = require('@/assets/images/butler_hud_robot.jpg'); } catch {}
+components/ui/QuickButlerBar.tsx:138:      const { serverConnection } = require('@/services/serverConnection');
+components/ui/TabErrorBoundary.tsx:32:    try { require('@/services/sentinel').sentinel.reportCrash(`tab:${this.props.name}`, error); } catch {}
+components/ui/TabErrorBoundary.tsx:35:      require('@/services/autoErrorLogger').autoErrorLogger.log(
+components/ui/TabErrorBoundary.tsx:44:      require('@/services/runtimeErrorMonitor').runtimeErrorMonitor
+services/biometricLock.ts:37:  try { _LocalAuth = require('expo-local-authentication'); } catch { _LocalAuth = null; }
+services/biometricLock.ts:261:    const { digestStringAsync, CryptoDigestAlgorithm } = require('expo-crypto');
+services/bootGuard.tsx:167:      const AS = require('@react-native-async-storage/async-storage').default;
+services/connectionDiagnostics.ts:145:      `Platform: ${require('react-native').Platform.OS.toUpperCase()} | Events logged: ${this._events.length}`,
+services/encryptedStorage.ts:17:    try { _Crypto = require('expo-crypto'); } catch { _Crypto = null; }
+services/encryptedStorage.ts:27:  try { _SecureStore = require('expo-secure-store'); } catch { _SecureStore = null; }
+services/haptics.ts:15:      Haptics = require('expo-haptics');
+services/pcClipboard.ts:64:      const getStringAsync = () => new Promise<string>((res) => { try { require('react-native').Clipboard.getString().then(res).catch(() => res('')); } catch { res(''); } });
+services/pcClipboard.ts:65:      const setStringAsync = (s: string) => { try { require('react-native').Clipboard.setString(s); } catch {} return Promise.resolve();};
+services/pythonAutomationKnowledge.ts:12:// Using require() inside a try/catch guarantees PYTHON_AUTOMATION_SCRIPTS is always
+services/pythonAutomationKnowledge.ts:17:    const mod = require('./scriptLibraryExtensions');
+services/pythonAutomationKnowledge.ts:23:      const pcMod = require('./scriptLibraryPCCheck');
+services/pythonAutomationKnowledge.ts:32:      const pcMod = require('./scriptLibraryPCCheck');
+services/pythonAutomationKnowledge.ts:2223:// Uses require() (not static import) inside the IIFE to defer the
+services/remoteAccessTiers.ts:19: * A literal require('react-native-purchases') makes Metro fail the whole
+services/runtimeErrorMonitor.ts:252:      const { serverConnection } = require('./serverConnection');
+services/runtimeErrorMonitor.ts:363:      const { serverConnection } = require('./serverConnection');
+services/runtimeErrorMonitor.ts:409:    try { require('./autoErrorLogger');       snap.services.autoErrorLogger = true; } catch {}
+services/runtimeErrorMonitor.ts:410:    try { require('./knowledgeAccumulator');  snap.services.knowledgeAccumulator = true; } catch {}
+services/runtimeErrorMonitor.ts:411:    try { require('./executionHistory');      snap.services.executionHistory = true; } catch {}
+services/runtimeErrorMonitor.ts:536:        try { require('expo-router').router.replace('/(tabs)/home'); } catch {}
+services/runtimeErrorMonitor.ts:549:        try { require('expo-router').router.replace('/(tabs)/home'); } catch {}
+services/runtimeErrorMonitor.ts:567:          try { require('expo-router').router.replace('/(tabs)/home'); } catch {}
+services/runtimeErrorMonitor.ts:584:          try { require('expo-router').router.replace('/(tabs)/home'); } catch {}
+services/runtimeErrorMonitor.ts:600:        try { require('expo-router').router.replace('/(tabs)/home'); } catch {}
+services/runtimeErrorMonitor.ts:611:          const { autoErrorLogger } = require('./autoErrorLogger');
+services/runtimeErrorMonitor.ts:625:        const { serverConnection } = require('./serverConnection');
+services/runtimeErrorMonitor.ts:642:          const { encryptedStorage } = require('./encryptedStorage');
+services/runtimeErrorMonitor.ts:658:          const { autoErrorLogger } = require('./autoErrorLogger');
+services/runtimeErrorMonitor.ts:662:          const { serverConnection } = require('./serverConnection');
+services/runtimeErrorMonitor.ts:677:          const { serverConnection } = require('./serverConnection');
+services/runtimeErrorMonitor.ts:704:          const { serverConnection } = require('./serverConnection');
+services/runtimeErrorMonitor.ts:705:          const { autoConnectEngine } = require('./autoConnectEngine');
+services/runtimeErrorMonitor.ts:749:        const { autoConnectEngine } = require('./autoConnectEngine');
+services/runtimeErrorMonitor.ts:762:        const { heartbeatEngine } = require('./heartbeatEngine');
+services/runtimeErrorMonitor.ts:775:        const { serverConnection } = require('./serverConnection');
+services/runtimeErrorMonitor.ts:788:        const { neuralTripwire } = require('./neuralTripwire');
+services/runtimeErrorMonitor.ts:800:          const { autoErrorLogger } = require('./autoErrorLogger');
+services/runtimeErrorMonitor.ts:844:        try { require('expo-router').router.replace('/(tabs)/home'); } catch {}
+services/runtimeErrorMonitor.ts:880:          const { serverConnection } = require('./serverConnection');
+services/runtimeErrorMonitor.ts:881:          const { autoConnectEngine } = require('./autoConnectEngine');
+services/scriptLibraryData.ts:99:    const mod = require('./pythonAutomationKnowledge');
+services/scriptLibraryData.ts:207:    } catch (_inner) { try { require('@/services/autoErrorLogger').autoErrorLogger?.log?.('warn', '[scriptLibraryData validation]', String(_inner)); } catch {} }
+services/scriptLibraryData.ts:209:} catch (_e) { try { require('@/services/autoErrorLogger').autoErrorLogger?.log?.('warn', '[scriptLibraryData init]', String(_e)); } catch {} }
+services/serverConnection.ts:735:      const SecureStore = require('expo-secure-store');
+constants/appSourceBundle.ts:136:  • expo-document-picker  — use: lazy require('expo-document-picker') inside function
+constants/appSourceBundle.ts:203:  const result = await require('expo-document-picker').getDocumentAsync({ ... });
+constants/appSourceBundle.ts:450:        'All expo-document-picker static imports → replaced with lazy require() inside functions',
+constants/appSourceBundle.ts:515:    '// expo-document-picker → use: lazy require() inside function only',
+constants/tabSourcesBundle.ts:169: *   - File import: lazy require('expo-document-picker') inside function
+
+# Unsafe cast markers
+app/(tabs)/_layout.tsx:141:    (global as any).__butlerRevealTabBar = () => {
+app/(tabs)/_layout.tsx:149:    (global as any).__butlerUpdateOnboardingStep = (stepIdx: number) => {
+app/(tabs)/_layout.tsx:160:      delete (global as any).__butlerRevealTabBar;
+app/(tabs)/_layout.tsx:161:      delete (global as any).__butlerUpdateOnboardingStep;
+app/(tabs)/_layout.tsx:184:      try { router.replace('/(tabs)/home' as any); } catch {}
+app/(tabs)/_layout.tsx:248:  const renderTabBar = useCallback((props: any) => {
+app/(tabs)/builder.tsx:31:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+app/(tabs)/builder.tsx:83:          <MaterialCommunityIcons name={node.icon as any} size={18} color={node.color} />
+app/(tabs)/builder.tsx:205:              <MaterialCommunityIcons name={t.icon as any} size={18} color={t.color} />
+app/(tabs)/butler.tsx:38:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+app/(tabs)/butler.tsx:280:          <MaterialCommunityIcons name={m.icon as any} size={14} color={active ? color : skin.mid} />
+app/(tabs)/butler.tsx:460:    } catch (e: any) {
+app/(tabs)/butler.tsx:562:                  <MaterialCommunityIcons name={s.icon as any} size={11} color={PURP+'80'} />
+app/(tabs)/butler.tsx:587:            <MaterialCommunityIcons name={MODES.find(m => m.key === mode)?.icon as any ?? 'chat'} size={16} color={modeColor+'80'} />
+app/(tabs)/connect.tsx:29:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+app/(tabs)/connect.tsx:194:              try { (global as any).__butlerHomeOpenQR?.(); } catch {}
+app/(tabs)/connect.tsx:207:      const r: any = await serverConnection.connectManual(ip.trim(), '8766', pairingCode.trim());
+app/(tabs)/connect.tsx:210:    } catch (e: any) { setStatus('Error: ' + (e?.message || 'Failed')); }
+app/(tabs)/connect.tsx:216:    try { (serverConnection as any).disconnect?.(); } catch {}
+app/(tabs)/cosmetic.tsx:40:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+app/(tabs)/cosmetic.tsx:271:                <MaterialCommunityIcons name={REMOTE_PRODUCT.icon as any} size={18} color={REMOTE_PRODUCT.accent} />
+app/(tabs)/fileshare.tsx:36:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+app/(tabs)/fileshare.tsx:168:      fd.append('file', { uri:file.uri, name:file.name, type:'application/octet-stream' } as any);
+app/(tabs)/fileshare.tsx:319:  dropZone: { borderRadius:14, borderWidth:1.5, borderStyle:'dashed' as any, padding:18, alignItems:'center', justifyContent:'center', minHeight:100 },
+app/(tabs)/home.tsx:49:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+app/(tabs)/home.tsx:158:              <MaterialCommunityIcons name={t.icon as any} size={13} color={active ? t.color : MID} />
+app/(tabs)/home.tsx:244:          <MaterialCommunityIcons name={c.icon as any} size={14} color={c.color + '80'} />
+app/(tabs)/home.tsx:487:          <MaterialCommunityIcons name={f.icon as any} size={13} color={f.color} />
+app/(tabs)/home.tsx:633:                <MaterialCommunityIcons name={c.icon as any} size={14} color={c.color} />
+app/(tabs)/home.tsx:642:              <View style={{ height: '100%', width: `${c.pct}%` as any, borderRadius: 1.5, backgroundColor: c.color }} />
+app/(tabs)/home.tsx:740:            <MaterialCommunityIcons name={a.icon as any} size={18} color={a.color} />
+app/(tabs)/home.tsx:915:    try { (global as any).__butlerSwitchTab?.(t); } catch {}
+app/(tabs)/index.tsx:14:    router.replace('/(tabs)/home' as any);
+app/(tabs)/knowledge.tsx:43:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+app/(tabs)/knowledge.tsx:215:              <MaterialCommunityIcons name={t.icon as any} size={13} color={active ? t.color : MID} />
+app/(tabs)/knowledge.tsx:299:          <MaterialCommunityIcons name={c.icon as any} size={14} color={c.color + '80'} />
+app/(tabs)/knowledge.tsx:472:          <MaterialCommunityIcons name={f.icon as any} size={13} color={f.color} />
+app/(tabs)/knowledge.tsx:639:                  <MaterialCommunityIcons name={c.icon as any} size={14} color={c.color} />
+app/(tabs)/knowledge.tsx:649:                <View style={{ height: '100%', width: isConn ? `${c.pct}%` as any : '4%', borderRadius: 1.5, backgroundColor: c.color }} />
+app/(tabs)/knowledge.tsx:737:                <MaterialCommunityIcons name={cap.icon as any} size={17} color={cap.active ? cap.color : MID} />
+app/(tabs)/logs.tsx:34:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+app/(tabs)/onboarding.tsx:46:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+app/(tabs)/onboarding.tsx:112:    try { router.replace('/(tabs)/home' as any); return; } catch {}
+app/(tabs)/onboarding.tsx:114:      const fn = (global as any).__butlerSwitchTab;
+app/(tabs)/onboarding.tsx:117:    try { router.navigate('/(tabs)/home' as any); } catch {}
+app/(tabs)/onboarding.tsx:134:  try { (global as any).__butlerOnboardingStepIdx = -1; } catch {}
+app/(tabs)/onboarding.tsx:219:          { position: 'absolute', left: 0, right: 0, top: `${pct * 100}%` as any,
+app/(tabs)/onboarding.tsx:230:          transform: [{ translateX: scanLine as any }, { skewX: '-8deg' }] },
+app/(tabs)/onboarding.tsx:269:  if (!visible && (scaleA as any).__getValue?.() === 0) return null;
+app/(tabs)/onboarding.tsx:301:            <Icon name={tip.icon as any} size={11} color={accent} />
+app/(tabs)/onboarding.tsx:363:      {([{ top: 5, right: 9 }, { bottom: 130, left: 11 }, { top: 195, right: 25 }] as any[]).map((pos: any, i: number) => (
+app/(tabs)/onboarding.tsx:372:  const MONOC: any = Platform.OS === 'ios' ? 'Courier' : 'monospace';
+app/(tabs)/onboarding.tsx:436:            <Animated.View key={i} style={[cel.particle, { width: p.size, height: p.size, borderRadius: p.size / 2, backgroundColor: p.color, opacity: op, transform: [{ translateX: tx as any }, { translateY: ty as any }, { scale: sc as any }] }]} />
+app/(tabs)/onboarding.tsx:441:          borderColor: glowPulse.interpolate({ inputRange:[0.2,1], outputRange:['#00FF8870','#00FF88FF'] }) as any,
+app/(tabs)/onboarding.tsx:451:          <Animated.Text style={[cel.titleOnline, { opacity:textIn, transform:[{translateY:textSlide as any}] }]}>ONLINE</Animated.Text>
+app/(tabs)/onboarding.tsx:507:  let src: any = null;
+app/(tabs)/onboarding.tsx:517:      ...Platform.select({ ios: [{ shadowColor: accentColor, shadowOffset:{width:0,height:0}, shadowOpacity: pulseAnim as any, shadowRadius: 14 }], android: [] }) as any,
+app/(tabs)/onboarding.tsx:549:let _QA_BG: any = null;
+app/(tabs)/onboarding.tsx:579:        <MaterialCommunityIcons name={icon as any} size={11} color={accent} />
+app/(tabs)/onboarding.tsx:654:function NeonCard({ color, children, style }: { color: string; children: React.ReactNode; style?: any }) {
+app/(tabs)/onboarding.tsx:672:      {icon && <MaterialCommunityIcons name={icon as any} size={10} color={color} />}
+app/(tabs)/onboarding.tsx:859:              <MaterialCommunityIcons name={item.icon as any} size={20} color={item.color} />
+app/(tabs)/onboarding.tsx:933:            <MaterialCommunityIcons name={tab.icon as any} size={16} color={tab.color} />
+app/(tabs)/onboarding.tsx:1044:              <MaterialIcons name={doc.icon as any} size={22} color={doc.color} />
+app/(tabs)/onboarding.tsx:1085:            <MaterialIcons name={p.icon as any} size={22} color={p.color} />
+app/(tabs)/onboarding.tsx:1170:            <MaterialIcons name={item.icon as any} size={18} color={item.color} />
+app/(tabs)/onboarding.tsx:1263:                <MaterialCommunityIcons name={a.icon as any} size={17} color={a.color} />
+app/(tabs)/onboarding.tsx:1313:                  <MaterialCommunityIcons name={step.icon as any} size={14} color={step.color} />
+app/(tabs)/onboarding.tsx:1521:  let _SHIELD: any = null;
+app/(tabs)/onboarding.tsx:1569:                  <MaterialCommunityIcons name={icon as any} size={17} color={accent} />
+app/(tabs)/onboarding.tsx:1664:      const parsed = parseQRConnection(data) as any;
+app/(tabs)/onboarding.tsx:1672:    } catch (e: any) {
+app/(tabs)/onboarding.tsx:1749:      <Animated.View style={{ height:'100%', borderRadius:2, width: width as any, backgroundColor: accent }} />
+app/(tabs)/onboarding.tsx:1836:    const MONOF: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+app/(tabs)/onboarding.tsx:1945:    (global as any).__butlerOnboardingStepIdx = idx;
+app/(tabs)/onboarding.tsx:1946:    try { (global as any).__butlerUpdateOnboardingStep?.(idx); } catch {}
+app/(tabs)/onboarding.tsx:1949:        try { (global as any).__butlerRevealTabBar?.(); } catch {}
+app/(tabs)/onboarding.tsx:2053:  let _BG: any = null;
+app/(tabs)/onboarding.tsx:2072:            <View key={p} style={{ position:'absolute', left:0, right:0, top:`${p}%` as any, height:StyleSheet.hairlineWidth, backgroundColor:'rgba(0,229,255,0.025)' }} />
+app/(tabs)/onboarding.tsx:2281:  divider: { width: 1, height: '60%', borderLeftWidth: 1, borderStyle: 'dashed' as any },
+app/(tabs)/scripts.tsx:40:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+app/(tabs)/scripts.tsx:132:          <MaterialCommunityIcons name={script.icon as any} size={22} color={script.color} />
+app/(tabs)/scripts.tsx:276:              <MaterialCommunityIcons name={script.icon as any} size={20} color={script.color} />
+app/(tabs)/scripts.tsx:426:    } catch (e: any) {
+app/(tabs)/scripts.tsx:490:    } catch (e: any) {
+app/(tabs)/scripts.tsx:539:    } catch (e: any) {
+app/(tabs)/scripts.tsx:639:                <MaterialCommunityIcons name={c.icon as any} size={11} color={active ? c.color : MID} />
+app/(tabs)/serverSetup.tsx:74:    } catch (error: any) {
+app/(tabs)/serverSetup.tsx:84:    return { label: complete ? 'Return to Butler' : 'Review connection steps', onPress: complete ? () => router.replace('/(tabs)/home' as any) : () => setStep(1) };
+app/(tabs)/settings.tsx:43:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+app/(tabs)/settings.tsx:191:    files.reduce((acc, f) => { (acc as any)[f.path] = f.source || ''; return acc; }, {})
+app/(tabs)/settings.tsx:810:        router.push('/(tabs)/serverSetup' as any);
+app/(tabs)/settings.tsx:813:        try { (global as any).__butlerHomeOpenQR?.(); } catch {}
+app/(tabs)/settings.tsx:886:            <MaterialIcons name={item.icon as any} size={18} color={item.danger?RED:item.color} />
+app/(tabs)/settings.tsx:901:            <MaterialIcons name={item.icon as any} size={18} color={item.color} />
+app/(tabs)/settings.tsx:915:            <MaterialIcons name={item.icon as any} size={18} color={item.color} />
+app/(tabs)/tools.tsx:50:        {TOOLS.map(([icon, label, desc, color]) => <View key={label} style={[s.toolCard, { borderColor: color + '70' }]}><View style={[s.toolIcon, { borderColor: color + '80' }]}><MaterialCommunityIcons name={icon as any} size={24} color={color} /></View><View style={s.flex}><Text style={[s.toolTitle, { color }]}>{label}</Text><Text style={s.body}>{desc}</Text></View><MaterialIcons name="chevron-right" size={24} color={C.dim} /></View>)}
+app/(tabs)/tools.tsx:59:        {RULES.map(([icon, title, detail]) => <View key={title} style={s.ruleCard}><MaterialCommunityIcons name={icon as any} size={22} color={C.red} /><View style={s.flex}><Text style={s.ruleTitle}>{title}</Text><Text style={s.body}>{detail}</Text></View></View>)}
+app/_layout.tsx:67:  const _origHandler = (global as any).onunhandledrejection;
+app/_layout.tsx:68:  (global as any).onunhandledrejection = (event: any) => {
+app/_layout.tsx:98:    const EU: any = (global as any).ErrorUtils;
+app/_layout.tsx:167:  const _origErrorHandler = (global as any).ErrorUtils?.getGlobalHandler?.();
+app/_layout.tsx:168:  const _autoHealHandler = (error: any, isFatal: boolean) => {
+app/_layout.tsx:195:    (global as any).ErrorUtils?.setGlobalHandler?.(_autoHealHandler);
+app/category/[id].tsx:41:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+app/category/[id].tsx:50:      await (navigator as any).clipboard.writeText(text);
+app/category/[id].tsx:127:                  <MaterialIcons name={fix.icon as any} size={13} color={isCopied ? C.green : accentColor} />
+app/crash-report.tsx:46:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+app/crash-report.tsx:400:                  <MaterialIcons name={item.icon as any} size={16} color={item.col} />
+app/crash-report.tsx:476:                  <MaterialIcons name={item.icon as any} size={14} color={item.col} />
+app/security-trust.tsx:16:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+app/security-trust.tsx:17:const SANS: any = Platform.OS === 'ios' ? 'System'    : 'sans-serif';
+app/security-trust.tsx:35:let SHIELD_IMG: any = null;
+app/security-trust.tsx:193:                  <Icon name={card.icon as any} size={18} color={card.color} />
+app/security-trust.tsx:244:                <MaterialCommunityIcons name={item.icon as any} size={15} color={C.green} style={{ marginTop: 1 }} />
+components/LegalDocView.tsx:11:const MONO: any = Platform.OS === 'ios' ? 'Courier' : 'monospace';
+components/cyber/SkeletonLoader.tsx:90:          { width: width as any, height: height as any },
+components/cyber/SkeletonLoader.tsx:99:    <View style={[styles.skeleton, { width: width as any, height: height as any }, style]}>
+components/home/AIBrainMasterpieceCard.tsx:20:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/home/AIBrainMasterpieceCard.tsx:191:          style={[{ position:'absolute', width:10, height:10, borderColor:C.cyan+'50' }, s as any]} />
+components/home/AIBrainMasterpieceCard.tsx:257:          width: barA.interpolate({ inputRange:[0,1], outputRange:['0%','100%'] }) as any,
+components/home/AIBrainMasterpieceCard.tsx:263:          <View key={p} style={{ position:'absolute', top:0, bottom:0, width:1, backgroundColor:'rgba(0,0,0,0.25)', left:`${p}%` as any }} />
+components/home/AIBrainMasterpieceCard.tsx:357:                <MaterialIcons name={TY_ICO[event.type] as any} size={10} color={col} />
+components/home/AIBrainMasterpieceCard.tsx:508:    } catch (e: any) {
+components/home/AIBrainMasterpieceCard.tsx:671:      } catch (e: any) { throw e; }
+components/home/LiveTerminalFeed.tsx:27:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/home/LiveTerminalFeed.tsx:28:const SANS: any = Platform.OS === 'ios' ? 'System' : 'sans-serif';
+components/home/LiveTerminalFeed.tsx:129:            <Icon name={chan.icon as any} size={10} color={chan.color} />
+components/home/LiveTerminalFeed.tsx:300:        const sessions = (stats as any)?.sessions ?? [];
+components/home/LiveTerminalFeed.tsx:301:        memRows = sessions.slice(-4).reverse().map((s: any, i: number) => ({
+components/home/NetworkTopologyCard.tsx:21:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/home/NetworkTopologyCard.tsx:337:      const r = await (serverConnection as any).connectManual?.(srv.ip, String(srv.port));
+components/home/NexusCommandCenter.tsx:26:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/home/NexusCommandCenter.tsx:296:          <View key={`h${i}`} style={[s.gridLineH, { top: `${pct * 100}%` as any }]} />
+components/home/NexusCommandCenter.tsx:300:          <View key={`v${i}`} style={[s.gridLineV, { left: `${pct * 100}%` as any }]} />
+components/home/NexusCommandCenter.tsx:480:                  <Icon name={f.icon as any} size={18} color={f.color} />
+components/home/NexusCommandCenter.tsx:506:              <Icon name={btn.icon as any} size={14} color={btn.col} />
+components/home/NexusCommandCenter.tsx:645:    width: `${(100 / 4) - 2.2}%` as any,
+components/home/NexusHeroCard.tsx:17:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/home/NexusHeroCard.tsx:18:const SANS: any = Platform.OS === 'ios' ? 'System' : 'sans-serif';
+components/home/NexusHeroCard.tsx:21:let HERO_IMG: any = null;
+components/home/RemoteAccessMonetizationCard.tsx:25:const MONO: any = FONT.mono;
+components/home/RemoteAccessMonetizationCard.tsx:64:  const s: any = { position: 'absolute', width: size, height: size, borderColor: color };
+components/home/RemoteAccessMonetizationCard.tsx:80:      <MaterialCommunityIcons name={t.icon as any} size={9} color={t.color} />
+components/home/RemoteAccessMonetizationCard.tsx:100:          : <MaterialCommunityIcons name={icon as any} size={11} color={color} />}
+components/qr/QRCameraScanner.tsx:26:let _CameraView: any = null;
+components/qr/QRCameraScanner.tsx:27:let _useCameraPermissions: any = null;
+components/qr/QRCameraScanner.tsx:30:const MONO: any = Platform.OS === 'ios' ? 'Courier' : 'monospace';
+components/qr/QRCameraScanner.tsx:137:        onBarcodeScanned={({ data }: any) => onScanned(data)}
+components/ui/BiometricLockOverlay.tsx:25:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/ui/ButlerAITitle3D.tsx:30:const MONO: any = Platform.OS === 'ios' ? 'Courier' : 'monospace';
+components/ui/ButlerBackpackInventory.tsx:32:    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>{INVENTORY_SECTION_ORDER.map(id => <TouchableOpacity key={id} onPress={() => { setSection(id); setSelected(null); }} accessibilityRole="button" accessibilityLabel={`Open ${SECTION_LABELS[id]} Backpack section`} style={[styles.tab, { borderColor: section === id ? skin.accent : `${skin.border}80`, backgroundColor: section === id ? `${skin.accent}18` : `${skin.panel}CC` }]}><MaterialCommunityIcons name={ICONS[id] as any} size={14} color={section === id ? skin.accent : skin.mid} /><Text style={[styles.tabText, { color: section === id ? skin.accent : skin.mid }]}>{SECTION_LABELS[id]}</Text></TouchableOpacity>)}</ScrollView>
+components/ui/ButlerBuildModeGuide.tsx:9:  const action = (icon: string, label: string, onPress: () => void, color: string, disabled = false) => <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress} style={[styles.action, { borderColor: disabled ? `${color}28` : `${color}88`, backgroundColor: disabled ? `${color}08` : `${color}15`, opacity: disabled ? 0.4 : 1 }]}><MaterialCommunityIcons name={icon as any} size={18} color={color} /><Text style={[styles.actionText, { color }]}>{label}</Text></TouchableOpacity>;
+components/ui/ButlerBuildModePanel.tsx:134:  return <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress} style={[styles.action, { borderColor: disabled ? `${color}30` : `${color}90`, backgroundColor: disabled ? `${color}08` : `${color}18`, opacity: disabled ? 0.45 : 1 }]}><MaterialCommunityIcons name={icon as any} size={22} color={color} /><Text style={[styles.actionText, { color }]}>{label}</Text></TouchableOpacity>;
+components/ui/ButlerCanvasControls.tsx:16:  const button = (label: string, icon: string, action: () => void, color = skin.accent) => <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} onPress={action} style={[styles.button, { borderColor: `${color}70`, backgroundColor: `${color}12` }]}><MaterialCommunityIcons name={icon as any} size={16} color={color} /></TouchableOpacity>;
+components/ui/ButlerCanvasControls.tsx:20:    <View style={styles.sizeRow}><Text style={[styles.sizeLabel, { color: skin.mid }]}>UNIVERSAL SIZE</Text>{UNIVERSAL_SIZE_ORDER.map(size => <TouchableOpacity key={size} accessibilityRole="button" accessibilityLabel={`Set ${component.label} to ${UNIVERSAL_SIZE_LABELS[size]} size`} onPress={() => onSize(size)} style={[styles.sizeButton, { borderColor: component.universalSize === size ? skin.ok : `${skin.border}80`, backgroundColor: component.universalSize === size ? `${skin.ok}18` : `${skin.panel}88` }]}><Text style={[styles.sizeText, { color: component.universalSize === size ? skin.ok : skin.mid }]}>{UNIVERSAL_SIZE_LABELS[size]}</Text></TouchableOpacity>)}</View><View style={styles.footer}><TouchableOpacity accessibilityRole="button" accessibilityLabel={`Change shape for ${component.label}`} onPress={() => onShape(SHAPES[(shapeIndex + 1) % SHAPES.length])} style={[styles.select, { borderColor: `${skin.accent}60` }]}><MaterialCommunityIcons name="shape-outline" size={14} color={skin.accent} /><Text style={[styles.selectText, { color: skin.accent }]}>{(component.shape || 'card').toUpperCase()}</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel={`Change icon for ${component.label}`} onPress={() => onIcon(ICONS[(iconIndex + 1) % ICONS.length])} style={[styles.select, { borderColor: `${skin.accent3}60` }]}><MaterialCommunityIcons name={(component.iconName || 'view-dashboard-outline') as any} size={14} color={skin.accent3} /><Text style={[styles.selectText, { color: skin.accent3 }]}>ICON</Text></TouchableOpacity></View>
+components/ui/ButlerFX.tsx:18:const MONO: any = Platform.OS === 'ios' ? 'Courier' : 'monospace';
+components/ui/ButlerFX.tsx:108:                backgroundColor: eyeColor as any,
+components/ui/ButlerFX.tsx:197:  text: string; color: string; speed?: number; style?: any;
+components/ui/ButlerFX.tsx:274:  style?: any;
+components/ui/ButlerFX.tsx:470:  style?: any;
+components/ui/ButlerFX.tsx:471:  textStyle?: any;
+components/ui/ButlerFX.tsx:493:      } catch (e: any) {
+components/ui/ButlerFX.tsx:555:  style?: any;
+components/ui/ButlerFX.tsx:556:  [key: string]: any;
+components/ui/ButlerMascotMotion.tsx:41:        <MaterialCommunityIcons name={icon as any} size={size * 0.46} color={skin.accent} />
+components/ui/ButlerMicrocopy.tsx:8:      <MaterialCommunityIcons name={icon as any} size={12} color={accent} />
+components/ui/ButlerPackageSpotlight.tsx:27:    <View style={styles.top}><View style={[styles.icon, { borderColor: pack.accent, backgroundColor: `${pack.accent}18` }]}><MaterialCommunityIcons name={pack.icon as any} size={27} color={pack.accent} /></View><View style={{ flex: 1 }}><Text style={[styles.tag, { color: pack.accent }]}>{pack.tag}</Text><Text style={[styles.title, { color: skin.text }]}>{pack.title}</Text><Text style={[styles.price, { color: pack.accent }]}>{pack.price}</Text></View><View style={styles.dots}>{PACKAGES.map((item, dot) => <View key={item.id} style={[styles.dot, { backgroundColor: dot === index ? pack.accent : `${skin.mid}45` }]} />)}</View></View>
+components/ui/ButlerShortcutBlockEditor.tsx:18:    <View style={styles.row}><MaterialCommunityIcons name={component.iconName as any || 'link-variant'} size={17} color={skin.accent3} /><View style={{ flex: 1 }}><Text style={[styles.title, { color: skin.text }]}>SHORTCUT TARGET</Text><Text style={[styles.meta, { color: skin.mid }]}>{current ? `PAGE · ${current.toUpperCase()}` : 'NOT ASSIGNED · SAFE BY DEFAULT'}</Text></View><TouchableOpacity accessibilityRole="button" accessibilityLabel="Choose next safe Butler page shortcut" onPress={() => onChange(next)} style={[styles.button, { borderColor: skin.accent3, backgroundColor: `${skin.accent3}18` }]}><MaterialCommunityIcons name="arrow-right-bold-outline" size={17} color={skin.accent3} /></TouchableOpacity>{current && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear shortcut target" onPress={() => onChange(undefined)} style={[styles.button, { borderColor: skin.warn, backgroundColor: `${skin.warn}18` }]}><MaterialCommunityIcons name="link-off" size={17} color={skin.warn} /></TouchableOpacity>}</View>
+components/ui/ButlerWelcomeHub.tsx:14:const MONO: any = Platform.OS === 'ios' ? 'Courier' : 'monospace';
+components/ui/ButlerWelcomeHub.tsx:15:const BODY_FONT: any = Platform.OS === 'ios' ? 'System' : 'sans-serif';
+components/ui/ButlerWelcomeHub.tsx:208:          const IconC: any = c.iconLib === 'mi' ? MaterialIcons : MaterialCommunityIcons;
+components/ui/ButlerWelcomeHub.tsx:217:                <IconC name={c.icon as any} size={18} color={c.hue} />
+components/ui/ButlerWelcomeHub.tsx:256:            <MaterialCommunityIcons name={cap.icon as any} size={13} color={cap.color} />
+components/ui/CompactPageHeader.tsx:20:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/ui/CompactPageHeader.tsx:102:        <BIcon name={a.icon as any} size={14} color={col} />
+components/ui/CompactPageHeader.tsx:128:              <Icon name={icon as any} size={14} color={accent} />
+components/ui/CompactPageHeader.tsx:141:              <Icon name={icon as any} size={12} color={accent} />
+components/ui/ConnectionBadge.tsx:16:  style?: any;
+components/ui/FuturisticTabBar.tsx:44:(global as any).__notifyButlerNewMessage = notifyButlerNewMessage;
+components/ui/FuturisticTabBar.tsx:45:(global as any).__clearButlerUnread      = clearButlerUnread;
+components/ui/FuturisticTabBar.tsx:48:const MONO: any = Platform.OS === 'ios' ? 'Courier' : 'monospace';
+components/ui/FuturisticTabBar.tsx:245:    (global as any).__butlerSwitchTab = (tab: string) => {
+components/ui/FuturisticTabBar.tsx:249:    return () => { delete (global as any).__butlerSwitchTab; };
+components/ui/FuturisticTabBar.tsx:258:        const opts = descriptors[route.key].options as any;
+components/ui/FuturisticTabBar.tsx:261:        if ((opts?.tabBarItemStyle as any)?.display === 'none')  return false;
+components/ui/GeminiKeyCard.tsx:9:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/ui/GitHubUpdateBanner.tsx:13:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/ui/LiveWidgetStudio.tsx:29:let _log: (type: string, comp: string, msg: string, meta?: any) => void = () => {};
+components/ui/LiveWidgetStudio.tsx:32:  _log = (type: string, comp: string, msg: string, meta?: any) => {
+components/ui/LiveWidgetStudio.tsx:37:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/ui/LiveWidgetStudio.tsx:622:      (global as any).__widgetLayerRefresh?.();
+components/ui/LiveWidgetStudio.tsx:633:    } catch (e: any) {
+components/ui/LiveWidgetStudio.tsx:671:                      <MaterialIcons name={opt.icon as any} size={18} color={isSel ? col : C.textDim} />
+components/ui/LiveWidgetStudio.tsx:695:                    <MaterialIcons name={page.icon as any} size={18} color={isSel ? page.color : C.textDim} />
+components/ui/LiveWidgetStudio.tsx:852:    } catch (e: any) {
+components/ui/LiveWidgetStudio.tsx:993:        catch (e: any) {
+components/ui/LiveWidgetStudio.tsx:1010:      (global as any).__widgetLayerRefresh?.();
+components/ui/LiveWidgetStudio.tsx:1020:    (global as any).__widgetStudioRefreshCount = load;
+components/ui/LiveWidgetStudio.tsx:1023:    (global as any).__widgetStudioEditWidget = (widget: { id: string; code: string; label: string }) => {
+components/ui/LiveWidgetStudio.tsx:1027:      (global as any).__widgetStudioSaveTargetId = widget.id;
+components/ui/LiveWidgetStudio.tsx:1031:      delete (global as any).__widgetStudioRefreshCount;
+components/ui/LiveWidgetStudio.tsx:1032:      delete (global as any).__widgetStudioEditWidget;
+components/ui/LiveWidgetStudio.tsx:1033:      delete (global as any).__widgetStudioSaveTargetId;
+components/ui/LiveWidgetStudio.tsx:1049:      const targetId = (global as any).__widgetStudioSaveTargetId;
+components/ui/LiveWidgetStudio.tsx:1053:          (global as any).__widgetLayerRefresh?.();
+components/ui/LiveWidgetStudio.tsx:1054:          (global as any).__widgetStudioRefreshCount?.();
+components/ui/LiveWidgetStudio.tsx:1055:          delete (global as any).__widgetStudioSaveTargetId;
+components/ui/LiveWidgetStudio.tsx:1060:    } catch (e: any) {
+components/ui/LiveWidgetStudio.tsx:1094:              const summary = all.map((w: any) => `• "${w.label}" → ${w.pageId.toUpperCase()} (${w.placement})`).join('\n');
+components/ui/LiveWidgetStudio.tsx:1133:                        (global as any).__widgetLayerRefresh?.();
+components/ui/LiveWidgetStudio.tsx:1214:          (global as any).__widgetStudioRefreshCount?.();
+components/ui/MicroCopy.tsx:8:const MONO: any = Platform.OS === 'ios' ? 'Menlo' : 'monospace';
+components/ui/MultiPCManager.tsx:20:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/ui/MultiPCManager.tsx:85:          <MaterialCommunityIcons name={pc.icon as any} size={22} color={pc.color} />
+components/ui/MultiPCManager.tsx:190:            <MaterialCommunityIcons name={icon as any} size={20} color={iconIdx === i ? PC_COLORS[colorIdx] : C.mid} />
+components/ui/NexusButton.tsx:25:  textStyle?: any;
+components/ui/NexusFX.tsx:18:const MONO: any = Platform.OS === 'ios' ? 'Courier' : 'monospace';
+components/ui/NexusFX.tsx:108:                backgroundColor: eyeColor as any,
+components/ui/NexusFX.tsx:197:  text: string; color: string; speed?: number; style?: any;
+components/ui/NexusFX.tsx:274:  style?: any;
+components/ui/NexusFX.tsx:470:  style?: any;
+components/ui/NexusFX.tsx:471:  textStyle?: any;
+components/ui/NexusFX.tsx:493:      } catch (e: any) {
+components/ui/NexusFX.tsx:555:  style?: any;
+components/ui/NexusFX.tsx:556:  [key: string]: any;
+components/ui/NexusGlowButton.tsx:15:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/ui/NexusGlowButton.tsx:27:  style?: any;
+components/ui/NexusGlowButton.tsx:108:          <Icon name={icon as any} size={sz.iconSize} color={textColor} />
+components/ui/NexusLiveCard.tsx:14:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/ui/NexusLiveCard.tsx:118:  const Wrap: any = onPress ? TouchableOpacity : View;
+components/ui/NexusLiveCard.tsx:136:      ].map((c: any, i) => (
+components/ui/NexusLiveCard.tsx:145:              <MaterialIcons name={iconName as any} size={14} color={accent} />
+components/ui/NexusLiveCard.tsx:226:          {p.icon ? <MaterialIcons name={p.icon as any} size={10} color={p.color} /> : null}
+components/ui/NexusPageBanner.tsx:16:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/ui/NexusPageBanner.tsx:102:          width: barAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) as any,
+components/ui/NexusPageBanner.tsx:106:          <View key={i} style={[mb.grid, { left: `${f * 100}%` as any }]} />
+components/ui/NexusPageBanner.tsx:197:        <Icon name={icon as any} size={Math.round(size * 0.5)} color={accent} />
+components/ui/NexusPageBanner.tsx:331:                ? <MaterialCommunityIcons name={rightAction2.icon as any} size={17} color={rightAction2.color ?? a2} />
+components/ui/NexusPageBanner.tsx:332:                : <MaterialIcons name={rightAction2.icon as any} size={17} color={rightAction2.color ?? a2} />}
+components/ui/NexusPageBanner.tsx:373:                  ? <MaterialCommunityIcons name={rightAction.icon as any} size={17} color={rightAction.color ?? accent} />
+components/ui/NexusPageBanner.tsx:374:                  : <MaterialIcons name={rightAction.icon as any} size={17} color={rightAction.color ?? accent} />}
+components/ui/NexusTips.tsx:11:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/ui/NexusVaultCard.tsx:36:const MONO: any = FONT.mono;
+components/ui/NexusVaultCard.tsx:217:      <MaterialIcons name={icon as any} size={10} color={c} style={{ width: 12 }} />
+components/ui/NexusVaultCard.tsx:222:          width: a.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) as any,
+components/ui/NexusVaultCard.tsx:242:    try { await (serverConnection as any).disconnect?.(); } catch {}
+components/ui/NexusVaultCard.tsx:714:                    value={(score as any)[dim.key] as number}
+components/ui/NexusVaultCard.tsx:715:                    color={(score as any)[dim.key] >= 80 ? C.green : (score as any)[dim.key] >= 50 ? C.amber : C.red}
+components/ui/NexusVaultCard.tsx:737:                      <MaterialCommunityIcons name={icon as any} size={11} color={col} />
+components/ui/NexusVaultCard.tsx:794:  } as any,
+components/ui/OnboardingHeroStep.tsx:23:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/ui/OnboardingHeroStep.tsx:24:const SANS: any = Platform.OS === 'ios' ? 'System' : 'sans-serif';
+components/ui/OnboardingHeroStep.tsx:178:  let robotImg: any = null;
+components/ui/OnboardingHeroStep.tsx:340:        }, p as any]} />
+components/ui/OnboardingHeroStep.tsx:350:      <MaterialCommunityIcons name={icon as any} size={10} color={col} />
+components/ui/OnboardingHeroStep.tsx:376:        }, p as any]} />
+components/ui/OnboardingHeroStep.tsx:379:        <MaterialCommunityIcons name={icon as any} size={22} color={col} />
+components/ui/PageMascot.tsx:19:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/ui/PageMascot.tsx:197:            <MaterialCommunityIcons name={cfg.face as any} size={iconSize} color={cfg.color} />
+components/ui/PageMascot.tsx:206:            <MaterialCommunityIcons name={cfg.badge as any} size={6} color={cfg.color} />
+components/ui/PerformanceMonitorWidget.tsx:18:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/ui/PerformanceMonitorWidget.tsx:152:          width: barW.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) as any,
+components/ui/PerformanceMonitorWidget.tsx:428:            width: anim.interpolate({ inputRange:[0,100], outputRange:['0%','100%'] }) as any,
+components/ui/QuickButlerBar.tsx:24:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/ui/QuickButlerBar.tsx:82:        <MaterialCommunityIcons name={item.icon as any} size={12} color={item.color} />
+components/ui/QuickButlerBar.tsx:218:      try { (global as any).__butlerInjectMessage?.(q); } catch {}
+components/ui/QuickButlerBar.tsx:220:    try { router.push('/(tabs)/butler' as any); } catch {}
+components/ui/QuickButlerBar.tsx:380:                onPress={() => { haptics.light(); try { router.push('/(tabs)/butler' as any); } catch {} }}
+components/ui/QuickButlerBar.tsx:441:    pointerEvents: 'none' as any,
+components/ui/RemoteAccessCard.tsx:15:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/ui/RemoteAccessCard.tsx:123:    } catch (e: any) {
+components/ui/RemoteAccessCard.tsx:187:        <View key={i} style={[{ position:'absolute', width:10, height:10, borderColor:accent+'55' }, st2 as any]} />
+components/ui/RemoteAccessCard.tsx:295:            <MaterialIcons name={icon as any} size={16} color={remoteOn ? col : col + '44'} />
+components/ui/RemoteAccessHomeBanner.tsx:19:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/ui/RemoteAccessHomeBanner.tsx:113:          onPress={() => { haptics.light(); router.navigate('/(tabs)/settings' as any); }}
+components/ui/RemoteAccessHomeBanner.tsx:214:              onPress={() => { haptics.medium(); router.navigate('/(tabs)/settings' as any); }}
+components/ui/RemoteAccessHomeBanner.tsx:240:              <MaterialIcons name={icon as any} size={9} color={col} />
+components/ui/ResearchCrawlerCard.tsx:33:    } catch (error: any) {
+components/ui/RuntimeDiagnosticsHUD.tsx:29:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/ui/RuntimeDiagnosticsHUD.tsx:141:          <MaterialCommunityIcons name={icon as any} size={12} color={col} />
+components/ui/RuntimeDiagnosticsHUD.tsx:242:            <MaterialCommunityIcons name={c.icon as any} size={16} color={c.color} />
+components/ui/RuntimeDiagnosticsHUD.tsx:303:            <MaterialCommunityIcons name={t.icon as any} size={12} color={col} />
+components/ui/SecurityShowcase.tsx:18:const MONO: any = Platform.select({ ios: 'Menlo-Bold', default: 'monospace' });
+components/ui/SecurityShowcase.tsx:38:  const s: any = { position: 'absolute', width: 11, height: 11 };
+components/ui/SecurityShowcase.tsx:126:          <tile.IconComp name={tile.iconName as any} size={26} color={tile.color} />
+components/ui/SecurityShowcase.tsx:192:    if (fact?.route) { try { router.push(fact.route as any); } catch {} }
+components/ui/SecurityShowcase.tsx:240:          <MaterialCommunityIcons name={fact.mcIcon as any} size={22} color={fact.color} />
+components/ui/ServerConsolePanel.tsx:31:        <MaterialCommunityIcons name={icon as any} size={13} color={color} />
+components/ui/ServerConsolePanel.tsx:45:        <MaterialCommunityIcons name={icon as any} size={13} color={color} />
+components/ui/TabErrorBoundary.tsx:12:const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+components/ui/TabErrorBoundary.tsx:30:  componentDidCatch(error: Error, info: any) {
+components/ui/TabErrorBoundary.tsx:83:      const prev = (global as any).__butlerResetTabBoundary;
+components/ui/TabErrorBoundary.tsx:84:      (global as any).__butlerResetTabBoundary = (tabName?: string) => {
+components/ui/TabErrorBoundary.tsx:90:        try { if (prev && prev !== (global as any).__butlerResetTabBoundary) prev(tabName); } catch {}
+services/aiLogger.ts:90:  data?: any;
+services/aiLogger.ts:104:  info(message: string, data?: any) {
+services/aiLogger.ts:108:  warn(message: string, data?: any) {
+services/aiLogger.ts:112:  error(message: string, data?: any) {
+services/aiLogger.ts:117:  success(message: string, data?: any) {
+services/aiLogger.ts:125:  private analyzeError(message: string, data?: any) {
+services/aiLogger.ts:161:    data?: any
+services/autoConnectEngine.ts:97:    (global as any).__autoConnectEngineReconnect = (ip: string, port: string) => {
+services/autoConnectEngine.ts:133:    delete (global as any).__autoConnectEngineReconnect;
+services/autoConnectEngine.ts:161:    setTimeout(() => { try { (global as any).__kgeOnReconnect?.(); } catch {} }, 2000);
+services/autoConnectEngine.ts:288:    } catch (e: any) {
+services/autoConnectEngine.ts:343:            }, 60_000) as any;
+services/autoConnectEngine.ts:448:    }, delay) as any;
+services/automationEngine.ts:205:    } catch (e: any) {
+services/biometricLock.ts:34:let _LocalAuth: any = null;
+services/biometricLock.ts:184:    } catch (e: any) {
+services/biometricLock.ts:208:    } catch (e: any) {
+services/bootErrorLog.ts:126: *  - Non-blocking: any AsyncStorage error is silently swallowed.
+services/bootErrorLog.ts:154:  } catch (e: any) {
+services/bootErrorLog.ts:169:export async function getCrashLogs(): Promise<{ ts: number; msg: string; stack: string; platform: string; version: any }[]> {
+services/bootErrorLog.ts:180:export function recordCrashLog(entry: { ts: number; msg: string; stack: string; platform: string; version: any }): void {
+services/bootGuard.tsx:57:    (Dimensions as any).get = (dim: 'window' | 'screen') => {
+services/bootGuard.tsx:58:      let v: any;
+services/bootGuard.tsx:77:    const EU: any = (globalThis as any).ErrorUtils;
+services/bootGuard.tsx:198:const MONO: any = Platform.OS === 'ios' ? 'Courier' : 'monospace';
+services/butlerAsk.ts:76:    const d: any = await res.json();
+services/butlerAsk.ts:77:    const list: any[] = Array.isArray(d) ? d : (d?.models ?? []);
+services/butlerAsk.ts:109:function extractReply(d: any): string {
+services/butlerAsk.ts:156:    const d: any = await res.json().catch(() => ({}));
+services/butlerAsk.ts:161:  } catch (e: any) {
+services/connectionHub.ts:284:      const parsed = parseQRConnection(data) as any;
+services/connectionHub.ts:287:    } catch (e: any) {
+services/connectionHub.ts:310:    } catch (e: any) {
+services/connectionHub.ts:335:    } catch (e: any) {
+services/connectionHub.ts:428:    } catch (e: any) {
+services/connectionHub.ts:466:    } catch (e: any) {
+services/connectionPersistence.ts:231:    if (typeof (global as any).__butlerSwitchTab === 'function') {
+services/connectionPersistence.ts:240:      this._reconnTimer = setTimeout(tick, this._backoffMs) as any;
+services/connectionPersistence.ts:242:    this._reconnTimer = setTimeout(tick, 4_000) as any;
+services/connectionPersistence.ts:246:    if (this._reconnTimer) { clearTimeout(this._reconnTimer as any); this._reconnTimer = null; }
+services/encryptedStorage.ts:14:let _Crypto: any = null;
+services/encryptedStorage.ts:24:let _SecureStore: any = null;
+services/errorAutoFix.ts:42:  private kbCache: any[] = [];
+services/errorAutoFix.ts:60:    } catch (e: any) {
+services/errorAutoFix.ts:76:    const scored: Array<{ entry: any; score: number }> = [];
+services/haptics.ts:9:let Haptics: any = null;
+services/heartbeatEngine.ts:16:const _listeners: Record<string, ((...args: any[]) => void)[]> = {};
+services/heartbeatEngine.ts:17:const _emit = (event: string, data?: any) => (_listeners[event] || []).forEach(fn => { try { fn(data); } catch {} });
+services/jsonGuard.ts:106:        if ((v as any).type === 'source' && typeof (v as any).content === 'string') {
+services/jsonGuard.ts:107:          push(k, (v as any).content);
+services/jsonGuard.ts:108:        } else if (typeof (v as any).lines === 'number' && typeof (v as any).path === 'string') {
+services/jsonGuard.ts:109:          out.push({ path: (v as any).path, lines: (v as any).lines, chars: (v as any).content?.length || 0 });
+services/jsonGuard.ts:115:        if (v && typeof v === 'object' && (v as any).type === 'source' && typeof (v as any).content === 'string') {
+services/jsonGuard.ts:116:          push(k, (v as any).content);
+services/jsonGuard.ts:364:    catch (e: any) { return { ok: false, error: 'Parse error: ' + (e?.message || String(e)) }; }
+services/knowledgeAccumulator.ts:11:  findings: any[];
+services/knowledgeAccumulator.ts:12:  [key: string]: any;
+services/knowledgeAccumulator.ts:605:      return items.map((i: any) => `• ${String(i?.topic || i?.title || '').slice(0, 80)}`).join('\n');
+services/knowledgeAccumulator.ts:613:  async processExchange(_userMsg?: any, _aiMsg?: any): Promise<void> {
+services/lanScanner.ts:160:    } catch (e: any) {
+services/lanScanner.ts:391:    } catch (e: any) {
+services/lanScanner.ts:409:  } catch (e: any) {
+services/nexusCrawlerEngine.ts:430:      } catch (e: any) {
+services/opportunityEngine.ts:53:    } catch (error: any) {
+services/opportunityEngine.ts:69:    } catch (error: any) {
+services/opportunityEngine.ts:85:    } catch (error: any) {
+services/otaUpdates.ts:45:let timer: any = null;
+services/otaUpdates.ts:64:function loadExpoUpdates(): any | null {
+services/otaUpdates.ts:171:    } catch (e: any) {
+services/otaUpdates.ts:207:    } catch (e: any) {
+services/pcClipboard.ts:89:    } catch (e: any) { return { ok: false, error: e?.message }; }
+services/powerhouseImport.ts:112:      (global as any).__powerhouseTokensChanged?.(json.tokens);
+services/powerhouseImport.ts:114:    } catch (e: any) {
+services/powerhouseImport.ts:126:      (global as any).__powerhouseNavChanged?.(json.navigation);
+services/powerhouseImport.ts:128:    } catch (e: any) {
+services/powerhouseImport.ts:159:          (global as any).__butlerScriptOnlyModeChanged?.(json.features.scriptOnlyMode);
+services/powerhouseImport.ts:162:      } catch (e: any) {
+services/powerhouseImport.ts:182:      } catch (e: any) {
+services/powerhouseImport.ts:208:    } catch (e: any) {
+services/powerhouseImport.ts:252:    } catch (e: any) {
+services/powerhouseImport.ts:265:    } catch (e: any) {
+services/powerhouseImport.ts:280:      (global as any).__butlerHomeUIConfigChanged?.();
+services/powerhouseImport.ts:282:    } catch (e: any) {
+services/powerhouseImport.ts:295:    } catch (e: any) {
+services/powerhouseImport.ts:302:  const hasFiles   = Array.isArray(json.files)   && json.files.filter((f: any) => !f.__EXAMPLE_ONLY__).length > 0;
+services/powerhouseImport.ts:303:  const hasPatches = Array.isArray(json.patches) && json.patches.filter((p: any) => !p.__EXAMPLE_ONLY__).length > 0;
+services/powerhouseImport.ts:309:    const realFiles   = (json.files   || []).filter((f: any) => !f.__EXAMPLE_ONLY__);
+services/powerhouseImport.ts:310:    const realPatches = (json.patches || []).filter((p: any) => !p.__EXAMPLE_ONLY__);
+services/powerhouseImport.ts:313:      ...realFiles.map((f: any)   => '\u2022 Replace entire file: ' + f.path),
+services/powerhouseImport.ts:314:      ...realPatches.map((p: any) => '\u2022 ' + p.op + ': ' + (p.file || p.path || '')),
+services/powerhouseImport.ts:353:function buildPatchScript(files: any[], patches: any[]): string {
+services/pythonDeveloperProtocol.test.ts:1:// @ts-ignore Node's strip-types runner needs the explicit extension; production imports stay extensionless.
+services/remoteAccessTiers.ts:23:function loadPurchases(): any | null {
+services/remoteAccessTiers.ts:290:    } catch (e: any) {
+services/remoteAccessTiers.ts:305:      const pkg = current.availablePackages.find((p: any) => p.identifier === pkgIdentifier);
+services/remoteAccessTiers.ts:311:    } catch (e: any) {
+services/remoteAccessTiers.ts:350:    } catch (e: any) {
+services/runtimeErrorMonitor.ts:170:    } catch (err: any) {
+services/runtimeErrorMonitor.ts:197:      const EU: any = (global as any).ErrorUtils;
+services/runtimeErrorMonitor.ts:224:      const orig = (global as any).onunhandledrejection;
+services/runtimeErrorMonitor.ts:225:      (global as any).onunhandledrejection = (event: any) => {
+services/runtimeErrorMonitor.ts:259:      if (!(global as any).fetch) return;
+services/runtimeErrorMonitor.ts:260:      this._origFetch = (global as any).fetch;
+services/runtimeErrorMonitor.ts:262:      (global as any).fetch = async function patchedFetch(input: any, init?: any): Promise<Response> {
+services/runtimeErrorMonitor.ts:289:        } catch (err: any) {
+services/runtimeErrorMonitor.ts:314:      console.error = function (...args: any[]) {
+services/runtimeErrorMonitor.ts:323:      console.warn = function (...args: any[]) {
+services/runtimeErrorMonitor.ts:383:          } catch (e: any) {
+services/runtimeErrorMonitor.ts:480:        try { (global as any).__butlerStopAllAnimations?.(); } catch {}
+services/runtimeErrorMonitor.ts:482:        try { (global as any).__butlerResetTabBoundary?.('Core'); } catch {}
+services/runtimeErrorMonitor.ts:483:        try { (global as any).__butlerResetTabBoundary?.('home'); } catch {}
+services/runtimeErrorMonitor.ts:486:          (global as any).__butlerAnimReset = ((global as any).__butlerAnimReset ?? 0) + 1;
+services/runtimeErrorMonitor.ts:504:        try { (global as any).__butlerResetTabBoundary?.('Core'); } catch {}
+services/runtimeErrorMonitor.ts:629:        const result = await serverConnection.connectManual?.(ip, port).catch((err: any) => ({ success: false, error: err?.message }));
+services/runtimeErrorMonitor.ts:630:        return (result as any)?.success ? 'Token refreshed via re-pair' : 'Re-pair required — use QR scanner on HOME tab';
+services/scriptExecutor.ts:135:        (global as any).__showConnectionToast?.(`Auto-installing ${pkg}...`, '#FF7A1F');
+services/scriptExecutor.ts:142:          if (!(options as any)?._retry) {
+services/scriptExecutor.ts:143:            return this.execute(scriptCode, language, { ...options, _retry: true } as any);
+services/scriptExecutor.ts:160:        if (!(options as any)?._retry) {
+services/scriptExecutor.ts:170:      if (!(options as any)?._retry) {
+services/scriptExecutor.ts:180:    } catch (err: any) {
+services/scriptExecutor.ts:248:    } catch (err: any) {
+services/scriptExecutor.ts:304:      const reader  = (res.body as any).getReader();
+services/scriptExecutor.ts:330:    } catch (e: any) {
+services/scriptExecutor.ts:398:    } catch (e: any) { return { ok: false, error: e?.message }; }
+services/scriptLibraryData.ts:86:function _loadAutomationScripts(): any[] {
+services/sentinel.ts:138:      const EU: any = (global as any).ErrorUtils;
+services/sentinel.ts:141:      EU.setGlobalHandler((error: any, isFatal?: boolean) => {
+services/sentinel.ts:156:      console.error = (...args: any[]) => {
+services/sentinel.ts:171:      const g: any = global as any;
+services/sentinel.ts:173:      g.onunhandledrejection = (event: any) => {
+services/sentinel.ts:253:  reportCrash(name: string, error: any): boolean {
+services/sentinel.ts:307:    try { return fn(); } catch (e: any) { this.record('error', scope, String(e?.message ?? e)); return fallback; }
+services/sentinel.ts:312:    try { return await fn(); } catch (e: any) { this.record('error', scope, String(e?.message ?? e)); return fallback; }
+services/serverConnection.ts:296:        } catch (e: any) {
+services/serverConnection.ts:323:        } catch (e: any) {
+services/serverConnection.ts:356:      const resolvedPort = (health as any).resolvedPort || this._port;
+services/serverConnection.ts:404:      resolvedPort = (health as any).resolvedPort || port;
+services/serverConnection.ts:407:    const attemptPair = async (): Promise<{ res: Response; latency: number; data: any } | null> => {
+services/serverConnection.ts:422:      } catch (e: any) {
+services/serverConnection.ts:502:    } catch (e: any) {
+services/serverConnection.ts:534:    const resolvedPort = (health as any).resolvedPort || port;
+services/serverConnection.ts:641:  async absorbHealedToken(res: Response, data?: any): Promise<void> {
+services/serverCrawler.ts:132:          teleportedVia: 'SKIPPED', latencyMs: 0, method: 'SIGMA-NET-RELAY' as any,
+services/serverCrawler.ts:208:    } catch (err: any) {
+services/serverCrawler.ts:215:        teleportedVia: 'SKIPPED', latencyMs: Date.now() - start, method: 'SIGMA-NET-RELAY' as any,
+services/serverCrawler.ts:299:      } catch (e: any) {
+services/serverMetrics.ts:111:    } catch (e: any) {
+services/serverMetrics.ts:135:    const m: any = this.cache;
+services/smokeBeacon.ts:65:  const g: any = typeof global !== 'undefined' ? global : undefined;
+services/smokeBeacon.ts:83:    console.error = (...args: any[]) => {
+services/smokeBeacon.ts:119:  if (typeof (timer as any)?.unref === 'function') (timer as any).unref();
+services/trustLabClient.ts:28:  const payload: any = await response.json().catch(() => ({}));
+services/uiConfig.ts:263:  async applyFromPowerhouse(uiSection: any): Promise<void> {
+services/uiConfig.ts:286:function deepMerge(base: any, patch: any): any {
+services/voiceLane.ts:56:  const message = String((error as any)?.message ?? error ?? '').toLowerCase();
+services/widgetStorage.ts:35:      const v1 = JSON.parse(raw1) as any[];
+hooks/useAppSync.ts:24:    if (syncData.metrics && typeof (serverMetrics as any).absorbSync === 'function') {
+hooks/useAppSync.ts:25:      (serverMetrics as any).absorbSync(syncData.metrics);
+hooks/useConnection.ts:38:  lanScan:    (onProgress?: (p: any) => void) => Promise<{ ip: string; port: number }[]>;
+hooks/useConnection.ts:135:    (onProgress?: (p: any) => void) => connectionHub.lanScan(onProgress),
+constants/anim.ts:328:  return value.interpolate({ inputRange, outputRange: outputRange as any, extrapolate: 'clamp' });
+constants/appSourceBundle.ts:212:  Tab switching: (global as any).__butlerSwitchTab?.('butler')
+constants/appSourceBundle.ts:213:  QR modal: (global as any).__butlerHomeOpenQR?.()

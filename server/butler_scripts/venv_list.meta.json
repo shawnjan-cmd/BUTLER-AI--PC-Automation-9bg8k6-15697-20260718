@@ -1,0 +1,13 @@
+{
+  "name": "List Python Virtualenvs",
+  "description": "Find pyvenv.cfg files under home \u2014 quick map of every venv.",
+  "category": "Developer",
+  "tags": [
+    "venv",
+    "python",
+    "envs"
+  ],
+  "icon": "code",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

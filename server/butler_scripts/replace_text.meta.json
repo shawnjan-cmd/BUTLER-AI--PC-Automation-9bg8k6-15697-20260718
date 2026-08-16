@@ -1,0 +1,14 @@
+{
+  "name": "Find & Replace in Files",
+  "description": "Replace text across all .txt/.md files under a folder. Edit needle/replacement first.",
+  "category": "Files",
+  "tags": [
+    "search",
+    "replace",
+    "text",
+    "batch"
+  ],
+  "icon": "replace",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

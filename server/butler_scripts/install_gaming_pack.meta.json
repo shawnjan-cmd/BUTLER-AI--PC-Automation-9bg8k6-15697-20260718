@@ -1,0 +1,15 @@
+{
+  "name": "Install Gaming Pack",
+  "description": "Install Steam, Discord, Epic Games Launcher.",
+  "category": "Install",
+  "tags": [
+    "install",
+    "gaming",
+    "steam",
+    "discord",
+    "epic"
+  ],
+  "icon": "sports_esports",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

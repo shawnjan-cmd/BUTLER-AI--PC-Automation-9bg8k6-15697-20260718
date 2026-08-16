@@ -1,0 +1,16 @@
+{
+  "name": "JWT Token Decoder",
+  "description": "Decode and inspect a JWT token payload without verifying the signature.",
+  "category": "Tools",
+  "tags": [
+    "tools",
+    "jwt",
+    "token",
+    "decode",
+    "security",
+    "developer"
+  ],
+  "icon": "token",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

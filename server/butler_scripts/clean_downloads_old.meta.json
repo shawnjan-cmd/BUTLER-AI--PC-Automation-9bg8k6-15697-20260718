@@ -1,0 +1,13 @@
+{
+  "name": "Delete Old Downloads (>30d)",
+  "description": "Move files in Downloads older than 30 days to a dated archive subfolder.",
+  "category": "Cleaning",
+  "tags": [
+    "downloads",
+    "cleanup",
+    "archive"
+  ],
+  "icon": "archive",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

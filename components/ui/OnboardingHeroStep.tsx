@@ -1,5 +1,5 @@
 /**
- * ONBOARDING HERO STEP — NEXUS COMMAND DECK v4.0
+ * ONBOARDING HERO STEP — BUTLER AI COMMAND DECK v4.0
  * Completely rebuilt: full-bleed HUD aesthetic matching the reference screenshot.
  * • Live "telemetry" cards with sparkline bars
  * • Security grid (LAN / HMAC / TELEMETRY / AI) - 2×2 neon cards
@@ -29,18 +29,18 @@ const IS_TALL = SH > 750;
 
 // ── DESIGN TOKENS ──────────────────────────────────────────────────
 const C = {
-  bg:      '#010407',
-  surface: '#06101C',
-  card:    '#050E1A',
-  cyan:    '#00E5FF',
-  green:   '#00FF88',
-  amber:   '#FFB020',
-  purple:  '#CC44FF',
-  pink:    '#FF6EB4',
-  red:     '#FF3344',
-  text:    '#D0E8F0',
-  textMid: '#4A6882',
-  textDim: '#1E3048',
+  bg:      '#050810',
+  surface: '#0B0F17',
+  card:    '#0B0F17',
+  cyan:    '#38D9E8',
+  green:   '#2FE38A',
+  amber:   '#FFB43D',
+  purple:  '#A468FF',
+  pink:    '#FF5FA8',
+  red:     '#FF4D5E',
+  text:    '#DCE6F2',
+  textMid: '#4A9EFF',
+  textDim: '#4A9EFF',
   border:  'rgba(0,229,255,0.16)',
 };
 
@@ -55,12 +55,12 @@ const TAGLINES = [
 
 // ── BOOT SEQUENCE ──────────────────────────────────────────────────
 const BOOT_LINES = [
-  { t:'NEXUS_OS v7.3 — initializing …',      c:C.textDim  },
+  { t:'BUTLER_OS v7.3 — initializing …',      c:C.textDim  },
   { t:'> encryption: AES-256 + HMAC-SHA256', c:C.textMid  },
   { t:'> ollama bridge: LOCAL ONLY [ok]',    c:C.cyan+'CC' },
   { t:'> script_engine: 300 recipes loaded', c:C.green    },
   { t:'> telemetry: DISABLED ← zero tracking',c:C.green   },
-  { t:'> STATUS: NEXUS ONLINE ▮',            c:C.green    },
+  { t:'> STATUS: BUTLER AI ONLINE ▮',            c:C.green    },
 ];
 
 // ── SPARKLINE DATA (fake but convincing) ───────────────────────────
@@ -70,7 +70,7 @@ const mkBars = (seed: number) =>
   );
 
 const MONITORS = [
-  { label:'CPU', sub:'NEXUS CORE', col:C.cyan,   bars:mkBars(0.3),  val:'--', unit:'%' },
+  { label:'CPU', sub:'BUTLER CORE', col:C.cyan,   bars:mkBars(0.3),  val:'--', unit:'%' },
   { label:'RAM', sub:'MEMORY',     col:C.purple,  bars:mkBars(1.1),  val:'--', unit:'GB' },
   { label:'NET', sub:'THROUGHPUT', col:C.green,   bars:mkBars(2.4),  val:'--', unit:'MB/s' },
 ];
@@ -223,7 +223,7 @@ export function OnboardingHeroStep({ onBegin }: { onBegin: () => void }) {
         </View>
         {/* Corner serial */}
         <View style={[S.serial, { borderColor:acc+'35' }]}>
-          <Text style={{ fontFamily:MONO, fontSize:7, color:acc+'70', letterSpacing:0.5 }}>SER.NEXUS-7.3</Text>
+          <Text style={{ fontFamily:MONO, fontSize:7, color:acc+'70', letterSpacing:0.5 }}>SER.BUTLER-7.3</Text>
         </View>
       </View>
 
@@ -271,10 +271,10 @@ export function OnboardingHeroStep({ onBegin }: { onBegin: () => void }) {
       <View style={S.sectionPad}>
         <View style={S.terminal}>
           <View style={S.termTitle}>
-            {['#FF5F57','#FEBC2E','#28C840'].map((c,i) => (
+            {['#FF4D5E','#FFC94A','#2FE38A'].map((c,i) => (
               <View key={i} style={{ width:9, height:9, borderRadius:5, backgroundColor:c }} />
             ))}
-            <Text style={S.termTitleTxt}>butler@nexus — session</Text>
+            <Text style={S.termTitleTxt}>butler@butler — session</Text>
             <View style={[S.secureBadge, { borderColor:C.green+'55' }]}>
               <View style={{ width:5, height:5, borderRadius:3, backgroundColor:C.green }} />
               <Text style={{ fontFamily:MONO, fontSize:7, fontWeight:'900', color:C.green }}>SECURE</Text>
@@ -389,7 +389,7 @@ const sc = StyleSheet.create({
   topBar:  { position:'absolute', top:0, left:0, right:0, height:3, borderTopLeftRadius:14, borderTopRightRadius:14 },
   iconBox: { width:52, height:52, borderRadius:14, borderWidth:1.5, alignItems:'center', justifyContent:'center' },
   top:     { fontFamily:MONO, fontSize:13, fontWeight:'900', letterSpacing:0.5, textAlign:'center' },
-  bot:     { fontFamily:MONO, fontSize:9, color:'#3A5A72', letterSpacing:1.2, textAlign:'center' },
+  bot:     { fontFamily:MONO, fontSize:9, color:'#4A9EFF', letterSpacing:1.2, textAlign:'center' },
 });
 
 function MonitorCard({ label, sub, col, bars, sparkA }: {
@@ -432,7 +432,7 @@ const mc = StyleSheet.create({
              minHeight:88 },
   topLine: { position:'absolute', top:0, left:0, right:0, height:2.5 },
   lbl:     { fontFamily:MONO, fontSize:10.5, fontWeight:'900', letterSpacing:0.5 },
-  sub:     { fontFamily:MONO, fontSize:7, color:'#2A4060', letterSpacing:0.5, flex:1 },
+  sub:     { fontFamily:MONO, fontSize:7, color:'#4A9EFF', letterSpacing:0.5, flex:1 },
   val:     { fontFamily:MONO, fontSize:13, fontWeight:'900', marginBottom:4 },
   spark:   { flexDirection:'row', alignItems:'flex-end', gap:1.5, height:26, width:'100%' },
   arrow:   { fontFamily:MONO, fontSize:9, alignSelf:'flex-end', marginTop:2 },
@@ -492,7 +492,7 @@ const S = StyleSheet.create({
   sigStrip: { height:3, flexDirection:'row' },
 
   // Hero
-  hero: { height:HERO_H, backgroundColor:'#020A14', borderBottomWidth:1,
+  hero: { height:HERO_H, backgroundColor:'#050810', borderBottomWidth:1,
           borderBottomColor:C.border, overflow:'hidden', alignItems:'center',
           justifyContent:'flex-end', paddingBottom:16, position:'relative' },
   scanLine: { position:'absolute', left:0, right:0, height:1.5,
@@ -534,9 +534,9 @@ const S = StyleSheet.create({
   statLbl:   { fontFamily:MONO, fontSize:7, color:C.textMid, letterSpacing:1.2, marginTop:2, fontWeight:'900' },
 
   // Terminal
-  terminal:  { borderWidth:1.5, borderColor:C.border, borderRadius:12, backgroundColor:'#010305', overflow:'hidden' },
+  terminal:  { borderWidth:1.5, borderColor:C.border, borderRadius:12, backgroundColor:'#050810', overflow:'hidden' },
   termTitle: { flexDirection:'row', alignItems:'center', gap:6, paddingHorizontal:12, paddingVertical:7,
-               borderBottomWidth:1, borderBottomColor:C.border, backgroundColor:'#030608' },
+               borderBottomWidth:1, borderBottomColor:C.border, backgroundColor:'#050810' },
   termTitleTxt:{ fontFamily:MONO, fontSize:9, color:C.textDim, flex:1 },
   secureBadge: { flexDirection:'row', alignItems:'center', gap:3, borderWidth:1, borderRadius:5,
                  paddingHorizontal:6, paddingVertical:2, borderColor:C.green+'45', backgroundColor:C.green+'08' },

@@ -1,0 +1,13 @@
+{
+  "name": "Full System Report",
+  "description": "Save a complete system report (specs, drivers, network) to Desktop as TXT.",
+  "category": "System",
+  "tags": [
+    "report",
+    "info",
+    "diagnostics"
+  ],
+  "icon": "description",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

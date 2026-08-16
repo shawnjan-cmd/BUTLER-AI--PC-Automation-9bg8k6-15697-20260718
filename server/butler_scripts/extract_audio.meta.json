@@ -1,0 +1,15 @@
+{
+  "name": "Extract Audio (MP3) from Video",
+  "description": "Pull the audio track out of a video as 192kbps MP3.",
+  "category": "Media",
+  "tags": [
+    "audio",
+    "mp3",
+    "ffmpeg",
+    "extract",
+    "video"
+  ],
+  "icon": "music",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

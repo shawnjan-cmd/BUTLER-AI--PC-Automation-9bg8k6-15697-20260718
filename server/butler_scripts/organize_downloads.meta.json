@@ -1,0 +1,13 @@
+{
+  "name": "Organize Downloads by Type",
+  "description": "Sort files in Downloads into Images / Docs / Videos / Audio / Archives / Other.",
+  "category": "Files",
+  "tags": [
+    "organize",
+    "downloads",
+    "sort"
+  ],
+  "icon": "folder",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

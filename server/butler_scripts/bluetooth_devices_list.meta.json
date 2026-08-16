@@ -1,0 +1,12 @@
+{
+  "name": "List Bluetooth Devices",
+  "description": "Show every paired/known Bluetooth device.",
+  "category": "System",
+  "tags": [
+    "bluetooth",
+    "hardware"
+  ],
+  "icon": "bluetooth",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

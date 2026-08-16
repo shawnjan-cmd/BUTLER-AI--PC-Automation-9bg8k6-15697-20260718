@@ -364,7 +364,7 @@
   <section>
     <div class="section-label"><span class="num">01</span><div class="line"></div></div>
     <h2>Overview</h2>
-    <p>Butler AI: PC Automation (v6.0), also referred to as "Nexus Command Center" or "CommandCube", is a <strong>local-network, self-hosted</strong> PC automation app. It connects your Android device to a Python server (<code>butler_server.py</code>) running on your own PC over your home or office Wi-Fi network.</p>
+    <p>Butler AI: PC Automation (v6.0), also referred to as "Butler AI Command Center" or "Butler Console", is a <strong>local-network, self-hosted</strong> PC automation app. It connects your Android device to a Python server (<code>butler_server.py</code>) running on your own PC over your home or office Wi-Fi network.</p>
     <div class="info-block" style="--block-color:#00e5a0">
       <div class="ib-icon">🔒</div>
       <div class="ib-body">
@@ -503,8 +503,8 @@
     <div class="info-block" style="--block-color:#f59e0b">
       <div class="ib-icon">🔑</div>
       <div class="ib-body">
-        <h4>Google Gemini AI — Optional &amp; User-Configured</h4>
-        <p>If you configure a Gemini API key in Settings, Butler AI can optionally send chat messages to Google's Gemini API. Only your typed messages are sent — no names, emails, device ID, location, or personal identifiers are ever included. <strong>Default state: Disabled.</strong> Remove the key in Settings at any time to disable. <a href="https://policies.google.com/privacy" style="color:#f59e0b" target="_blank" rel="noopener">Google's Privacy Policy →</a></p>
+        <h4>local Ollama on the user's paired PC AI — Optional &amp; User-Configured</h4>
+        <p>If you configure a the local Ollama service on the user's paired PC key in Settings, Butler AI can optionally send chat messages to Google's the local Ollama service on the user's paired PC. Only your typed messages are sent — no names, emails, device ID, location, or personal identifiers are ever included. <strong>Default state: Disabled.</strong> Remove the key in Settings at any time to disable. <a href="https://policies.google.com/privacy" style="color:#f59e0b" target="_blank" rel="noopener">Google's Privacy Policy →</a></p>
       </div>
     </div>
   </section>
@@ -548,7 +548,7 @@
         <span class="perm-badge">INTERNET</span>
         <div class="perm-body">
           <strong>Local Network Communication</strong>
-          <span>Used to communicate with your local PC server. Optionally used with Google Gemini API if you enable that feature in Settings.</span>
+          <span>Used to communicate with your local PC server. Optionally used with the local Ollama service on the user's paired PC if you enable that feature in Settings.</span>
         </div>
       </div>
     </div>
@@ -581,7 +581,7 @@
           <tr><td>Local KB / Scripts / Settings</td><td>Until you clear or uninstall</td><td>Settings → Clear Knowledge Base, or uninstall</td></tr>
           <tr><td>Chat History</td><td>Until you clear chat</td><td>Tap Clear Chat in Butler AI tab</td></tr>
           <tr><td>Session Token</td><td>Until you disconnect or server resets</td><td>Tap DISCONNECT in Connect tab</td></tr>
-          <tr><td>Gemini request data</td><td>Not retained by Butler AI</td><td>See Google's privacy policy</td></tr>
+          <tr><td>Local PC request data</td><td>Not retained by Butler AI</td><td>See Google's privacy policy</td></tr>
         </tbody>
       </table>
     </div>
@@ -610,7 +610,7 @@
       <h3>◈ Developer Contact</h3>
       <p><strong style="color:#fff">Andrej Sladkovic</strong></p>
       <p>📧 <a href="mailto:andrejsladkovic1992@gmail.com">andrejsladkovic1992@gmail.com</a></p>
-      <p>🐙 <a href="https://github.com/shawnjan-cmd/CommandCube" target="_blank" rel="noopener">github.com/shawnjan-cmd/CommandCube</a></p>
+      <p>🐙 <a href="https://github.com/shawnjan-cmd/Butler Console" target="_blank" rel="noopener">github.com/shawnjan-cmd/Butler Console</a></p>
       <p style="margin-top:14px;font-size:.78rem;color:var(--text-dim)">Response within 48 hours · No personal data is stored so there is nothing to request or delete remotely</p>
     </div>
   </section>
@@ -624,9 +624,9 @@
         <thead><tr><th>Question</th><th>Answer</th></tr></thead>
         <tbody>
           <tr><td>Does your app collect or share user data?</td><td class="yes">No personal data is collected or shared</td></tr>
-          <tr><td>Is data encrypted in transit?</td><td class="yes">Yes — HTTPS to Gemini (if enabled); optional TLS to local PC</td></tr>
+          <tr><td>Is data encrypted in transit?</td><td class="yes">Yes — Authenticated local PC connection; TLS is required for remote use</td></tr>
           <tr><td>Can users request data deletion?</td><td class="yes">Yes — uninstall the app (all data deleted by Android)</td></tr>
-          <tr><td>Does the app share data with third parties?</td><td class="yes">Only anonymized chat text to Gemini (opt-in, no PII)</td></tr>
+          <tr><td>Does the app share data with third parties?</td><td class="yes">No third-party sharing; chat stays on the paired PC</td></tr>
         </tbody>
       </table>
     </div>

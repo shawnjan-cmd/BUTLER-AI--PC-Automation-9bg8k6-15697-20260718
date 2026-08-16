@@ -1,0 +1,14 @@
+{
+  "name": "Find Empty Folders",
+  "description": "List every empty folder under a path (default: home).",
+  "category": "Files",
+  "tags": [
+    "files",
+    "empty",
+    "folders",
+    "cleanup"
+  ],
+  "icon": "folder",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

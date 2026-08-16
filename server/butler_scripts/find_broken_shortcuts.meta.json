@@ -1,0 +1,13 @@
+{
+  "name": "Find Broken Shortcuts",
+  "description": "Scan Desktop + Start Menu for .lnk files whose target no longer exists.",
+  "category": "Files",
+  "tags": [
+    "shortcuts",
+    "broken",
+    "windows"
+  ],
+  "icon": "link-2-off",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

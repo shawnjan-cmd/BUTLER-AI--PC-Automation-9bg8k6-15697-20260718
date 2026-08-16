@@ -1,0 +1,15 @@
+{
+  "name": "TCP Traceroute",
+  "description": "Trace the network path to a host using TCP (bypasses ICMP-blocking firewalls).",
+  "category": "Tools",
+  "tags": [
+    "tools",
+    "network",
+    "traceroute",
+    "tcp",
+    "debug"
+  ],
+  "icon": "route",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

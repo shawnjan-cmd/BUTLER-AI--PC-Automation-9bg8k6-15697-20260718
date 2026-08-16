@@ -1,173 +1,2457 @@
-import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+/**
+ * BUTLER AI — BUTLER AI ONBOARDING v9.2 ★ RACE-FIX ★
+ *
+ * ARCHITECTURE SAFETY RULES (DO NOT VIOLATE):
+ *  • NO top-level expo-camera import — causes Android cold-start crash
+ *  • NO top-level singleton service imports (autoConnectEngine, serverConnection)
+ *  • Animated, react-native-svg, expo-image are ALL safe — proven in home.tsx
+ *  • useNativeDriver: false everywhere (Hermes JS/native node mixing prevention)
+ *  • All persistence via AsyncStorage multiSet — never raw writes elsewhere
+ *
+ * NAVIGATION CONTRACT:
+ *  SKIP → writes all keys → notifyOnboardingComplete() → navigates away
+ *  FINISH → writes all keys → notifyOnboardingComplete() → navigates away
+ *  BACK → goes to previous page (no keys written)
+ *  NEXT → goes to next page (no keys written, except consent gating on p3/p4)
+ *
+ * NOTE: This screen no longer contains a useFocusEffect redirect guard.
+ * The fix for returning users lives entirely in (tabs)/_layout.tsx, which
+ * holds first paint until AsyncStorage resolves — so this screen is never
+ * mounted for a returning user. Do NOT re-add a useFocusEffect redirect here.
+ */
+
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import {
+  View, Text, StyleSheet, TouchableOpacity, Animated,
+  Platform, Dimensions, ScrollView, TextInput, Alert, BackHandler, PanResponder,
+  AccessibilityInfo, useWindowDimensions,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import { notifyOnboardingComplete } from './_layout';
+import { markOnboardingDone } from '@/services/onboardingState';
+import SecurityShowcase from '@/components/ui/SecurityShowcase';
+import {
+  ONBOARDING_DONE_KEY, CONSENT_KEY, TERMS_ACCEPTED_KEY,
+  PRIVACY_ACCEPTED_KEY, AGE_CONFIRMED_KEY, LAN_CONSENT_KEY,
+  REMOTE_EXEC_CONSENT_KEY, CAMERA_CONSENT_KEY,
+  SERVER_PRIVACY_ACCEPTED_KEY,
+} from '@/constants/onboardingKeys';
+import { haptics } from '@/services/haptics';
+import AnimatedWireDefault, { WireCorner, HorizontalWire } from '@/components/ui/AnimatedWire';
+import { TechGrid, TypewriterLine } from '@/components/ui/ButlerFX';
+const { width: SW, height: SH } = Dimensions.get('window');
+const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+const ND = false; // useNativeDriver always false for safety
 
-type Step = {
-  title: string;
-  description: string;
-  points: string[];
-};
+const TOTAL = 10;
 
-const steps: Step[] = [
-  {
-    title: 'Professional by default',
-    description: 'The interface has been rebuilt to feel premium, modern, and focused for real daily usage.',
-    points: ['Cleaner visual hierarchy', 'Comfortable spacing and readability', 'Simple but detailed module layout'],
-  },
-  {
-    title: 'Fast and performance-friendly',
-    description: 'Navigation shell and page structure are optimized for reliability and smooth interaction.',
-    points: ['Lightweight, reusable UI structure', 'Reduced startup complexity', 'Predictable screen behavior'],
-  },
-  {
-    title: 'AI-first workflow',
-    description: 'A quick Butler chat strip sits above the toolbar so assistance is always one tap away.',
-    points: ['Ask Butler directly from navigation layer', 'Immediate jump to assistant workspace', 'Consistent utility across modules'],
-  },
+// ─── PER-PAGE TIP DATA ────────────────────────────────────────────
+const PAGE_TIPS: { title: string; body: string; icon: string; iconLib: 'material' | 'community' }[] = [
+  { title: 'INIT SEQUENCE', body: 'Swipe left/right or tap NEXT. 10 steps total — skip any time.', icon: 'rocket-launch', iconLib: 'community' },
+  { title: '9 TABS',        body: 'Each tab is a separate superpower. Explore them all from HOME.', icon: 'view-dashboard-variant', iconLib: 'community' },
+  { title: 'ALL REQUIRED',  body: 'Every checkbox is a real agreement — read before ticking.', icon: 'shield-check', iconLib: 'community' },
+  { title: 'BINDING RULES', body: 'These six rules protect you legally. Violations void your licence.', icon: 'alert-octagon', iconLib: 'community' },
+  { title: 'LEGAL DOCS',    body: 'Tap any card to read the full document. Required by Google Play.', icon: 'file-document', iconLib: 'community' },
+  { title: 'ONLY 3',        body: 'Camera = QR scan only. Network = LAN only. Storage = opt-in.', icon: 'shield-lock', iconLib: 'community' },
+  { title: 'QUICK ANSWERS', body: 'Tap any question to expand it. All answers are 100% honest.', icon: 'chat-question', iconLib: 'community' },
+  { title: 'LOCAL SERVER',  body: 'butler_server.py runs on YOUR PC. We host zero servers.', icon: 'server', iconLib: 'community' },
+  { title: 'PAIR IN 60s',   body: 'GitHub → install → run → scan QR. Most users done in 90 seconds.', icon: 'qr-code-scanner', iconLib: 'material' },
+  { title: 'ALL SYSTEMS GO',body: 'Tap any tab icon below to enter your Butler AI command center.', icon: 'rocket-launch', iconLib: 'community' },
 ];
 
-export default function OnboardingScreen() {
-  const [index, setIndex] = useState(0);
-  const step = steps[index];
-  const progress = useMemo(() => `${index + 1}/${steps.length}`, [index]);
+// ─── DESIGN TOKENS ─────────────────────────────────────────────────
+const T = {
+  bg:       '#050810',
+  surface:  '#0B0F17',
+  surfHi:   '#4A9EFF',
+  cyan:     '#38D9E8',
+  cyanDim:  '#00E5FF18',
+  green:    '#2FE38A',
+  greenDim: '#00FF8812',
+  amber:    '#FFB43D',
+  amberDim: '#FFB02012',
+  danger:   '#FF4D5E',
+  dangerDim:'#FF333312',
+  purple:   '#A468FF',
+  purpleDim:'#CC44FF12',
+  blue:     '#4A9EFF',
+  mint:     '#5CFFD5',
+  pink:     '#FF6BD6',
+  teal:     '#27C7B8',
+  lime:     '#B5FF4A',
+  text:     '#DCE6F2',
+  textMid:  '#4A9EFF',
+  textDim:  '#4A9EFF',
+  border:   'rgba(0,229,255,0.14)',
+};
+
+// ─── PAGE METADATA ─────────────────────────────────────────────────
+const PAGES = [
+  { accent: T.cyan,   icon: 'home-variant',         iconLib: 'community', label: 'WELCOME',     title: 'BUTLER AI',         sub: 'Your Local PC Command Centre' },
+  { accent: T.blue,   icon: 'view-dashboard-variant',iconLib: 'community', label: 'APP TOUR',    title: 'NINE POWERFUL TABS', sub: 'Every tool at your fingertips' },
+  { accent: T.amber,  icon: 'shield-check',          iconLib: 'community', label: 'CONSENT',     title: 'SAFETY CONSENT',    sub: 'Required — all items must be checked' },
+  { accent: T.danger, icon: 'robot',                 iconLib: 'community', label: 'PLEDGE',      title: 'SAFETY PLEDGE',     sub: 'Six rules that protect you and others' },
+  { accent: T.mint,   icon: 'file-document-multiple',iconLib: 'community', label: 'LEGAL',       title: 'LEGAL DOCUMENTS',   sub: 'Read before accepting' },
+  { accent: T.green,  icon: 'shield-lock',           iconLib: 'community', label: 'PERMISSIONS', title: 'PERMISSIONS',       sub: 'Only 3 — all explained honestly' },
+  { accent: T.pink,  icon: 'chat-question',         iconLib: 'community', label: 'Q & A',       title: 'COMMON QUESTIONS',  sub: 'Everything you need to know' },
+  { accent: T.teal,  icon: 'server',                iconLib: 'community', label: 'SERVER',      title: 'SERVER PRIVACY',    sub: 'Console-first · transparent architecture' },
+  { accent: T.purple, icon: 'robot-industrial',      iconLib: 'community', label: 'PC SETUP',    title: 'CONNECT YOUR PC',   sub: 'Three steps to pair in under 60 seconds' },
+  { accent: T.lime,  icon: 'rocket-launch',         iconLib: 'community', label: 'LAUNCH',      title: 'YOU ARE READY',     sub: 'All agreements saved · tap FINISH' },
+];
+
+// ─── PERSIST + COMPLETE ────────────────────────────────────────────
+let _pendingCelebrationCb: (() => void) | null = null;
+let _triggerCelebration:   (() => void) | null = null;
+
+// Shared navigation helper — callable from anywhere including the error boundary
+export function forceNavigateToHome() {
+  const attempt = () => {
+    try { router.replace('/(tabs)/home' as any); return; } catch {}
+    try {
+      const fn = (global as any).__butlerSwitchTab;
+      if (typeof fn === 'function') { fn('home'); return; }
+    } catch {}
+    try { router.navigate('/(tabs)/home' as any); } catch {}
+  };
+  attempt();
+  setTimeout(attempt, 400);
+  setTimeout(attempt, 1000);
+  setTimeout(attempt, 2200);
+}
+
+async function persistAndComplete() {
+  // Write all onboarding keys via the centralized service (atomic multiSet
+  // with individual setItem fallback — never throws)
+  await markOnboardingDone();
+
+
+  // Notify layout to flip isDone → true (shows full tab bar)
+  try { notifyOnboardingComplete(); } catch {}
+  // Also update the global step so _layout watchdog sees we're done
+  try { (global as any).__butlerOnboardingStepIdx = -1; } catch {}
+
+  // Haptic fanfare
+  try {
+    const { haptics: hp } = require('@/services/haptics');
+    hp.medium();
+    setTimeout(() => hp.medium(),  130);
+    setTimeout(() => hp.heavy(),   270);
+    setTimeout(() => hp.success(), 460);
+    setTimeout(() => hp.success(), 650);
+    setTimeout(() => hp.success(), 820);
+  } catch {}
+
+  const doNavigate = forceNavigateToHome;
+
+  if (_triggerCelebration) {
+    _pendingCelebrationCb = doNavigate;
+    _triggerCelebration();
+  } else {
+    doNavigate();
+  }
+}
+
+// ─── SCAN-LINE WIPE TRANSITION OVERLAY ──────────────────────────────
+// A full-screen coloured panel that sweeps left→right during page changes.
+// Triggered externally via a callback ref — fully decoupled from page content.
+function ScanLineWipe({ triggerRef, color }: {
+  triggerRef: React.MutableRefObject<((advancing: boolean, accent: string, cb: () => void) => void) | null>;
+  color: string;
+}) {
+  const [active, setActive] = useState(false);
+  const [wipeColor, setWipeColor] = useState(color);
+  const translateX = useRef(new Animated.Value(-SW)).current;
+  const opacity    = useRef(new Animated.Value(0)).current;
+  const scanX      = useRef(new Animated.Value(0)).current;
+
+  const trigger = useCallback((advancing: boolean, accent: string, cb: () => void) => {
+    setWipeColor(accent);
+    setActive(true);
+    const startX = advancing ? -SW : SW;
+    const midX   = 0;
+    const exitX  = advancing ? SW : -SW;
+    translateX.setValue(startX);
+    opacity.setValue(0.92);
+    scanX.setValue(0);
+
+    // Phase 1: wipe IN (covers screen)
+    Animated.timing(translateX, {
+      toValue: midX, duration: 140, useNativeDriver: false,
+    }).start(() => {
+      // Fire content swap at peak coverage
+      cb();
+      // Scan line race across the panel
+      Animated.timing(scanX, { toValue: 1, duration: 120, useNativeDriver: false }).start();
+      // Phase 2: wipe OUT (reveals new content)
+      Animated.sequence([
+        Animated.delay(40),
+        Animated.timing(translateX, { toValue: exitX, duration: 180, useNativeDriver: false }),
+        Animated.timing(opacity, { toValue: 0, duration: 60, useNativeDriver: false }),
+      ]).start(() => setActive(false));
+    });
+  }, [translateX, opacity, scanX]);
+
+  useEffect(() => { triggerRef.current = trigger; }, [trigger, triggerRef]);
+
+  if (!active) return null;
+
+  const scanLine = scanX.interpolate({ inputRange: [0, 1], outputRange: [-20, SW + 20] });
 
   return (
-    <SafeAreaView style={s.safe}>
-      <View style={s.wrap}>
-        <View style={s.hero}>
-          <Text style={s.badge}>BUTLER AI · ONBOARDING</Text>
-          <Text style={s.progress}>{progress}</Text>
-          <Text style={s.title}>{step.title}</Text>
-          <Text style={s.subtitle}>{step.description}</Text>
-        </View>
-
-        <View style={s.card}>
-          {step.points.map((point) => (
-            <View key={point} style={s.pointRow}>
-              <View style={s.pointDot} />
-              <Text style={s.pointText}>{point}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={s.actions}>
-          {index > 0 ? (
-            <Pressable style={s.ghostButton} onPress={() => setIndex((v) => v - 1)}>
-              <Text style={s.ghostText}>Back</Text>
-            </Pressable>
-          ) : (
-            <View style={s.ghostPlaceholder} />
-          )}
-
-          {index < steps.length - 1 ? (
-            <Pressable style={s.primaryButton} onPress={() => setIndex((v) => v + 1)}>
-              <Text style={s.primaryText}>Next</Text>
-            </Pressable>
-          ) : (
-            <Pressable style={s.primaryButton} onPress={() => router.replace('/(tabs)/nexushome' as any)}>
-              <Text style={s.primaryText}>Enter Butler AI</Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
-    </SafeAreaView>
+    <Animated.View
+      pointerEvents="none"
+      style={[StyleSheet.absoluteFill, {
+        zIndex: 9000,
+        opacity,
+        transform: [{ translateX }],
+        backgroundColor: wipeColor + '18',
+        borderRightWidth: 3,
+        borderRightColor: wipeColor,
+        overflow: 'hidden',
+      }]}
+    >
+      {/* Diagonal glitch stripes */}
+      {[0.15, 0.35, 0.55, 0.75, 0.92].map((pct, i) => (
+        <View key={i} pointerEvents="none" style={[
+          { position: 'absolute', left: 0, right: 0, top: `${pct * 100}%` as any,
+            height: i % 2 === 0 ? 2 : 1,
+            backgroundColor: wipeColor,
+            opacity: 0.3 + i * 0.12,
+            transform: [{ skewX: '-4deg' }] },
+        ]} />
+      ))}
+      {/* Fast scan beam */}
+      <Animated.View pointerEvents="none" style={[
+        StyleSheet.absoluteFill,
+        { width: 24, backgroundColor: wipeColor, opacity: 0.22,
+          transform: [{ translateX: scanLine as any }, { skewX: '-8deg' }] },
+      ]} />
+      {/* HUD corner brackets — top-left */}
+      <View style={{ position:'absolute', top:12, left:12, width:16, height:16,
+        borderTopWidth:2.5, borderLeftWidth:2.5, borderColor:wipeColor }} />
+      <View style={{ position:'absolute', bottom:12, right:12, width:16, height:16,
+        borderBottomWidth:2.5, borderRightWidth:2.5, borderColor:wipeColor }} />
+    </Animated.View>
   );
 }
 
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#05070D' },
-  wrap: { flex: 1, padding: 24, justifyContent: 'center', gap: 18 },
-  hero: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(130,210,255,0.35)',
-    backgroundColor: '#0B1220',
-    padding: 18,
-    gap: 8,
+// ─── INFO BUBBLE WITH ARROW ────────────────────────────────────────
+// Pops up after each page transition. Points at the step pill (top-left).
+// Auto-dismisses after 4.5 seconds or on tap.
+function InfoBubble({ visible, pageIdx, accent, onDismiss }: {
+  visible: boolean; pageIdx: number; accent: string; onDismiss: () => void;
+}) {
+  const scaleA = useRef(new Animated.Value(0)).current;
+  const fadeA  = useRef(new Animated.Value(0)).current;
+  const slideA = useRef(new Animated.Value(-14)).current;
+  const tip    = PAGE_TIPS[Math.min(pageIdx, PAGE_TIPS.length - 1)];
+
+  useEffect(() => {
+    if (visible) {
+      // Pop-in spring
+      scaleA.setValue(0.4); fadeA.setValue(0); slideA.setValue(-10);
+      Animated.parallel([
+        Animated.spring(scaleA, { toValue: 1, tension: 320, friction: 14, useNativeDriver: false }),
+        Animated.timing(fadeA,  { toValue: 1, duration: 200, useNativeDriver: false }),
+        Animated.spring(slideA, { toValue: 0, tension: 280, friction: 18, useNativeDriver: false }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(scaleA, { toValue: 0.6, duration: 160, useNativeDriver: false }),
+        Animated.timing(fadeA,  { toValue: 0,   duration: 160, useNativeDriver: false }),
+      ]).start();
+    }
+  }, [visible]);
+
+  if (!visible && (scaleA as any).__getValue?.() === 0) return null;
+
+  const Icon = tip.iconLib === 'community' ? MaterialCommunityIcons : MaterialIcons;
+
+  return (
+    <Animated.View
+      style={[
+        ib2.wrap,
+        {
+          opacity: fadeA,
+          transform: [{ scale: scaleA }, { translateY: slideA }],
+          borderColor: accent + '80',
+          shadowColor: accent,
+        },
+      ]}
+    >
+      {/* Arrow pointing left toward the step pill */}
+      <View style={[ib2.arrow, { borderRightColor: accent + '80' }]} />
+      <View style={[ib2.arrowInner, { borderRightColor: '#0B0F17' }]} />
+
+      {/* Scan accent line */}
+      <View style={[ib2.topLine, { backgroundColor: accent }]} />
+
+      {/* HUD corners */}
+      <View style={{ position:'absolute', top:0, left:0, width:8, height:8, borderTopWidth:1.5, borderLeftWidth:1.5, borderColor:accent+'90' }} />
+      <View style={{ position:'absolute', top:0, right:0, width:8, height:8, borderTopWidth:1.5, borderRightWidth:1.5, borderColor:accent+'90' }} />
+      <View style={{ position:'absolute', bottom:0, left:0, width:8, height:8, borderBottomWidth:1.5, borderLeftWidth:1.5, borderColor:accent+'50' }} />
+      <View style={{ position:'absolute', bottom:0, right:0, width:8, height:8, borderBottomWidth:1.5, borderRightWidth:1.5, borderColor:accent+'50' }} />
+
+      <TouchableOpacity onPress={onDismiss} activeOpacity={0.9} style={ib2.content}>
+        <View style={{ flexDirection:'row', alignItems:'center', gap:6, marginBottom:5 }}>
+          <View style={[ib2.iconBox, { borderColor:accent+'60', backgroundColor:accent+'14' }]}>
+            <Icon name={tip.icon as any} size={11} color={accent} />
+          </View>
+          <Text style={[ib2.title, { color:accent }]}>{tip.title}</Text>
+          <View style={{ flex:1 }} />
+          <MaterialIcons name="close" size={10} color={accent+'60'} />
+        </View>
+        <Text style={[ib2.body, { color: accent + 'CC' }]}>{tip.body}</Text>
+        {/* Progress dots */}
+        <View style={{ flexDirection:'row', gap:3, marginTop:6 }}>
+          {Array.from({ length: TOTAL }, (_, i) => (
+            <View key={i} style={{
+              flex: i === pageIdx ? 2 : 1,
+              height: 2.5, borderRadius: 2,
+              backgroundColor: i === pageIdx ? accent : accent + '25',
+            }} />
+          ))}
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+const ib2 = StyleSheet.create({
+  wrap: {
+    position: 'absolute', top: 58, left: 98, zIndex: 8888,
+    maxWidth: SW - 118, backgroundColor: '#0B0F17',
+    borderWidth: 1.5, borderRadius: 12, overflow: 'hidden',
+    ...Platform.select({
+      ios: { shadowOffset:{width:0,height:6}, shadowOpacity:0.7, shadowRadius:20 },
+      android: { elevation: 18 },
+    }),
   },
-  badge: {
-    color: '#7DB6FF',
-    fontSize: 11,
-    letterSpacing: 1.3,
-    fontWeight: '700',
+  arrow: {
+    position: 'absolute', top: 14, left: -9,
+    width: 0, height: 0,
+    borderTopWidth: 7, borderBottomWidth: 7, borderRightWidth: 9,
+    borderTopColor: 'transparent', borderBottomColor: 'transparent',
   },
-  progress: {
-    color: '#9BCBFF',
-    fontSize: 12,
-    fontWeight: '700',
+  arrowInner: {
+    position: 'absolute', top: 15.5, left: -6,
+    width: 0, height: 0,
+    borderTopWidth: 5.5, borderBottomWidth: 5.5, borderRightWidth: 7,
+    borderTopColor: 'transparent', borderBottomColor: 'transparent',
   },
-  title: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '800',
-  },
-  subtitle: {
-    color: '#C7D6EA',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-    backgroundColor: '#0F1728',
-    padding: 16,
-    gap: 12,
-  },
-  pointRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  pointDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 99,
-    backgroundColor: '#6CC3FF',
-  },
-  pointText: {
-    flex: 1,
-    color: '#D3E4F7',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  ghostButton: {
-    height: 46,
-    minWidth: 96,
+  topLine:  { height: 2.5 },
+  content:  { paddingHorizontal: 12, paddingVertical: 10 },
+  iconBox:  { width: 20, height: 20, borderRadius: 5, borderWidth: 1, alignItems:'center', justifyContent:'center' },
+  title:    { fontFamily: MONO, fontSize: 9.5, fontWeight: '900', letterSpacing: 1 },
+  body:     { fontFamily: MONO, fontSize: 10, lineHeight: 15 },
+});
+
+// ─── AMBIENT PAGE GLOW ─────────────────────────────────────────────
+function AmbientPageGlow({ accent }: { accent: string }) {
+  const fadeIn = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    fadeIn.setValue(0);
+    Animated.timing(fadeIn, { toValue: 1, duration: 700, useNativeDriver: false }).start();
+  }, [accent]);
+  return (
+    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: fadeIn, zIndex: 0 }]}>
+      <View style={{ position: 'absolute', top: -50, left: -40, width: 300, height: 300, borderRadius: 150, backgroundColor: accent, opacity: 0.052, transform: [{ scaleX: 1.7 }] }} />
+      <View style={{ position: 'absolute', bottom: 50, right: -20, width: 240, height: 240, borderRadius: 120, backgroundColor: accent, opacity: 0.038, transform: [{ scaleY: 1.45 }] }} />
+      <View style={{ position: 'absolute', top: '35%', left: '20%', width: 180, height: 180, borderRadius: 90, backgroundColor: accent, opacity: 0.022 }} />
+      {([{ top: 5, right: 9 }, { bottom: 130, left: 11 }, { top: 195, right: 25 }] as any[]).map((pos: any, i: number) => (
+        <View key={i} style={{ position: 'absolute', ...pos, width: 4, height: 4, borderRadius: 2, backgroundColor: accent, opacity: 0.6 }} />
+      ))}
+    </Animated.View>
+  );
+}
+
+// ─── BUTLER AI BOOT CELEBRATION OVERLAY ──────────────────────────────
+function ButlerCelebrationOverlay({ visible, onDone }: { visible: boolean; onDone: () => void }) {
+  const MONOC: any = Platform.OS === 'ios' ? 'Courier' : 'monospace';
+  const fadeIn    = useRef(new Animated.Value(0)).current;
+  const scaleIn   = useRef(new Animated.Value(0.3)).current;
+  const ringAnim  = useRef(new Animated.Value(0)).current;
+  const textIn    = useRef(new Animated.Value(0)).current;
+  const textSlide = useRef(new Animated.Value(60)).current;
+  const glowPulse = useRef(new Animated.Value(0.3)).current;
+  const particles = useRef(
+    Array.from({ length: 22 }, (_, i) => ({
+      angle: (i / 22) * Math.PI * 2 + Math.random() * 0.3,
+      anim:  new Animated.Value(0),
+      size:  4 + Math.random() * 12,
+      dist:  120 + Math.random() * 60,
+      color: ['#2FE38A','#38D9E8','#A468FF','#FFB43D','#FF4D5E','#2FE38A','#4A9EFF'][i % 7],
+    }))
+  ).current;
+
+  useEffect(() => {
+    if (!visible) return;
+    fadeIn.setValue(0); scaleIn.setValue(0.3); ringAnim.setValue(0);
+    textIn.setValue(0); textSlide.setValue(60); glowPulse.setValue(0.3);
+    particles.forEach(p => p.anim.setValue(0));
+
+    Animated.sequence([
+      Animated.timing(fadeIn, { toValue: 1, duration: 180, useNativeDriver: false }),
+      Animated.parallel([
+        Animated.spring(scaleIn, { toValue: 1, tension: 220, friction: 9, useNativeDriver: false }),
+        Animated.timing(ringAnim, { toValue: 1, duration: 480, useNativeDriver: false }),
+      ]),
+      Animated.parallel([
+        Animated.timing(textIn, { toValue: 1, duration: 380, useNativeDriver: false }),
+        Animated.spring(textSlide, { toValue: 0, tension: 220, friction: 14, useNativeDriver: false }),
+        Animated.stagger(22, particles.map(p =>
+          Animated.spring(p.anim, { toValue: 1, tension: 100, friction: 9, useNativeDriver: false })
+        )),
+      ]),
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(glowPulse, { toValue: 1,   duration: 550, useNativeDriver: false }),
+          Animated.timing(glowPulse, { toValue: 0.2, duration: 550, useNativeDriver: false }),
+        ]),
+        { iterations: 5 }
+      ),
+      Animated.timing(fadeIn, { toValue: 0, duration: 700, useNativeDriver: false }),
+    ]).start(() => onDone());
+  }, [visible]);
+
+  if (!visible) return null;
+
+  const ringScale = ringAnim.interpolate({ inputRange: [0, 1], outputRange: [0.05, 2.2] });
+  const ringOp    = ringAnim.interpolate({ inputRange: [0, 0.45, 1], outputRange: [1, 0.5, 0] });
+
+  return (
+    <View style={[StyleSheet.absoluteFill, { position: 'absolute', zIndex: 99999 }]}>
+      <Animated.View style={[cel.overlay, { opacity: fadeIn }]}>
+        {[240, 300, 360].map((sz, i) => (
+          <Animated.View key={i} style={[cel.ring, { width: sz, height: sz, borderRadius: sz / 2, borderColor: ['#2FE38A','#38D9E8','#A468FF'][i], transform: [{ scale: ringScale }], opacity: ringOp }]} />
+        ))}
+        {particles.map((p, i) => {
+          const tx = p.anim.interpolate({ inputRange: [0, 1], outputRange: [0, Math.cos(p.angle) * p.dist] });
+          const ty = p.anim.interpolate({ inputRange: [0, 1], outputRange: [0, Math.sin(p.angle) * p.dist] });
+          const op = p.anim.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 1, 0] });
+          const sc = p.anim.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 1.4, 0.6] });
+          return (
+            <Animated.View key={i} style={[cel.particle, { width: p.size, height: p.size, borderRadius: p.size / 2, backgroundColor: p.color, opacity: op, transform: [{ translateX: tx as any }, { translateY: ty as any }, { scale: sc as any }] }]} />
+          );
+        })}
+        <Animated.View style={[cel.card, {
+          transform: [{ scale: scaleIn }],
+          borderColor: glowPulse.interpolate({ inputRange:[0.2,1], outputRange:['#00FF8870','#00FF88FF'] }) as any,
+          ...Platform.select({ ios: { shadowColor: '#2FE38A', shadowOffset:{width:0,height:0}, shadowOpacity:0.9, shadowRadius:50 }, android:{ elevation:24 } }),
+        }]}>
+          <View style={{ flexDirection:'row', gap:12, marginBottom:18, alignItems:'center', justifyContent:'center' }}>
+            {['#2FE38A','#38D9E8','#A468FF'].map((c,i)=>(
+              <Animated.View key={i} style={{ width:12, height:12, borderRadius:6, backgroundColor:c, opacity:glowPulse }} />
+            ))}
+          </View>
+          <Text style={[cel.titleButler, Platform.OS==='ios'?{textShadowColor:'#2FE38A',textShadowOffset:{width:0,height:0},textShadowRadius:28}:{}]}>BUTLER AI</Text>
+          <Animated.View style={[cel.accentLine, { opacity:textIn }]} />
+          <Animated.Text style={[cel.titleOnline, { opacity:textIn, transform:[{translateY:textSlide as any}] }]}>ONLINE</Animated.Text>
+          <Animated.Text style={[cel.subText, { opacity:textIn }]}>ALL SYSTEMS OPERATIONAL</Animated.Text>
+          <Animated.View style={{ opacity:textIn, marginTop:18, alignSelf:'stretch', paddingHorizontal:6, gap:5 }}>
+            {[
+              { txt:'[BOOT] BUTLER OS v7.3 LOADED',    col:'#2FE38A' },
+              { txt:'[SYS]  PYTHON ENGINE ARMED',       col:'#2FE38A' },
+              { txt:'[NET]  ZERO CLOUD VERIFIED \u2713', col:'#38D9E8' },
+              { txt:'[AI]   OLLAMA BRIDGE READY',       col:'#A468FF' },
+              { txt:'[\u2713]   WELCOME TO BUTLER AI, SIR', col:'#FFB43D' },
+            ].map((l,i)=>(
+              <Text key={i} style={{ fontFamily:MONOC, fontSize:10, color:l.col, letterSpacing:0.4 }}>{l.txt}</Text>
+            ))}
+          </Animated.View>
+        </Animated.View>
+      </Animated.View>
+    </View>
+  );
+}
+
+const cel = StyleSheet.create({
+  overlay:    { flex:1, backgroundColor:'rgba(2,4,7,0.97)', alignItems:'center', justifyContent:'center' },
+  ring:       { position:'absolute', borderWidth:2 },
+  particle:   { position:'absolute' },
+  card:       { alignItems:'center', padding:32, borderWidth:3, borderRadius:28, backgroundColor:'#070A10', minWidth:290 },
+  accentLine: { height:3, width:210, borderRadius:2, backgroundColor:'#2FE38A', marginVertical:10 },
+  titleButler: { fontFamily:Platform.OS==='ios'?'Courier':'monospace', fontSize:46, fontWeight:'900', color:'#2FE38A', letterSpacing:12 },
+  titleOnline:{ fontFamily:Platform.OS==='ios'?'Courier':'monospace', fontSize:30, fontWeight:'900', color:'#FFFFFF', letterSpacing:8 },
+  subText:    { fontFamily:Platform.OS==='ios'?'Courier':'monospace', fontSize:9, color:'rgba(0,255,136,0.5)', letterSpacing:2.5, marginTop:4 },
+});
+
+// ─── SHARED ANIMATIONS ─────────────────────────────────────────────
+function usePulse(duration = 900) {
+  const anim = useRef(new Animated.Value(0.3)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(anim, { toValue: 1,   duration, useNativeDriver: ND }),
+      Animated.timing(anim, { toValue: 0.2, duration, useNativeDriver: ND }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, []);
+  return anim;
+}
+
+// ─── BUTLER ROBOT AVATAR ───────────────────────────────────────────
+function ButlerAvatar({ size = 58, accentColor = T.cyan }: { size?: number; accentColor?: string }) {
+  const pulseAnim = useRef(new Animated.Value(0.7)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(pulseAnim, { toValue: 1,    duration: 1600, useNativeDriver: ND }),
+      Animated.timing(pulseAnim, { toValue: 0.35, duration: 1600, useNativeDriver: ND }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  let src: any = null;
+  try { src = require('@/assets/images/butler-robot-face.jpg'); } catch {
+    try { src = require('@/assets/images/mascot_shield.png'); } catch {
+      try { src = require('@/assets/images/butler_hud_robot.jpg'); } catch {}
+    }
+  }
+
+  return (
+    <Animated.View style={[
+      { width: size, height: size, borderRadius: size * 0.22, borderWidth: 2.5, borderColor: accentColor, overflow: 'hidden', flexShrink: 0, backgroundColor: '#0B0F17' },
+      ...Platform.select({ ios: [{ shadowColor: accentColor, shadowOffset:{width:0,height:0}, shadowOpacity: pulseAnim as any, shadowRadius: 14 }], android: [] }) as any,
+    ]}>
+      {src ? (
+        <Image source={src} style={{ width: size, height: size }} contentFit="cover" />
+      ) : (
+        <View style={{ width: size, height: size, backgroundColor: accentColor + '18', alignItems: 'center', justifyContent: 'center' }}>
+          <MaterialCommunityIcons name="robot-happy" size={size * 0.55} color={accentColor} />
+        </View>
+      )}
+    </Animated.View>
+  );
+}
+
+// ─── HUD CORNERS ───────────────────────────────────────────────────
+function HudCorners({ color, size = 14, t = 2 }: { color: string; size?: number; t?: number }) {
+  return (
+    <>
+      <View style={{ position:'absolute', top:0, left:0, width:size, height:size, borderTopWidth:t, borderLeftWidth:t, borderColor:color }} />
+      <View style={{ position:'absolute', top:0, right:0, width:size, height:size, borderTopWidth:t, borderRightWidth:t, borderColor:color }} />
+      <View style={{ position:'absolute', bottom:0, left:0, width:size, height:size, borderBottomWidth:t, borderLeftWidth:t, borderColor:color }} />
+      <View style={{ position:'absolute', bottom:0, right:0, width:size, height:size, borderBottomWidth:t, borderRightWidth:t, borderColor:color }} />
+    </>
+  );
+}
+
+// ─── PULSE DOT ─────────────────────────────────────────────────────
+function PulseDot({ color, size = 7 }: { color: string; size?: number }) {
+  const op = usePulse(700);
+  return <Animated.View style={{ width:size, height:size, borderRadius:size/2, backgroundColor:color, opacity:op }} />;
+}
+
+// ─── HOLOGRAPHIC HEADER ────────────────────────────────────────────
+let _QA_BG: any = null;
+try { _QA_BG = require('@/assets/images/qa-bg-metal.jpg'); } catch {}
+
+/** Shared mascot treatment: one Butler identity, page-specific accent and role badge. */
+function ThemedMascot({ accent, idx, icon }: { accent: string; idx: number; icon: string }) {
+  const ring = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(0.55)).current;
+  const sources = [
+    require('@/assets/images/butler_hud_robot.jpg'),
+    require('@/assets/images/butler-robot-face.jpg'),
+    require('@/assets/images/mascot_shield.png'),
+    require('@/assets/images/butler-ai-shield-logo.jpg'),
+  ];
+  useEffect(() => {
+    const r = Animated.loop(Animated.timing(ring, { toValue: 1, duration: 7200, useNativeDriver: ND }));
+    const p = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: ND }),
+      Animated.timing(pulse, { toValue: 0.35, duration: 900, useNativeDriver: ND }),
+    ]));
+    r.start(); p.start();
+    return () => { r.stop(); p.stop(); };
+  }, [ring, pulse]);
+  const rotation = ring.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  return (
+    <View style={{ width: 76, height: 76, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <Animated.View pointerEvents="none" style={{ position: 'absolute', width: 72, height: 72, borderRadius: 20, borderWidth: 1.5, borderStyle: 'dashed', borderColor: accent + '80', transform: [{ rotate: rotation }] }} />
+      <View style={{ width: 60, height: 60, borderRadius: 17, borderWidth: 2, borderColor: accent, backgroundColor: '#050810', overflow: 'hidden' }}>
+        <Image source={sources[idx % sources.length]} style={{ width: 60, height: 60 }} contentFit="cover" />
+      </View>
+      <Animated.View style={{ position: 'absolute', right: 1, bottom: 2, width: 20, height: 20, borderRadius: 7, borderWidth: 1.5, borderColor: accent, backgroundColor: '#050810', alignItems: 'center', justifyContent: 'center', opacity: pulse }}>
+        <MaterialCommunityIcons name={icon as any} size={11} color={accent} />
+      </Animated.View>
+    </View>
+  );
+}
+
+function HoloHeader({ page, idx }: { page: typeof PAGES[0]; idx: number }) {
+  const shimX  = useRef(new Animated.Value(-SW * 0.3)).current;
+  const glowOp = useRef(new Animated.Value(0.4)).current;
+  const scanY  = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const shim = Animated.loop(Animated.sequence([
+      Animated.timing(shimX, { toValue: SW * 1.2, duration: 2400, useNativeDriver: ND }),
+      Animated.timing(shimX, { toValue: -SW * 0.3, duration: 0, useNativeDriver: ND }),
+      Animated.delay(3000),
+    ]));
+    const glow = Animated.loop(Animated.sequence([
+      Animated.timing(glowOp, { toValue: 1,   duration: 1200, useNativeDriver: ND }),
+      Animated.timing(glowOp, { toValue: 0.2, duration: 1200, useNativeDriver: ND }),
+    ]));
+    const scan = Animated.loop(Animated.sequence([
+      Animated.timing(scanY, { toValue: 1, duration: 3000, useNativeDriver: ND }),
+      Animated.timing(scanY, { toValue: 0, duration: 0,    useNativeDriver: ND }),
+      Animated.delay(800),
+    ]));
+    shim.start(); glow.start(); scan.start();
+    return () => { shim.stop(); glow.stop(); scan.stop(); };
+  }, []);
+
+  const scanTop = scanY.interpolate({ inputRange: [0, 1], outputRange: [0, 90] });
+
+  return (
+    <View style={[hh.wrap, { borderColor: page.accent + '40' }]}>
+      <View style={[hh.topBar, { backgroundColor: page.accent }]} />
+      {idx === 6 && _QA_BG ? (
+        <Image source={_QA_BG} style={[StyleSheet.absoluteFill, { opacity: 0.22, borderRadius: 16 }]} contentFit="cover" />
+      ) : null}
+      <Animated.View pointerEvents="none" style={[hh.scanLine, { top: scanTop, backgroundColor: page.accent + '30' }]} />
+      <Animated.View pointerEvents="none" style={[hh.shimmer, { transform: [{ translateX: shimX }] }]} />
+      <HudCorners color={page.accent + '80'} size={12} t={1.5} />
+      <View style={hh.content}>
+        <ThemedMascot accent={page.accent} idx={idx} icon={page.icon} />
+        <View style={{ flex: 1, paddingLeft: 2 }}>
+          <View style={{ flexDirection:'row', alignItems:'center', gap:7, marginBottom:4 }}>
+            <View style={[hh.labelChip, { borderColor: page.accent + '60', backgroundColor: page.accent + '12' }]}>
+              <Text style={[hh.labelTxt, { color: page.accent }]}>{String(idx + 1).padStart(2,'0')}/{TOTAL} · {page.label}</Text>
+            </View>
+          </View>
+          <Text style={[hh.title, { color: '#FFFFFF' }]}>{page.title}</Text>
+          <Text style={[hh.sub, { color: page.accent + 'CC' }]}>{page.sub}</Text>
+        </View>
+      </View>
+      <View style={[hh.bottomStrip, { backgroundColor: page.accent + '25' }]} />
+    </View>
+  );
+}
+
+const hh = StyleSheet.create({
+  wrap:       { borderWidth: 1.5, borderRadius: 16, overflow: 'hidden', marginBottom: 14, position: 'relative', backgroundColor: '#0B0F17',
+    ...Platform.select({ ios:{ shadowColor:'#000', shadowOffset:{width:0,height:4}, shadowOpacity:0.5, shadowRadius:14 }, android:{elevation:8} }) },
+  topBar:     { height: 3 },
+  scanLine:   { position:'absolute', left:0, right:0, height:1.5, opacity:0.6, zIndex:0 },
+  shimmer:    { position:'absolute', top:0, bottom:0, width:SW*0.25, backgroundColor:'rgba(255,255,255,0.035)', transform:[{skewX:'-16deg'}], zIndex:0 },
+  content:    { flexDirection:'row', alignItems:'center', gap:14, padding:16, paddingBottom:12, zIndex:1 },
+  iconOrb:    { width:62, height:62, borderRadius:18, borderWidth:2, alignItems:'center', justifyContent:'center', flexShrink:0, position:'relative', overflow:'hidden' },
+  iconInnerRing:{ position:'absolute', width:52, height:52, borderRadius:14, borderWidth:1.5, backgroundColor:'transparent' },
+  labelChip:  { borderWidth:1, borderRadius:6, paddingHorizontal:8, paddingVertical:3 },
+  labelTxt:   { fontSize:9, fontWeight:'900', fontFamily:MONO, letterSpacing:1 },
+  title:      { fontSize:22, fontWeight:'900', fontFamily:MONO, letterSpacing:0.5, lineHeight:26 },
+  sub:        { fontSize:10, fontFamily:MONO, marginTop:4, lineHeight:14 },
+  bottomStrip:{ height:3 },
+});
+
+// ─── NEON CARD ─────────────────────────────────────────────────────
+function NeonCard({ color, children, style }: { color: string; children: React.ReactNode; style?: any }) {
+  return (
+    <View style={[nc.card, { borderColor: color + '50', borderLeftColor: color }, style]}>
+      <View style={[nc.leftBar, { backgroundColor: color }]} />
+      <View style={{ flex: 1, paddingLeft: 12, paddingVertical: 10, paddingRight: 12 }}>{children}</View>
+    </View>
+  );
+}
+const nc = StyleSheet.create({
+  card:    { flexDirection:'row', alignItems:'stretch', borderWidth:1.5, borderRadius:12, borderLeftWidth:4, backgroundColor:T.surface, marginBottom:8, overflow:'hidden' },
+  leftBar: { width:4, alignSelf:'stretch' },
+});
+
+// ─── SECTION HEADER ────────────────────────────────────────────────
+function SectionHdr({ label, color, icon }: { label: string; color: string; icon?: string }) {
+  return (
+    <View style={{ flexDirection:'row', alignItems:'center', gap:7, marginBottom:10, marginTop:6 }}>
+      <View style={{ width:3, height:14, borderRadius:2, backgroundColor:color }} />
+      {icon && <MaterialCommunityIcons name={icon as any} size={10} color={color} />}
+      <Text style={{ fontSize:9, fontWeight:'900', fontFamily:MONO, color, letterSpacing:1.6 }}>{label}</Text>
+      <View style={{ flex:1, height:1, backgroundColor:color+'25' }} />
+    </View>
+  );
+}
+
+// ─── CHECKBOX ITEM ─────────────────────────────────────────────────
+function CheckItem({ label, sub, checked, color, onToggle }: {
+  label: string; sub: string; checked: boolean; color: string; onToggle: () => void;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const handlePress = () => {
+    Animated.sequence([
+      Animated.timing(scale, { toValue: 0.96, duration: 70, useNativeDriver: false }),
+      Animated.spring(scale, { toValue: 1, tension: 280, friction: 8, useNativeDriver: false }),
+    ]).start();
+    try { haptics.medium(); } catch {}
+    onToggle();
+  };
+  return (
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <TouchableOpacity onPress={handlePress} activeOpacity={0.85}
+        style={[ci.row, { borderColor: checked ? color + '70' : 'rgba(100,140,160,0.2)', backgroundColor: checked ? color + '0D' : 'rgba(10,18,32,0.5)' }]}>
+        <View style={[ci.box, { borderColor: checked ? color : T.textMid + '60', backgroundColor: checked ? color : 'transparent' }]}>
+          {checked && <MaterialIcons name="check" size={16} color="#000" />}
+        </View>
+        <View style={{ flex: 1, gap: 3 }}>
+          <Text style={[ci.label, { color: checked ? color : T.text }]} numberOfLines={3}>
+            <Text style={{ color: T.danger }}>* </Text>{label}
+          </Text>
+          <Text style={ci.sub} numberOfLines={2}>{sub}</Text>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+const ci = StyleSheet.create({
+  row:   { flexDirection:'row', alignItems:'center', gap:14, paddingVertical:14, paddingHorizontal:16, borderRadius:14, borderWidth:2, minHeight:80, marginBottom:9 },
+  box:   { width:30, height:30, borderRadius:8, borderWidth:2.5, alignItems:'center', justifyContent:'center', flexShrink:0 },
+  label: { fontSize:13, fontWeight:'700', fontFamily:MONO, lineHeight:18 },
+  sub:   { fontSize:10, fontFamily:MONO, color:'rgba(100,140,160,0.8)', lineHeight:14 },
+});
+
+// ══════════════════════════════════════════════════════════════
+// PAGE CONTENT COMPONENTS
+// ══════════════════════════════════════════════════════════════
+
+// ─── WELCOME CIRCUIT ACCENT ──────────────────────────────────────
+// Reuses AnimatedWire (flowing dot traces) + TechGrid (HUD background grid)
+// Shown only on the WELCOME step (idx === 0). No new dependencies.
+function WelcomeCircuitAccent({ accent, compact = false }: { accent: string; compact?: boolean }) {
+  const mountAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(mountAnim, { toValue: 1, duration: 420, useNativeDriver: ND }).start();
+  }, []);
+  return (
+    <Animated.View style={{ opacity: mountAnim }}>
+      <View style={[
+        wca.panel,
+        { borderColor: accent + '35', backgroundColor: accent + '06', minHeight: compact ? 44 : 52 },
+      ]}>
+        <TechGrid rows={2} cols={10} color={accent + '14'} animated />
+        <WireCorner size={14} color={accent + 'AA'} corner="tl" />
+        <WireCorner size={14} color={accent + 'AA'} corner="tr" />
+        <View style={wca.signalRow}>
+          <View style={[wca.signalOrb, { borderColor:accent + '70', backgroundColor:accent + '10' }]}>
+            <MaterialCommunityIcons name="cpu-64-bit" size={compact ? 15 : 17} color={accent} />
+          </View>
+          <View style={{ flex:1 }}>
+            <TypewriterLine
+              text="BUTLER_OS :: LOCAL COMMAND LINK"
+              color={accent + 'CC'}
+              speed={22}
+              style={{ fontSize:compact ? 8 : 9, letterSpacing:0.9, fontFamily:MONO }}
+            />
+            <Text style={[wca.signalSub, { color:accent + '80' }]}>PRIVATE CONSOLE · BUILDER READY</Text>
+          </View>
+          <HorizontalWire width={compact ? 46 : 62} color={accent} speed={2200} dotCount={2} />
+        </View>
+      </View>
+    </Animated.View>
+  );
+}
+
+const wca = StyleSheet.create({
+  panel: {
+    borderWidth: 1.5,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
+    overflow: 'hidden',
+    position: 'relative',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  signalRow: { flexDirection:'row', alignItems:'center', gap:9, zIndex:1 },
+  signalOrb: {
+    width:29,
+    height:29,
+    borderRadius:9,
+    borderWidth:1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
   },
-  ghostPlaceholder: {
-    minWidth: 96,
+  signalSub: { fontSize:6.8, fontWeight:'900', fontFamily:MONO, letterSpacing:0.7, marginTop:2 },
+});
+
+function LegacyWelcomePage({ accent }: { accent: string }) {
+  const pulse = useRef(new Animated.Value(0.45)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 1, duration: 1100, useNativeDriver: ND }),
+      Animated.timing(pulse, { toValue: 0.35, duration: 1100, useNativeDriver: ND }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  const features = [
+    { icon:'code-braces-box', color:T.cyan, label:'SCRIPT LIBRARY', desc:'Server-synced and guarded' },
+    { icon:'robot-happy', color:T.purple, label:'AI CHAT', desc:'Ollama status stays truthful' },
+    { icon:'brain', color:T.amber, label:'KNOWLEDGE', desc:'Crawler + protected memory' },
+    { icon:'shield-lock', color:T.green, label:'PAIRING', desc:'Per-install device trust' },
+    { icon:'desktop-tower-monitor', color:T.cyan, label:'PC CONSOLE', desc:'Logs + live resource state' },
+    { icon:'hammer-screwdriver', color:T.purple, label:'BUILDER', desc:'Drafts, guards, and undo' },
+  ];
+  return (
+    <View style={wp.compactRoot}>
+      <WelcomeCircuitAccent accent={accent} />
+      <View style={[wp.mission, { borderColor: accent + '65' }]}>
+        <HudCorners color={accent + '90'} size={10} t={1.5} />
+        <View style={{ flexDirection:'row', alignItems:'center', gap:10 }}>
+          <Animated.View style={{ width:10, height:10, borderRadius:5, backgroundColor:accent, opacity:pulse }} />
+          <Text style={{ flex:1, fontSize:12, fontWeight:'900', fontFamily:MONO, color:accent, letterSpacing:1.5 }}>LOCAL PC AUTOMATION · READY TO EXPLORE</Text>
+          <MaterialCommunityIcons name="shield-check" size={20} color={T.green} />
+        </View>
+        <Text style={wp.missionCopy}>Butler AI connects your Android app to a Python console server that you run on your own computer.</Text>
+      </View>
+      <View style={wp.featureGrid}>
+        {features.map((item) => (
+          <View key={item.label} style={[wp.feature, { borderColor:item.color+'55', backgroundColor:item.color+'0B' }]}>
+            <View style={[wp.featureIcon, { borderColor:item.color+'70', backgroundColor:item.color+'16' }]}>
+              <MaterialCommunityIcons name={item.icon as any} size={20} color={item.color} />
+            </View>
+            <View style={{ flex:1 }}>
+              <Text style={{ fontSize:10, fontWeight:'900', fontFamily:MONO, color:item.color, letterSpacing:0.7 }}>{item.label}</Text>
+              <Text style={wp.featureDesc}>{item.desc}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+      <View style={[wp.console, { borderColor:T.green+'55' }]}>
+        <View style={{ flexDirection:'row', alignItems:'center', gap:7, marginBottom:8 }}>
+          <MaterialCommunityIcons name="desktop-tower-monitor" size={18} color={T.green} />
+          <Text style={{ flex:1, fontSize:11, fontWeight:'900', fontFamily:MONO, color:T.green, letterSpacing:1 }}>PYTHON CONSOLE SERVER</Text>
+          <View style={[wp.badge, { borderColor:T.green+'65' }]}><Text style={{ fontSize:8, fontFamily:MONO, color:T.green, fontWeight:'900' }}>OPEN SOURCE</Text></View>
+        </View>
+        <View style={wp.consoleRow}><Text style={wp.consoleLabel}>PAIRING</Text><Text style={[wp.consoleValue, { color:T.cyan }]}>QR + MANUAL CODE</Text></View>
+        <View style={wp.consoleRow}><Text style={wp.consoleLabel}>NETWORK</Text><Text style={[wp.consoleValue, { color:T.amber }]}>LOOPBACK / PRIVATE VPN / TLS</Text></View>
+        <View style={wp.consoleRow}><Text style={wp.consoleLabel}>EXECUTION</Text><Text style={[wp.consoleValue, { color:T.purple }]}>GUARDED · BOUNDED · LOGGED</Text></View>
+      </View>
+      <View style={wp.bottomStats}>
+        {[
+          { value:'SYNC', label:'SCRIPTS', color:accent },
+          { value:'LOCAL', label:'AI OPTION', color:T.green },
+          { value:'PAIR', label:'TRUST', color:T.amber },
+          { value:'LIVE', label:'PC DATA', color:T.purple },
+        ].map((stat) => (
+          <View key={stat.label} style={[wp.stat, { borderColor:stat.color+'55' }]}>
+            <Text style={{ fontSize:16, fontWeight:'900', fontFamily:MONO, color:stat.color }}>{stat.value}</Text>
+            <Text style={{ fontSize:7.5, fontFamily:MONO, color:stat.color+'A0', letterSpacing:0.8 }}>{stat.label}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+const wp = StyleSheet.create({
+  compactRoot: { gap:8, paddingBottom:2 },
+  mission: { borderWidth:1.5, borderRadius:14, backgroundColor:'#050810', padding:13, overflow:'hidden', position:'relative' },
+  missionCopy: { color:T.textMid, fontFamily:MONO, fontSize:10, lineHeight:15, marginTop:8 },
+  featureGrid: { flexDirection:'row', flexWrap:'wrap', gap:7 },
+  feature: { width:'48.5%', minHeight:58, borderWidth:1.5, borderRadius:11, padding:8, flexDirection:'row', alignItems:'center', gap:8 },
+  featureIcon: { width:34, height:34, borderRadius:9, borderWidth:1.2, alignItems:'center', justifyContent:'center', flexShrink:0 },
+  featureDesc: { color:T.textMid, fontFamily:MONO, fontSize:8.5, lineHeight:12, marginTop:2 },
+  console: { borderWidth:1.5, borderRadius:13, backgroundColor:'#050810', padding:12 },
+  badge: { borderWidth:1, borderRadius:5, paddingHorizontal:6, paddingVertical:3 },
+  consoleRow: { flexDirection:'row', justifyContent:'space-between', borderTopWidth:1, borderTopColor:'rgba(255,255,255,0.07)', paddingTop:6, marginTop:6 },
+  consoleLabel: { color:T.textMid, fontFamily:MONO, fontSize:8.5, letterSpacing:1 },
+  consoleValue: { fontFamily:MONO, fontSize:8.5, fontWeight:'900', textAlign:'right', flex:1, marginLeft:8 },
+  bottomStats: { flexDirection:'row', gap:7 },
+  stat: { flex:1, alignItems:'center', borderWidth:1.2, borderRadius:10, paddingVertical:8, backgroundColor:'#070A10' },
+});
+
+/**
+ * THE BUTLER'S ARRIVAL — page-zero only.
+ * Style contract: a fixed command-deck composition, truthful local-first copy, and a mascot
+ * that deliberately crosses the service-hatch border. All onboarding motion remains ND=false.
+ */
+function WelcomePage({ accent, compact, peek }: { accent: string; compact: boolean; peek: Animated.Value }) {
+  const entryY = useRef(new Animated.Value(compact ? 36 : 46)).current;
+  const breathe = useRef(new Animated.Value(0.98)).current;
+  const signal = useRef(new Animated.Value(0.45)).current;
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then(value => { if (mounted) setReduceMotion(Boolean(value)); })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    entryY.stopAnimation(); breathe.stopAnimation(); signal.stopAnimation();
+    if (reduceMotion) {
+      entryY.setValue(0); breathe.setValue(1); signal.setValue(1);
+      return;
+    }
+    entryY.setValue(compact ? 36 : 46);
+    breathe.setValue(0.975); signal.setValue(0.45);
+    const arrival = Animated.spring(entryY, { toValue: 0, tension: 190, friction: 12, useNativeDriver: ND });
+    const breathing = Animated.loop(Animated.sequence([
+      Animated.timing(breathe, { toValue: 1, duration: 1150, useNativeDriver: ND }),
+      Animated.timing(breathe, { toValue: 0.975, duration: 1250, useNativeDriver: ND }),
+    ]));
+    const signalLoop = Animated.loop(Animated.sequence([
+      Animated.timing(signal, { toValue: 1, duration: 1000, useNativeDriver: ND }),
+      Animated.timing(signal, { toValue: 0.35, duration: 1000, useNativeDriver: ND }),
+    ]));
+    arrival.start(); breathing.start(); signalLoop.start();
+    return () => { arrival.stop(); breathing.stop(); signalLoop.stop(); };
+  }, [breathe, compact, entryY, reduceMotion, signal]);
+
+  const features = [
+    { icon:'code-braces-box', color:T.cyan, label:'SCRIPT FORGE', desc:'Draft + review' },
+    { icon:'hammer-screwdriver', color:T.purple, label:'BUILDER', desc:'Snap components' },
+    { icon:'shield-lock', color:T.green, label:'PAIRING', desc:'Local trust gate' },
+    { icon:'desktop-tower-monitor', color:T.amber, label:'PC STATE', desc:'Live after pairing' },
+  ];
+  const mascotScale = breathe.interpolate({ inputRange: [0.975, 1], outputRange: [0.985, 1] });
+  const lowerPeek = peek.interpolate({ inputRange: [0, 1], outputRange: [42, 0] });
+  const peekOpacity = peek.interpolate({ inputRange: [0, 0.25, 1], outputRange: [0, 0.35, 1] });
+
+  return (
+    <View style={[arrival.root, compact && arrival.rootCompact]}>
+      <View style={arrival.brandRow}>
+        <View style={[arrival.brandChip, { borderColor: accent + '66', backgroundColor: accent + '10' }]}>
+          <MaterialCommunityIcons name="robot-happy" size={13} color={accent} />
+          <Text style={[arrival.brandText, { color: accent }]}>BUTLER AI</Text>
+        </View>
+        <Text style={arrival.brandMeta}>LOCAL PC COMMAND CENTRE</Text>
+      </View>
+
+      <WelcomeCircuitAccent accent={accent} compact={compact} />
+
+      <View style={[arrival.hatch, compact && arrival.hatchCompact, { borderColor: accent + '70' }]}>
+        <TechGrid rows={4} cols={10} color={accent + '13'} animated />
+        <HudCorners color={accent + 'A0'} size={14} t={2} />
+        <View style={[arrival.hatchRail, { backgroundColor: accent }]} />
+        <View style={arrival.hatchCopy}>
+          <View style={{ flexDirection:'row', alignItems:'center', gap:6 }}>
+            <Animated.View style={{ width:7, height:7, borderRadius:4, backgroundColor:T.green, opacity:signal }} />
+            <Text style={[arrival.hatchEyebrow, { color:accent }]}>SERVICE HATCH :: OPEN</Text>
+          </View>
+          <Text style={arrival.hatchTitle}>YOUR PC,{"\n"}YOUR COMMANDS.</Text>
+          <Text style={arrival.hatchSub}>Build a guarded workflow, verify it, then run it through your own console.</Text>
+        </View>
+        <Animated.View pointerEvents="none" style={[arrival.mascotFrame, compact && arrival.mascotFrameCompact, {
+          transform:[{ translateY:entryY }, { scale:mascotScale }],
+        }]}>
+          <Image source={require('@/assets/images/butler-robot-tux.jpg')} style={StyleSheet.absoluteFill} contentFit="cover" />
+          <View style={[arrival.mascotTag, { borderColor:accent + '72', backgroundColor:T.bg + 'E8' }]}>
+            <MaterialCommunityIcons name="hand-wave-outline" size={10} color={accent} />
+            <Text style={[arrival.mascotTagText, { color:accent }]}>HERE TO HELP</Text>
+          </View>
+        </Animated.View>
+        <Animated.View pointerEvents="none" style={[arrival.peekMascot, { opacity:peekOpacity, transform:[{ translateY:lowerPeek }] }]}>
+          <MaterialCommunityIcons name="robot-happy-outline" size={18} color={accent} />
+          <Text style={[arrival.peekText, { color:accent }]}>GESTURE DETECTED</Text>
+        </Animated.View>
+      </View>
+
+      <View style={[arrival.mission, compact && arrival.missionCompact, { borderColor:accent + '55' }]}>
+        <View style={[arrival.missionMarker, { backgroundColor:accent }]} />
+        <View style={{ flex:1 }}>
+          <Text style={[arrival.missionTitle, { color:accent }]}>PRIVATE BY DEFAULT</Text>
+          <Text style={arrival.missionCopy}>Links to the Python console you run on your PC; pairing and execution stay explicit.</Text>
+        </View>
+      </View>
+
+      <View style={arrival.featureGrid}>
+        {features.map((item) => (
+          <View key={item.label} style={[arrival.feature, compact && arrival.featureCompact, { borderColor:item.color+'58', backgroundColor:item.color+'0B' }]}>
+            <View style={[arrival.featureIcon, { borderColor:item.color+'70', backgroundColor:item.color+'16' }]}>
+              <MaterialCommunityIcons name={item.icon as any} size={compact ? 15 : 17} color={item.color} />
+            </View>
+            <View style={{ flex:1 }}>
+              <Text style={[arrival.featureLabel, { color:item.color }]} numberOfLines={1}>{item.label}</Text>
+              <Text style={arrival.featureDesc} numberOfLines={1}>{item.desc}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+
+      <View style={[arrival.protocol, compact && arrival.protocolCompact, { borderColor:T.green + '48' }]}>
+        <View style={[arrival.protocolRail, { backgroundColor:T.green }]} />
+        <View style={{ flex:1 }}>
+          <View style={{ flexDirection:'row', alignItems:'center', gap:6 }}>
+            <MaterialCommunityIcons name="shield-check" size={14} color={T.green} />
+            <Text style={[arrival.protocolTitle, { color:T.green }]}>SCRIPT SAFETY PATH</Text>
+          </View>
+          <View style={arrival.protocolSteps}>
+            {[
+              { l:'BUILD', c:T.cyan }, { l:'VERIFY', c:T.amber }, { l:'GUARD', c:T.purple }, { l:'RUN', c:T.green },
+            ].map((step, index) => (
+              <React.Fragment key={step.l}>
+                <View style={{ alignItems:'center', gap:2 }}>
+                  <View style={[arrival.stepDot, { backgroundColor:step.c }]} />
+                  <Text style={[arrival.stepText, { color:step.c }]}>{step.l}</Text>
+                </View>
+                {index < 3 && <View style={[arrival.stepLine, { backgroundColor:step.c+'88' }]} />}
+              </React.Fragment>
+            ))}
+          </View>
+        </View>
+        <View style={[arrival.protocolBadge, { borderColor:T.green+'66' }]}><Text style={{ fontSize:7, fontFamily:MONO, color:T.green, fontWeight:'900' }}>LOCAL</Text></View>
+      </View>
+    </View>
+  );
+}
+const arrival = StyleSheet.create({
+  root:{ flex:1, gap:8, paddingBottom:2 }, rootCompact:{ gap:6 },
+  brandRow:{ flexDirection:'row', alignItems:'center', justifyContent:'space-between', minHeight:22 },
+  brandChip:{ flexDirection:'row', alignItems:'center', gap:5, borderWidth:1, borderRadius:7, paddingHorizontal:8, paddingVertical:4 },
+  brandText:{ fontSize:8.5, fontWeight:'900', fontFamily:MONO, letterSpacing:1.1 }, brandMeta:{ fontSize:7.2, fontWeight:'900', fontFamily:MONO, color:T.textMid, letterSpacing:0.7 },
+  hatch:{ height:178, borderWidth:1.5, borderRadius:16, overflow:'visible', position:'relative', backgroundColor:'#03060A' }, hatchCompact:{ height:144 },
+  hatchRail:{ position:'absolute', left:14, right:14, top:9, height:2, opacity:0.75 }, hatchCopy:{ position:'absolute', left:14, top:22, width:'55%', zIndex:2 },
+  hatchEyebrow:{ fontSize:7.6, fontWeight:'900', fontFamily:MONO, letterSpacing:1 }, hatchTitle:{ fontSize:19, lineHeight:21, fontWeight:'900', fontFamily:MONO, color:T.text, letterSpacing:0.3, marginTop:8 }, hatchSub:{ fontSize:8.5, lineHeight:12, fontFamily:MONO, color:T.textMid, marginTop:6, maxWidth:158 },
+  mascotFrame:{ position:'absolute', right:7, top:-22, width:145, height:185, zIndex:6, elevation:12, borderRadius:14, overflow:'hidden', borderWidth:1, borderColor:'rgba(56,217,232,0.32)', backgroundColor:'#03060A' }, mascotFrameCompact:{ top:-15, width:118, height:151, right:6, borderRadius:12 },
+  mascotTag:{ position:'absolute', left:7, bottom:7, flexDirection:'row', alignItems:'center', gap:4, borderWidth:1, borderRadius:5, paddingHorizontal:5, paddingVertical:3 }, mascotTagText:{ fontSize:6.3, fontWeight:'900', fontFamily:MONO, letterSpacing:0.35 },
+  peekMascot:{ position:'absolute', left:14, bottom:-19, zIndex:7, elevation:13, flexDirection:'row', alignItems:'center', gap:5, backgroundColor:T.bg, borderWidth:1, borderColor:T.cyan+'60', borderRadius:8, paddingHorizontal:8, paddingVertical:5 }, peekText:{ fontSize:6.7, fontWeight:'900', fontFamily:MONO, letterSpacing:0.8 },
+  mission:{ borderWidth:1.5, borderRadius:12, backgroundColor:'#070A10', paddingVertical:9, paddingHorizontal:11, flexDirection:'row', alignItems:'center', gap:9, minHeight:55 }, missionCompact:{ minHeight:48, paddingVertical:7 }, missionMarker:{ width:3, height:28, borderRadius:2 }, missionTitle:{ fontSize:8.5, fontWeight:'900', fontFamily:MONO, letterSpacing:1 }, missionCopy:{ color:T.textMid, fontFamily:MONO, fontSize:8.3, lineHeight:11.5, marginTop:3 },
+  featureGrid:{ flexDirection:'row', flexWrap:'wrap', gap:6 }, feature:{ width:'48.9%', minHeight:48, borderWidth:1.2, borderRadius:10, padding:7, flexDirection:'row', alignItems:'center', gap:7 }, featureCompact:{ minHeight:43, padding:6, gap:6 }, featureIcon:{ width:29, height:29, borderRadius:8, borderWidth:1.1, alignItems:'center', justifyContent:'center', flexShrink:0 }, featureLabel:{ fontSize:8, fontWeight:'900', fontFamily:MONO, letterSpacing:0.25 }, featureDesc:{ color:T.textMid, fontFamily:MONO, fontSize:7.2, lineHeight:10, marginTop:1 },
+  protocol:{ minHeight:53, borderWidth:1.3, borderRadius:12, backgroundColor:'#060B0F', paddingVertical:7, paddingHorizontal:10, flexDirection:'row', alignItems:'center', gap:8 }, protocolCompact:{ minHeight:47, paddingVertical:6 }, protocolRail:{ width:3, alignSelf:'stretch', borderRadius:2 }, protocolTitle:{ fontSize:8, fontWeight:'900', fontFamily:MONO, letterSpacing:0.9 }, protocolSteps:{ flexDirection:'row', alignItems:'center', marginTop:5 }, stepDot:{ width:5, height:5, borderRadius:3 }, stepText:{ fontSize:6.1, fontWeight:'900', fontFamily:MONO, letterSpacing:0.15 }, stepLine:{ height:1, flex:1, marginHorizontal:4, opacity:0.75 }, protocolBadge:{ borderWidth:1, borderRadius:5, paddingHorizontal:5, paddingVertical:3 },
+});
+
+function AppTourPage({ accent }: { accent: string }) {
+  const TABS = [
+    { icon:'home-variant', color:T.cyan, label:'HOME', desc:'Dashboard · QR pairing · PC health · smart alerts' },
+    { icon:'code-braces-box', color:T.green, label:'SCRIPTS', desc:'Server-synced Python library · guarded execution · AI drafting' },
+    { icon:'robot-happy', color:T.purple, label:'AI CHAT', desc:'Ollama option · readiness status · protected conversation flow' },
+    { icon:'brain', color:T.amber, label:'KNOWLEDGE', desc:'Crawler and protected memory tools · source-aware organization' },
+    { icon:'desktop-tower-monitor', color:T.cyan, label:'PC HEALTH', desc:'Live CPU / RAM / disk metrics after pairing' },
+    { icon:'hammer-screwdriver', color:T.purple, label:'BUILDER', desc:'Visual pipeline drafts with guards and undo support' },
+    { icon:'folder-multiple', color:T.amber, label:'VAULT', desc:'Themes · custom skins · cosmetic settings' },
+    { icon:'lan-connect', color:T.cyan, label:'LINK', desc:'Full log viewer · connection diagnostics · crash logs' },
+    { icon:'cog-box', color:T.green, label:'CONFIG', desc:'Connection setup · data deletion · permissions' },
+  ];
+  return (
+    <View style={{ gap: 8 }}>
+      <NeonCard color={accent}>
+        <Text style={{ fontSize:11, fontWeight:'900', fontFamily:MONO, color:accent, marginBottom:4 }}>NINE TABS · ONE COMMAND CENTER</Text>
+        <Text style={{ fontSize:11, fontFamily:MONO, color:T.textMid, lineHeight:17 }}>Every tab is a specialized tool. Together they make your PC an automated powerhouse.</Text>
+      </NeonCard>
+      <SectionHdr label="TAB OVERVIEW" color={accent} icon="apps" />
+      {TABS.map((tab, i) => (
+        <View key={tab.label} style={[at.tabRow, { borderColor: tab.color + '30', borderLeftColor: tab.color }]}>
+          <View style={[at.tabNum, { borderColor: tab.color + '50', backgroundColor: tab.color + '12' }]}>
+            <MaterialCommunityIcons name={tab.icon as any} size={16} color={tab.color} />
+          </View>
+          <View style={{ flex:1 }}>
+            <Text style={{ fontSize:12, fontWeight:'900', fontFamily:MONO, color:tab.color }}>{tab.label}</Text>
+            <Text style={{ fontSize:10, fontFamily:MONO, color:T.textMid, lineHeight:14, marginTop:2 }}>{tab.desc}</Text>
+          </View>
+          <View style={[at.tabIndex, { borderColor: tab.color + '35' }]}>
+            <Text style={{ fontSize:9, fontWeight:'900', fontFamily:MONO, color:tab.color }}>{i+1}</Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+const at = StyleSheet.create({
+  tabRow:   { flexDirection:'row', alignItems:'center', gap:10, paddingVertical:9, paddingHorizontal:12, borderWidth:1.5, borderLeftWidth:4, borderRadius:12, backgroundColor:T.surface, marginBottom:6 },
+  tabNum:   { width:40, height:40, borderRadius:10, borderWidth:1.5, alignItems:'center', justifyContent:'center', flexShrink:0 },
+  tabIndex: { width:26, height:26, borderRadius:6, borderWidth:1, alignItems:'center', justifyContent:'center' },
+});
+
+const CONSENT_ITEMS = [
+  { key:'age',    color:T.cyan,   label:'I am 18 years of age or older',                    sub:'Butler AI is a developer tool for adults only' },
+  { key:'terms',  color:T.amber,  label:'I accept the Terms of Service',                    sub:'I will only use Butler AI on PCs I own or am authorised to access' },
+  { key:'pp',     color:T.green,  label:'I accept the Privacy Policy',                      sub:'Local memory, device metadata, and configured AI/network data are explained in the policy.' },
+  { key:'lan',    color:T.cyan,   label:'I understand the connection boundary',              sub:'Loopback/LAN is default; remote access requires a private VPN or valid TLS.' },
+  { key:'camera', color:T.purple, label:'Camera is for QR pairing only',                   sub:'The scanner reads pairing data; it does not intentionally record or upload camera footage.' },
+  { key:'exec',   color:T.amber,  label:'I understand scripts run with my PC permissions',  sub:'I will review scripts and keep the server on computers I own or am authorized to control.' },
+];
+
+function SafetyConsentPage({ accent, checkedState, onToggle, allChecked }: {
+  accent: string; checkedState: Record<string,boolean>; onToggle: (k:string)=>void; allChecked: boolean;
+}) {
+  return (
+    <View style={{ gap: 6 }}>
+      <NeonCard color={accent}>
+        <Text style={{ fontSize:12, fontWeight:'900', fontFamily:MONO, color:accent, marginBottom:4 }}>REQUIRED AGREEMENTS</Text>
+        <Text style={{ fontSize:11, fontFamily:MONO, color:T.textMid, lineHeight:17 }}>These checkboxes are genuine legal agreements. Read each one carefully before ticking.</Text>
+      </NeonCard>
+      {CONSENT_ITEMS.map((item) => (
+        <CheckItem key={item.key} label={item.label} sub={item.sub} checked={!!checkedState[item.key]} color={item.color} onToggle={() => onToggle(item.key)} />
+      ))}
+      <View style={[csp.statusBar, { borderColor: allChecked ? T.green + '45' : T.danger + '35', backgroundColor: allChecked ? T.green + '08' : T.danger + '08' }]}>
+        <MaterialIcons name={allChecked ? 'check-circle' : 'lock'} size={14} color={allChecked ? T.green : T.danger} />
+        <Text style={{ fontSize:11, fontFamily:MONO, color: allChecked ? T.green : T.danger, flex:1 }}>
+          {allChecked ? 'All consents accepted — tap NEXT to continue' : 'Please tick all checkboxes to proceed'}
+        </Text>
+      </View>
+    </View>
+  );
+}
+const csp = StyleSheet.create({
+  statusBar: { flexDirection:'row', alignItems:'center', gap:8, padding:12, borderRadius:10, borderWidth:1, marginTop:4 },
+});
+
+const PLEDGE_ITEMS = [
+  { color:T.danger, label:'NO UNAUTHORISED ACCESS',  desc:'I will NOT access computers without authorisation.' },
+  { color:T.danger, label:'NO MALWARE',              desc:'I will NOT deploy malware, ransomware, or destructive scripts.' },
+  { color:T.danger, label:'NO PRIVACY VIOLATIONS',   desc:'I will NOT use Butler AI to violate others\' privacy.' },
+  { color:T.amber,  label:'LAWFUL USE ONLY',         desc:'I will use Butler AI only for lawful personal automation.' },
+  { color:T.green,  label:'PERSONAL RESPONSIBILITY', desc:'I understand I remain personally responsible for all scripts I run.' },
+  { color:T.cyan,   label:'NO AUTO-EXECUTION',       desc:'Every command requires my active tap — no background execution.' },
+];
+
+function SafetyPledgePage({ accent, checkedState, onToggle, allChecked }: {
+  accent: string; checkedState: Record<string,boolean>; onToggle: (k:string)=>void; allChecked: boolean;
+}) {
+  return (
+    <View style={{ gap: 6 }}>
+      <NeonCard color={accent}>
+        <Text style={{ fontSize:12, fontWeight:'900', fontFamily:MONO, color:accent, marginBottom:4 }}>SIX BINDING RULES</Text>
+        <Text style={{ fontSize:11, fontFamily:MONO, color:T.textMid, lineHeight:17 }}>Butler AI is a powerful tool. These rules protect you, others, and the product&apos;s integrity.</Text>
+      </NeonCard>
+      {PLEDGE_ITEMS.map((item) => (
+        <CheckItem key={item.label} label={item.label} sub={item.desc} checked={!!checkedState[item.label]} color={item.color} onToggle={() => onToggle(item.label)} />
+      ))}
+      <View style={[csp.statusBar, { borderColor: allChecked ? T.green + '45' : T.danger + '35', backgroundColor: allChecked ? T.green + '08' : T.danger + '08' }]}>
+        <MaterialIcons name={allChecked ? 'check-circle' : 'lock'} size={14} color={allChecked ? T.green : T.danger} />
+        <Text style={{ fontSize:11, fontFamily:MONO, color: allChecked ? T.green : T.danger, flex:1 }}>
+          {allChecked ? 'All pledges acknowledged — tap NEXT to continue' : 'All items required to proceed'}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+const URLS = {
+  privacy:    'https://react-9b68z0.onspace.build',
+  terms:      'https://react-9b68z0.onspace.build',
+  dataSafety: 'https://react-9b68z0.onspace.build',
+  deletion:   'https://react-9b68z0.onspace.build',
+};
+const LEGAL_DOCS = [
+  { icon:'visibility',    color:T.cyan,   title:'Privacy Policy',  sub:'GDPR COMPLIANT', fact:'Device UUID only — zero personal data', url:URLS.privacy },
+  { icon:'gavel',         color:T.amber,  title:'Terms of Service',sub:'18+ REQUIRED',   fact:'Personal PCs only · Lawful use only',  url:URLS.terms },
+  { icon:'shield',        color:T.green,  title:'Data Safety',     sub:'PLAY STORE FORM',fact:'Camera = QR scan only · No analytics', url:URLS.dataSafety },
+  { icon:'delete-forever',color:T.danger, title:'Delete My Data',  sub:'GDPR RIGHT',     fact:'Settings → 3 taps → immediate & permanent', url:URLS.deletion },
+];
+
+function LegalPage({ accent, onOpen }: { accent: string; onOpen: (url:string,title:string)=>void }) {
+  return (
+    <View style={{ gap: 10 }}>
+      <NeonCard color={accent}>
+        <Text style={{ fontSize:11, fontWeight:'900', fontFamily:MONO, color:accent, marginBottom:4 }}>4 DOCS · ALL PUBLICLY HOSTED</Text>
+        <Text style={{ fontSize:11, fontFamily:MONO, color:T.textMid, lineHeight:17 }}>Required by Google Play. Tap any card to read the full document in-app.</Text>
+      </NeonCard>
+      {LEGAL_DOCS.map((doc) => (
+        <TouchableOpacity key={doc.title} onPress={() => { try { haptics.medium(); } catch {}; onOpen(doc.url, doc.title); }} activeOpacity={0.85}
+          style={[ld.card, { borderColor: doc.color + '50', borderLeftColor: doc.color }]}>
+          <View style={[ld.topBar, { backgroundColor: doc.color }]} />
+          <View style={{ flexDirection:'row', alignItems:'center', gap:12, padding:14, paddingBottom:10 }}>
+            <View style={[ld.iconBox, { borderColor:doc.color+'55', backgroundColor:doc.color+'12' }]}>
+              <MaterialIcons name={doc.icon as any} size={22} color={doc.color} />
+            </View>
+            <View style={{ flex:1 }}>
+              <Text style={{ fontSize:15, fontWeight:'900', fontFamily:MONO, color:'#FFF', marginBottom:3 }}>{doc.title}</Text>
+              <Text style={{ fontSize:9, fontFamily:MONO, color:doc.color+'AA' }}>{doc.fact}</Text>
+            </View>
+          </View>
+          <View style={[ld.viewRow, { borderTopColor: doc.color + '20' }]}>
+            <MaterialIcons name="open-in-new" size={12} color={doc.color} />
+            <Text style={{ fontSize:10, fontWeight:'900', fontFamily:MONO, color:doc.color }}>VIEW FULL DOCUMENT</Text>
+          </View>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+const ld = StyleSheet.create({
+  card:    { borderWidth:2, borderLeftWidth:5, borderRadius:14, backgroundColor:'#0B0F17', overflow:'hidden', position:'relative', marginBottom:8 },
+  topBar:  { height:3 },
+  iconBox: { width:48, height:48, borderRadius:12, borderWidth:1.5, alignItems:'center', justifyContent:'center', flexShrink:0 },
+  badge:   { borderWidth:1, borderRadius:6, paddingHorizontal:7, paddingVertical:4 },
+  viewRow: { flexDirection:'row', alignItems:'center', gap:8, paddingHorizontal:14, paddingVertical:10, borderTopWidth:1 },
+});
+
+const PERMS = [
+  { icon:'wifi', color:T.cyan, label:'LOCAL NETWORK', badge:'REQUIRED', desc:'Connect to your PC server over home Wi-Fi. Never touches the public internet.' },
+  { icon:'camera-alt', color:T.purple, label:'CAMERA', badge:'OPTIONAL', desc:'One-shot QR scanning to pair with your PC. Images processed in memory — never stored.' },
+  { icon:'folder', color:T.amber, label:'STORAGE', badge:'OPTIONAL', desc:'Phone-to-PC file transfer only. Never reads files you haven\'t explicitly selected.' },
+];
+const NO_PERMS = ['CONTACTS','LOCATION','MICROPHONE','CALL LOG','SMS / MMS','BACKGROUND LOCATION'];
+
+function PermissionsPage({ accent }: { accent: string }) {
+  return (
+    <View style={{ gap: 10 }}>
+      <NeonCard color={accent}>
+        <Text style={{ fontSize:12, fontWeight:'900', fontFamily:MONO, color:accent, marginBottom:4 }}>ONLY 3 PERMISSIONS</Text>
+        <Text style={{ fontSize:11, fontFamily:MONO, color:T.textMid, lineHeight:17 }}>Butler AI requests no sensitive permissions. We explain every single one.</Text>
+      </NeonCard>
+      {PERMS.map(p => (
+        <View key={p.label} style={[pp.permCard, { borderColor:p.color+'35', backgroundColor:p.color+'06' }]}>
+          <View style={[pp.permIcon, { backgroundColor:p.color+'18', borderColor:p.color+'35' }]}>
+            <MaterialIcons name={p.icon as any} size={22} color={p.color} />
+          </View>
+          <View style={{ flex:1, gap:4 }}>
+            <Text style={{ fontSize:12, fontWeight:'900', fontFamily:MONO, color:p.color }}>{p.label}</Text>
+            <Text style={{ fontSize:11, fontFamily:MONO, color:T.textMid, lineHeight:16 }}>{p.desc}</Text>
+          </View>
+        </View>
+      ))}
+      <View style={{ backgroundColor:T.dangerDim, borderRadius:12, borderWidth:1, borderColor:T.danger+'25', padding:14 }}>
+        <Text style={{ fontSize:11, fontWeight:'900', fontFamily:MONO, color:T.danger, marginBottom:8 }}>NEVER REQUESTED</Text>
+        <View style={{ flexDirection:'row', flexWrap:'wrap', gap:6 }}>
+          {NO_PERMS.map(l => (
+            <View key={l} style={{ borderWidth:1, borderRadius:8, paddingHorizontal:8, paddingVertical:4, borderColor:T.danger+'30', backgroundColor:T.danger+'06' }}>
+              <Text style={{ fontSize:9.5, fontFamily:MONO, color:T.danger+'90' }}>{l}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+const pp = StyleSheet.create({
+  permCard: { flexDirection:'row', alignItems:'flex-start', gap:12, padding:14, borderRadius:14, borderWidth:1.5, marginBottom:4 },
+  permIcon: { width:44, height:44, borderRadius:12, borderWidth:1, alignItems:'center', justifyContent:'center', flexShrink:0 },
+});
+
+const QA_ITEMS = [
+  { q:'Does it run automatically?',       a:'NO — every script requires your active tap. No background execution, no scheduler.' },
+  { q:'Does it upload my data?',          a:'The app is local-first, but configured AI providers, remote networking, and public documents may transmit data. Review the privacy policy and active transport before use.' },
+  { q:'How is it secured?',               a:'Pairing, authenticated requests, protected local storage, redacted logs, and bounded execution guards. Transport mode depends on loopback, private VPN, or configured TLS.' },
+  { q:'How do I pair my PC?',             a:'Launch server/butler_server_v20_1_0_OSS.py or a supplied console launcher. It shows a QR code and manual pairing code; use Connect in the app.' },
+  { q:'Can I undo a script?',             a:'The app preserves action history and supports undo where the operation exposes a reversible state. Review the action receipt before relying on rollback.' },
+  { q:'How do I delete all my data?',     a:'Settings \u2192 DELETE ALL MY DATA — immediate, permanent, irreversible in 3 taps.' },
+  { q:'Does the AI model call the cloud?',a:'Ollama can run on your PC, but the active provider and network mode must be verified in Butler settings before sending prompts.' },
+  { q:'What about dangerous scripts?',    a:'Built-in Malicious Script Blocker scans for 15 threat patterns before execution.' },
+];
+
+function QAPage({ accent }: { accent: string }) {
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+  return (
+    <View style={{ gap: 8 }}>
+      <NeonCard color={accent}>
+        <Text style={{ fontSize:12, fontWeight:'900', fontFamily:MONO, color:accent, marginBottom:4 }}>STRAIGHT ANSWERS</Text>
+        <Text style={{ fontSize:11, fontFamily:MONO, color:T.textMid, lineHeight:17 }}>Tap any question to expand. No fluff — just facts.</Text>
+      </NeonCard>
+      {QA_ITEMS.map((item, i) => (
+        <TouchableOpacity key={i} onPress={() => { try { haptics.selection(); } catch {}; setOpenIdx(openIdx === i ? null : i); }} activeOpacity={0.85}
+          style={[qa.card, { borderColor: openIdx===i ? accent+'60' : T.border, backgroundColor: openIdx===i ? accent+'08' : T.surface }]}>
+          <View style={{ flexDirection:'row', alignItems:'center', gap:10 }}>
+            <View style={[qa.qIcon, { borderColor:accent+'55', backgroundColor:accent+'12' }]}>
+              <MaterialIcons name="help-outline" size={14} color={accent} />
+            </View>
+            <Text style={{ flex:1, fontSize:12, fontWeight:'900', fontFamily:MONO, color:openIdx===i ? accent : T.text, lineHeight:17 }}>{item.q}</Text>
+            <MaterialIcons name={openIdx===i ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={16} color={openIdx===i ? accent : T.textMid} />
+          </View>
+          {openIdx === i && <Text style={{ fontSize:12, fontFamily:MONO, color:T.text, lineHeight:19, paddingLeft:42, paddingTop:8 }}>{item.a}</Text>}
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+const qa = StyleSheet.create({
+  card:  { borderWidth:1.5, borderRadius:12, padding:12 },
+  qIcon: { width:30, height:30, borderRadius:8, borderWidth:1, alignItems:'center', justifyContent:'center', flexShrink:0 },
+});
+
+const SERVER_ITEMS = [
+  { icon:'home',       color:T.green,  title:'YOUR PC CONSOLE',       desc:'The Python server runs on your computer with a native desktop console and app-facing API.' },
+  { icon:'storage',    color:T.cyan,   title:'LOCAL SERVER STATE',    desc:'Server state and its Script Library stay on the PC; inspect, back up, or delete them yourself.' },
+  { icon:'lan',        color:T.green,  title:'LOOPBACK FIRST',        desc:'The safe launcher defaults to loopback; trusted LAN requires deliberate opt-in.' },
+  { icon:'vpn-key',    color:T.amber,  title:'PAIRING + AUTH',         desc:'QR or manual code enrollment binds a device and protects later API requests.' },
+  { icon:'smart-toy',  color:T.purple, title:'OLLAMA OPTION',          desc:'If configured, Ollama runs on the PC; the app reports readiness and warm-up honestly.' },
+  { icon:'no-accounts',color:T.green,  title:'NO REQUIRED ACCOUNT',   desc:'The self-hosted pairing flow does not require Butler account registration or a cloud relay.' },
+];
+
+function ServerPrivacyPage({ accent }: { accent: string }) {
+  return (
+    <View style={{ gap: 8 }}>
+      <NeonCard color={accent}>
+        <Text style={{ fontSize:12, fontWeight:'900', fontFamily:MONO, color:accent, marginBottom:4 }}>TRANSPARENT ARCHITECTURE</Text>
+        <Text style={{ fontSize:11, fontFamily:MONO, color:T.textMid, lineHeight:17 }}>We document exactly what the server does. No surprises. Fully open source.</Text>
+      </NeonCard>
+      {SERVER_ITEMS.map((item, i) => (
+        <View key={i} style={[srv.card, { borderColor:item.color+'25', backgroundColor:item.color+'06' }]}>
+          <View style={[srv.icon, { backgroundColor:item.color+'18', borderColor:item.color+'35' }]}>
+            <MaterialIcons name={item.icon as any} size={18} color={item.color} />
+          </View>
+          <View style={{ flex:1 }}>
+            <Text style={{ fontSize:10.5, fontWeight:'900', fontFamily:MONO, color:item.color, letterSpacing:0.4 }}>{item.title}</Text>
+            <Text style={{ fontSize:11, fontFamily:MONO, color:T.textMid, lineHeight:16, marginTop:3 }}>{item.desc}</Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+const srv = StyleSheet.create({
+  card: { flexDirection:'row', alignItems:'flex-start', gap:12, padding:12, borderRadius:12, borderWidth:1, marginBottom:4 },
+  icon: { width:38, height:38, borderRadius:10, borderWidth:1, alignItems:'center', justifyContent:'center', flexShrink:0 },
+});
+
+function PCSetupPage({ accent, onScanQR }: { accent: string; onScanQR: () => void }) {
+  const STEPS = [
+    {
+      num:'01', color:T.cyan, icon:'download-circle',
+      title:'DOWNLOAD BUTLER SERVER',
+      desc:'The Python server runs on your PC, opens its native console, and displays a QR code plus manual pairing code. The safe launcher does not silently install packages.',
+      bullets: [
+        'Run: python server/butler_server_v20_1_0_OSS.py',
+        'A QR code + IP address + port number will appear on screen',
+        'Console/API server · review the setup guide',
+      ],
+    },
+    {
+      num:'02', color:T.amber, icon:'cog-play',
+      title:'RUN THE INSTALLER',
+      desc:'Choose the documented launcher for your operating system, install dependencies deliberately, then start the console server in the foreground.',
+      bullets: [
+        'Windows: start_server.bat opens the console window',
+        'Mac/Linux: chmod +x start_server.sh && ./start_server.sh',
+        'Use a private VPN or valid TLS for remote access',
+      ],
+    },
+    {
+      num:'03', color:T.green, icon:'qr-code-scanner',
+      title:'CONNECT & CONTROL',
+      desc:'Scan the QR code or enter the displayed pairing code with the PC address. The first successful enrollment binds the device; later requests use the saved session.',
+      bullets: [
+        'Scan QR or enter IP manually',
+        'Pairing is deliberate; reset/unpair creates a new relationship',
+        'Loopback default · private VPN/TLS for remote use',
+      ],
+    },
+  ];
+  const openURL = (url: string) => {
+    try { haptics.medium(); } catch {}
+    import('react-native').then(({ Linking }) => Linking.openURL(url).catch(() => {}));
+  };
+
+  const AUTO_INSTALLS = [
+    { icon: 'language-python',        color: T.cyan,   label: 'Python runtime',          sub: 'Install the supported version deliberately' },
+    { icon: 'package-variant',        color: T.green,  label: 'Server dependencies',     sub: 'Install only from the reviewed requirements/setup guide' },
+    { icon: 'robot-happy',            color: T.purple, label: 'Ollama optional',          sub: 'Install separately if local AI chat is enabled' },
+    { icon: 'brain',                  color: T.amber,  label: 'Model is user-managed',    sub: 'Warm-up, model availability, and license are shown honestly' },
+    { icon: 'desktop-tower-monitor',  color: T.green,  label: 'Desktop console',          sub: 'Visible logs, pairing code, resource state, and Script Library' },
+  ];
+
+  return (
+    <View style={{ gap: 12 }}>
+      {/* ── OVERVIEW BANNER ── */}
+      <NeonCard color={accent}>
+        <View style={{ flexDirection:'row', alignItems:'center', gap:8, marginBottom:6 }}>
+          <MaterialCommunityIcons name="lightning-bolt" size={16} color={accent} />
+          <Text style={{ fontSize:13, fontWeight:'900', fontFamily:MONO, color:accent }}>3 STEPS · PAIR IN UNDER 60 SECONDS</Text>
+        </View>
+        <Text style={{ fontSize:11, fontFamily:MONO, color:T.textMid, lineHeight:17 }}>
+          Download the reviewed source, install dependencies deliberately, then launch the visible console. Pairing is explicit and remote access requires a private VPN or valid TLS.
+        </Text>
+        <View style={{ flexDirection:'row', gap:6, marginTop:10, flexWrap:'wrap' }}>
+          {['PYTHON','OLLAMA OPTION','PAIRING CODE','CPU GUARD','PRIVATE VPN','CONSOLE UI'].map((b,i) => (
+            <View key={i} style={{ borderWidth:1, borderRadius:6, paddingHorizontal:7, paddingVertical:3, borderColor:[T.cyan,T.green,T.amber,T.purple,T.green,T.cyan][i]+'40', backgroundColor:[T.cyan,T.green,T.amber,T.purple,T.green,T.cyan][i]+'08' }}>
+              <Text style={{ fontFamily:MONO, fontSize:8.5, color:[T.cyan,T.green,T.amber,T.purple,T.green,T.cyan][i]+'CC', fontWeight:'900' }}>{b}</Text>
+            </View>
+          ))}
+        </View>
+      </NeonCard>
+
+      {/* ── AUTO-INSTALL BANNER ── */}
+      <View style={{ borderWidth:1.5, borderRadius:14, borderColor:T.green+'45', backgroundColor:'#050810', overflow:'hidden' }}>
+        <View style={{ height:3, backgroundColor:T.green }} />
+        <View style={{ paddingHorizontal:16, paddingTop:12, paddingBottom:4 }}>
+          <View style={{ flexDirection:'row', alignItems:'center', gap:8, marginBottom:10 }}>
+            <MaterialCommunityIcons name="lightning-bolt" size={14} color={T.green} />
+            <Text style={{ fontFamily:MONO, fontSize:11, fontWeight:'900', color:T.green, letterSpacing:1 }}>INSTALLS EVERYTHING AUTOMATICALLY</Text>
+          </View>
+          {AUTO_INSTALLS.map((a,i) => (
+            <View key={i} style={{ flexDirection:'row', alignItems:'flex-start', gap:10, paddingVertical:8, borderBottomWidth: i < AUTO_INSTALLS.length-1 ? 1 : 0, borderBottomColor:'rgba(255,255,255,0.06)' }}>
+              <View style={{ width:36, height:36, borderRadius:10, borderWidth:1.5, borderColor:a.color+'45', backgroundColor:a.color+'10', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <MaterialCommunityIcons name={a.icon as any} size={17} color={a.color} />
+              </View>
+              <View style={{ flex:1 }}>
+                <Text style={{ fontSize:13, fontWeight:'700', color:'#FFF', marginBottom:2 }}>{a.label}</Text>
+                <Text style={{ fontFamily:MONO, fontSize:9, color:T.textMid, lineHeight:13 }}>{a.sub}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+        {/* Platform download buttons */}
+        <View style={{ flexDirection:'row', gap:8, paddingHorizontal:14, paddingBottom:14, marginTop:4 }}>
+          <TouchableOpacity onPress={() => openURL('https://github.com/shawnjan-cmd/butler-server/releases/latest')} activeOpacity={0.85}
+            style={{ flex:1, flexDirection:'row', alignItems:'center', gap:8, backgroundColor:'#4A9EFF', borderRadius:12, borderWidth:1.5, borderColor:T.cyan+'55', padding:11 }}>
+            <MaterialIcons name="computer" size={20} color={T.cyan} />
+            <View>
+              <Text style={{ fontFamily:MONO, fontSize:11, fontWeight:'900', color:T.cyan }}>WINDOWS</Text>
+              <Text style={{ fontFamily:MONO, fontSize:8.5, color:T.textMid }}>start_server.bat / Python console</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => openURL('https://github.com/shawnjan-cmd/butler-server/releases/latest')} activeOpacity={0.85}
+            style={{ flex:1, flexDirection:'row', alignItems:'center', gap:8, backgroundColor:'#0B0F17', borderRadius:12, borderWidth:1.5, borderColor:T.green+'55', padding:11 }}>
+            <MaterialCommunityIcons name="apple" size={20} color={T.green} />
+            <View>
+              <Text style={{ fontFamily:MONO, fontSize:11, fontWeight:'900', color:T.green }}>MAC / LINUX</Text>
+              <Text style={{ fontFamily:MONO, fontSize:8.5, color:T.textMid }}>start_server.sh / Python console</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+        <Text style={{ fontFamily:MONO, fontSize:9, color:T.textMid, textAlign:'center', paddingBottom:12, lineHeight:14 }}>
+          {'Source download + documented launcher + visible desktop console'}
+        </Text>
+      </View>
+
+      {/* ── 3 NUMBERED STEP CARDS ── */}
+      {STEPS.map((step, i) => (
+        <View key={step.num}>
+          {i > 0 && (
+            <View style={{ alignItems:'center', height:18 }}>
+              <View style={{ width:2, height:'100%', backgroundColor:STEPS[i-1].color+'35' }} />
+            </View>
+          )}
+          <View style={[ps.stepCard, { borderColor:step.color+'50', borderLeftColor:step.color }]}>
+            <HudCorners color={step.color+'35'} size={8} t={1} />
+            <View style={[ps.topAccent, { backgroundColor:step.color }]} />
+            <View style={{ flexDirection:'row', alignItems:'flex-start', gap:14, padding:14, paddingTop:16 }}>
+              <View style={[ps.stepBadge, { borderColor:step.color, backgroundColor:step.color+'18' }]}>
+                <Text style={{ fontSize:20, fontWeight:'900', fontFamily:MONO, color:step.color }}>{step.num}</Text>
+              </View>
+              <View style={{ flex:1 }}>
+                <View style={{ flexDirection:'row', alignItems:'center', gap:8, marginBottom:6 }}>
+                  <MaterialCommunityIcons name={step.icon as any} size={14} color={step.color} />
+                  <Text style={{ fontSize:12, fontWeight:'900', fontFamily:MONO, color:'#FFF', flex:1 }}>{step.title}</Text>
+                  <View style={{ width:7, height:7, borderRadius:3.5, backgroundColor:step.color, opacity:0.8 }} />
+                </View>
+                <Text style={{ fontSize:11, fontFamily:MONO, color:T.textMid, lineHeight:17, marginBottom:8 }}>{step.desc}</Text>
+                {step.bullets.map((b,bi) => (
+                  <View key={bi} style={{ flexDirection:'row', alignItems:'flex-start', gap:8, marginBottom:5 }}>
+                    <View style={{ width:5, height:5, borderRadius:2.5, backgroundColor:step.color, marginTop:5, flexShrink:0 }} />
+                    <Text style={{ fontFamily:MONO, fontSize:10, color:step.color+'BB', lineHeight:15, flex:1 }}>{b}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            {/* Segmented accent bar at bottom */}
+            <View style={{ flexDirection:'row', gap:3, paddingHorizontal:14, paddingBottom:10 }}>
+              {Array.from({length:16}).map((_,si) => (
+                <View key={si} style={{ flex:1, height:2.5, borderRadius:2, backgroundColor:step.color+(si%3===0?'80':'20') }} />
+              ))}
+            </View>
+          </View>
+        </View>
+      ))}
+
+      {/* ── DOWNLOAD BUTTONS ── */}
+      <SectionHdr label="DOWNLOAD SERVER" color={accent} icon="download" />
+      <TouchableOpacity onPress={() => openURL('https://github.com/shawnjan-cmd/butler-server/releases/latest')} activeOpacity={0.85}
+        style={[ps.qrBtn, { backgroundColor: T.cyan, marginBottom:6 }]}>
+        <MaterialCommunityIcons name="github" size={26} color="#000" />
+        <View style={{ flex:1 }}>
+          <Text style={{ fontSize:14, fontWeight:'900', fontFamily:MONO, color:'#000' }}>DOWNLOAD FROM GITHUB</Text>
+          <View style={{ flexDirection:'row', gap:5, marginTop:3 }}>
+            <View style={{ backgroundColor:'rgba(0,0,0,0.2)', borderRadius:4, paddingHorizontal:6, paddingVertical:2 }}><Text style={{ fontFamily:MONO, fontSize:8.5, color:'#000', fontWeight:'900' }}>● GITHUB</Text></View>
+            <View style={{ backgroundColor:'rgba(0,0,0,0.2)', borderRadius:4, paddingHorizontal:6, paddingVertical:2 }}><Text style={{ fontFamily:MONO, fontSize:8.5, color:'#000', fontWeight:'900' }}>FREE</Text></View>
+            <View style={{ backgroundColor:'rgba(0,0,0,0.2)', borderRadius:4, paddingHorizontal:6, paddingVertical:2 }}><Text style={{ fontFamily:MONO, fontSize:8.5, color:'#000', fontWeight:'900' }}>PYTHON 3.10+</Text></View>
+          </View>
+        </View>
+        <MaterialIcons name="arrow-forward" size={18} color="#000" />
+      </TouchableOpacity>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open Butler AI open source GitHub repository" onPress={() => openURL('https://github.com/shawnjan-cmd/butler-server')} activeOpacity={0.85}
+        style={[ps.qrBtn, { backgroundColor: '#101722', borderWidth: 1.5, borderColor: T.cyan+'70', marginBottom:8 }]}>
+        <MaterialCommunityIcons name="source-branch" size={24} color={T.cyan} />
+        <View style={{ flex:1 }}>
+          <Text style={{ fontSize:13, fontWeight:'900', fontFamily:MONO, color:T.cyan }}>OPEN SOURCE · GITHUB</Text>
+          <Text style={{ fontFamily:MONO, fontSize:9, color:T.textMid, marginTop:3 }}>Inspect the server source, releases, and security notes</Text>
+        </View>
+        <MaterialIcons name="open-in-new" size={17} color={T.cyan} />
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => openURL(`mailto:?subject=Butler AI Server Setup&body=Download butler_server.py from: https://github.com/shawnjan-cmd/butler-server/releases/latest%0A%0ASetup guide: https://shawnjan-cmd.github.io/privacy-policy-/%0A%0AQuick start:%0A1. Save butler_server.py to your PC%0A2. Run: python butler_server.py%0A3. Scan the QR code shown in terminal%0A%0ARequires Python 3.10+. All other packages install automatically.`)} activeOpacity={0.85}
+        style={[ps.qrBtn, { backgroundColor: T.purple, marginBottom:8 }]}>
+        <MaterialIcons name="email" size={26} color="#000" />
+        <View style={{ flex:1 }}>
+          <Text style={{ fontSize:14, fontWeight:'900', fontFamily:MONO, color:'#000' }}>SEND TO YOUR EMAIL</Text>
+          <View style={{ flexDirection:'row', gap:5, marginTop:3 }}>
+            <View style={{ backgroundColor:'rgba(0,0,0,0.2)', borderRadius:4, paddingHorizontal:6, paddingVertical:2 }}><Text style={{ fontFamily:MONO, fontSize:8.5, color:'#000', fontWeight:'900' }}>● 1-CLICK SETUP</Text></View>
+            <View style={{ backgroundColor:'rgba(0,0,0,0.2)', borderRadius:4, paddingHorizontal:6, paddingVertical:2 }}><Text style={{ fontFamily:MONO, fontSize:8.5, color:'#000', fontWeight:'900' }}>PRE-FILLED</Text></View>
+            <View style={{ backgroundColor:'rgba(0,0,0,0.2)', borderRadius:4, paddingHorizontal:6, paddingVertical:2 }}><Text style={{ fontFamily:MONO, fontSize:8.5, color:'#000', fontWeight:'900' }}>FULL GUIDE</Text></View>
+          </View>
+        </View>
+        <MaterialIcons name="arrow-forward" size={18} color="#000" />
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => openURL('https://github.com/shawnjan-cmd/butler-server/archive/refs/heads/main.zip')} activeOpacity={0.85}
+        style={[ps.qrBtn, { backgroundColor: T.amber, marginBottom:10 }]}>
+        <MaterialIcons name="download" size={26} color="#000" />
+        <View style={{ flex:1 }}>
+          <Text style={{ fontSize:14, fontWeight:'900', fontFamily:MONO, color:'#000' }}>AUTO-DOWNLOAD .ZIP</Text>
+          <Text style={{ fontSize:9, fontFamily:MONO, color:'rgba(0,0,0,0.65)', marginTop:2 }}>Direct archive — no GitHub account needed</Text>
+        </View>
+        <MaterialIcons name="arrow-downward" size={18} color="#000" />
+      </TouchableOpacity>
+
+      {/* ── AUTHENTICATE / SCAN QR CARD ── */}
+      <View style={{ borderWidth:1.5, borderRadius:14, borderColor:T.cyan+'45', backgroundColor:'#0B0F17', overflow:'hidden' }}>
+        <View style={{ height:3, backgroundColor:T.cyan }} />
+        <View style={{ padding:14 }}>
+          <View style={{ flexDirection:'row', alignItems:'center', gap:8, marginBottom:12 }}>
+            <MaterialCommunityIcons name="shield-check" size={14} color={T.cyan} />
+            <Text style={{ fontFamily:MONO, fontSize:11, fontWeight:'900', color:T.cyan, letterSpacing:1 }}>AUTHENTICATE DEVICE</Text>
+          </View>
+          <View style={{ flexDirection:'row', alignItems:'center', gap:10, marginBottom:10 }}>
+            <View style={{ width:34, height:34, borderRadius:8, borderWidth:2, borderColor:T.cyan+'60', backgroundColor:T.cyan+'10', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <Text style={{ fontFamily:MONO, fontSize:13, fontWeight:'900', color:T.cyan }}>1</Text>
+            </View>
+            <Text style={{ fontFamily:MONO, fontSize:11, fontWeight:'900', color:'#FFF' }}>SCAN QR CODE</Text>
+          </View>
+          <TouchableOpacity onPress={() => { try { haptics.heavy(); } catch {}; onScanQR(); }} activeOpacity={0.85}
+            style={[ps.qrBtn, { backgroundColor: T.green, marginBottom:0, borderRadius:12 }]}>
+            <MaterialIcons name="qr-code-scanner" size={26} color="#000" />
+            <View style={{ flex:1 }}>
+              <Text style={{ fontSize:14, fontWeight:'900', fontFamily:MONO, color:'#000' }}>OPEN QR SCANNER</Text>
+              <Text style={{ fontSize:9, fontFamily:MONO, color:'rgba(0,0,0,0.6)', marginTop:2 }}>Point camera at desktop QR code to pair instantly</Text>
+            </View>
+            <MaterialIcons name="arrow-forward" size={18} color="#000" />
+          </TouchableOpacity>
+          <View style={{ alignItems:'center', paddingVertical:8 }}>
+            <Text style={{ fontFamily:MONO, fontSize:9, color:T.textMid, letterSpacing:1 }}>← → MANUAL CONNECT</Text>
+          </View>
+          <View style={{ borderRadius:10, borderWidth:1, borderColor:T.border, backgroundColor:T.surface, paddingHorizontal:12, paddingVertical:10 }}>
+            <Text style={{ fontFamily:MONO, fontSize:10, color:T.textDim, lineHeight:15 }}>
+              Enter PC IP : Persists across app restarts · No cloud relay
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* ── SECURITY AUDIT SUMMARY ── */}
+      <View style={{ borderRadius:14, borderWidth:1.5, borderColor:T.green+'35', backgroundColor:'#050810', overflow:'hidden' }}>
+        <View style={{ height:2.5, backgroundColor:T.green+'70' }} />
+        <View style={{ padding:14 }}>
+          <View style={{ flexDirection:'row', alignItems:'center', gap:8, marginBottom:10 }}>
+            <MaterialCommunityIcons name="shield-lock" size={14} color={T.green} />
+            <Text style={{ fontFamily:MONO, fontSize:10, fontWeight:'900', color:T.green, letterSpacing:1 }}>SECURITY AUDIT SUMMARY</Text>
+          </View>
+          {[
+            { label:'Telemetry', val:'No synthetic data', ok:true },
+            { label:'Network', val:'User configured', ok:true },
+            { label:'Storage', val:'Protected boundary', ok:true },
+            { label:'Auth', val:'HMAC-SHA256', ok:true },
+          ].map((s,i) => (
+            <View key={i} style={{ flexDirection:'row', alignItems:'center', paddingVertical:5, borderBottomWidth: i<3 ? 1 : 0, borderBottomColor:'rgba(0,255,136,0.08)' }}>
+              <MaterialIcons name="check-circle" size={13} color={T.green} style={{ marginRight:8 }} />
+              <Text style={{ fontFamily:MONO, fontSize:10, color:T.textMid, flex:1 }}>{s.label}</Text>
+              <Text style={{ fontFamily:MONO, fontSize:10, color:T.green, fontWeight:'900' }}>{s.val}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+const ps = StyleSheet.create({
+  stepCard:  { borderWidth:2, borderLeftWidth:5, borderRadius:14, backgroundColor:'#0B0F17', overflow:'hidden', marginBottom:2, position:'relative' },
+  topAccent: { height:3 },
+  stepBadge: { width:52, height:52, borderRadius:14, borderWidth:2.5, alignItems:'center', justifyContent:'center', flexShrink:0 },
+  qrBtn:     { flexDirection:'row', alignItems:'center', gap:14, padding:16, borderRadius:14, overflow:'hidden' },
+});
+
+function PageSignature({ idx, accent }: { idx: number; accent: string }) {
+  const pulse = useRef(new Animated.Value(0.5)).current;
+  const spin  = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const p = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue:1, duration:1000, useNativeDriver:ND }),
+      Animated.timing(pulse, { toValue:0.3, duration:1000, useNativeDriver:ND }),
+    ]));
+    const s = Animated.loop(Animated.timing(spin, { toValue:1, duration:8000, useNativeDriver:ND }));
+    p.start(); s.start();
+    return () => { p.stop(); s.stop(); };
+  }, []);
+  const rotDeg = spin.interpolate({ inputRange:[0,1], outputRange:['0deg','360deg'] });
+
+  if (idx === 9) {
+    return (
+      <View style={[sig.strip, { borderColor: accent+'50', backgroundColor: accent+'06', paddingVertical:12, paddingHorizontal:14, marginBottom:10 }]}>
+        <View style={[sig.stripBar, { backgroundColor: accent }]} />
+        <View style={{ flexDirection:'row', alignItems:'center', gap:12 }}>
+          <Animated.View style={{ transform:[{rotate:rotDeg}] }}>
+            <MaterialCommunityIcons name="rocket-launch" size={32} color={accent} />
+          </Animated.View>
+          <View style={{ flex:1 }}>
+            <Text style={{ fontFamily:MONO, fontSize:13, fontWeight:'900', color:accent, letterSpacing:2 }}>MISSION COMPLETE · BUTLER ARMED</Text>
+            <View style={{ flexDirection:'row', gap:4, marginTop:5 }}>
+              {[T.cyan,T.green,T.amber,T.purple,T.green].map((col,i)=>(
+                <Animated.View key={i} style={{ flex:1, height:4, borderRadius:2, backgroundColor:col, opacity:pulse.interpolate({inputRange:[0.3,1],outputRange:[i%2===0?1:0.3,i%2===0?0.3:1]}) }} />
+              ))}
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  }
+  return null;
+}
+const sig = StyleSheet.create({
+  strip:    { borderWidth:1.5, borderRadius:12, backgroundColor:T.surface, overflow:'hidden', position:'relative' },
+  stripBar: { height:3 },
+});
+
+function LaunchPage({ accent }: { accent: string }) {
+  const engageGlow  = useRef(new Animated.Value(0.35)).current;
+  const engageScale = useRef(new Animated.Value(1)).current;
+  const ringRot     = useRef(new Animated.Value(0)).current;
+  const barPulse    = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const g  = Animated.loop(Animated.sequence([
+      Animated.timing(engageGlow, { toValue:1, duration:900, useNativeDriver:ND }),
+      Animated.timing(engageGlow, { toValue:0.2, duration:900, useNativeDriver:ND }),
+    ]));
+    const s  = Animated.loop(Animated.sequence([
+      Animated.timing(engageScale, { toValue:1.018, duration:1100, useNativeDriver:ND }),
+      Animated.timing(engageScale, { toValue:0.994, duration:1100, useNativeDriver:ND }),
+    ]));
+    const r  = Animated.loop(Animated.timing(ringRot, { toValue:1, duration:6000, useNativeDriver:ND }));
+    const bp = Animated.loop(Animated.sequence([
+      Animated.timing(barPulse, { toValue:1, duration:1200, useNativeDriver:ND }),
+      Animated.timing(barPulse, { toValue:0, duration:1200, useNativeDriver:ND }),
+    ]));
+    g.start(); s.start(); r.start(); bp.start();
+    return () => { g.stop(); s.stop(); r.stop(); bp.stop(); };
+  }, []);
+  const rotDeg = ringRot.interpolate({ inputRange:[0,1], outputRange:['0deg','360deg'] });
+  const CHECKS = [
+    { color:T.cyan,   text:'Privacy Policy accepted — device UUID only' },
+    { color:T.amber,  text:'Terms of Service accepted — lawful use only' },
+    { color:T.danger, text:'Safety Pledge signed — no unauthorised access' },
+    { color:T.green,  text:'Server privacy understood — 100% local' },
+    { color:T.purple, text:'Permissions reviewed — camera for QR only' },
+    { color:T.green,  text:'Zero telemetry · Zero cloud · 100% your hardware' },
+  ];
+  let _SHIELD: any = null;
+  try { _SHIELD = require('@/assets/images/butler-ai-shield-logo.jpg'); } catch {
+    try { _SHIELD = require('@/assets/images/mascot_shield.png'); } catch {}
+  }
+  const BAR_COLORS = [T.cyan, T.amber, T.purple, T.green, T.danger];
+  return (
+    <View style={{ gap: 14 }}>
+      <View style={[lp.systemsGoBanner, { borderColor: accent + '60' }]}>
+        <HudCorners color={accent + '80'} size={8} t={1.5} />
+        <View style={{ flexDirection:'row', alignItems:'center', gap:10 }}>
+          <MaterialCommunityIcons name="gesture-tap" size={26} color={accent} />
+          <View style={{ flex:1 }}>
+            <Text style={{ fontSize:12, fontWeight:'900', fontFamily:MONO, color:accent, letterSpacing:1.5 }}>TAP ANY TAB ICON BELOW TO ENTER</Text>
+            <View style={{ flexDirection:'row', gap:3, marginTop:6 }}>
+              {BAR_COLORS.map((col, i) => (
+                <Animated.View key={i} style={{ flex:1, height:4, borderRadius:2, backgroundColor:col, opacity: barPulse.interpolate({ inputRange:[0,1], outputRange:[i%2===0?1:0.3, i%2===0?0.3:1] }) }} />
+              ))}
+            </View>
+          </View>
+        </View>
+      </View>
+      <View style={{ alignItems:'center', paddingVertical:8 }}>
+        <View style={{ width:200, height:200, alignItems:'center', justifyContent:'center', position:'relative' }}>
+          <Animated.View style={{ position:'absolute', width:200, height:200, borderRadius:100, borderWidth:1.5, borderColor:accent+'40', borderStyle:'dashed', transform:[{rotate:rotDeg}] }} />
+          <Animated.View style={[lp.shieldWrap, { borderColor:accent, transform:[{scale:engageScale}] }]}>
+            {_SHIELD ? <Image source={_SHIELD} style={{ width:150, height:150 }} contentFit="cover" /> : <MaterialCommunityIcons name="robot-happy" size={80} color={accent} />}
+            <Animated.View style={[lp.liveOrb, { backgroundColor:accent, opacity:engageGlow }]} />
+          </Animated.View>
+        </View>
+        <Text style={{ fontSize:18, fontWeight:'900', fontFamily:MONO, color:'#FFF', letterSpacing:3, marginTop:12 }}>INITIATE BUTLER AI</Text>
+        <Text style={{ fontSize:10, fontFamily:MONO, color:accent+'90', letterSpacing:1.5, marginTop:4 }}>ALL AGREEMENTS SAVED · READY TO LAUNCH</Text>
+      </View>
+      <Animated.View style={[lp.tapTabsCard, { borderColor: accent, transform:[{scale:engageScale}] }]}>
+        <Animated.View style={[StyleSheet.absoluteFill, { borderRadius:20, backgroundColor:accent, opacity:engageGlow.interpolate({inputRange:[0.2,1],outputRange:[0.04,0.12]}) }]} />
+        <HudCorners color={accent} size={14} t={2} />
+        <Animated.View style={{ height:2.5, backgroundColor:accent, opacity:engageGlow }} />
+        <View style={{ paddingVertical:24, paddingHorizontal:18, alignItems:'center', gap:14 }}>
+          <Animated.View style={{ transform:[{scale:engageScale}] }}>
+            <MaterialCommunityIcons name="gesture-tap" size={52} color={accent} />
+          </Animated.View>
+          <Text style={{ fontSize:28, fontWeight:'900', fontFamily:MONO, color:accent, letterSpacing:3, textAlign:'center' }}>TAP A TAB BELOW</Text>
+          <Text style={{ fontSize:11, fontFamily:MONO, color:accent+'CC', letterSpacing:1.5, textAlign:'center', lineHeight:18 }}>
+            {'Pick any icon from the tab bar\nto enter your Butler AI command center'}
+          </Text>
+          <View style={{ flexDirection:'row', gap:8, marginTop:4 }}>
+            {(['home-variant','code-braces','robot-happy','brain','monitor-dashboard','wrench'] as const).map((icon, i) => (
+              <Animated.View key={i} style={{ opacity: engageGlow.interpolate({inputRange:[0.2,1], outputRange:[i%2===0?0.45:0.9, i%2===0?0.9:0.45]}) }}>
+                <View style={[lp.miniTabIcon, { borderColor: accent+'55', backgroundColor: accent+'12' }]}>
+                  <MaterialCommunityIcons name={icon as any} size={17} color={accent} />
+                </View>
+              </Animated.View>
+            ))}
+          </View>
+          <Text style={{ fontSize:9.5, fontFamily:MONO, color:accent+'70', letterSpacing:2, marginTop:4 }}>CORE · OPS · BUTLR · KB · INTEL · FORGE</Text>
+        </View>
+        <Animated.View style={{ height:2.5, backgroundColor:accent, opacity:engageGlow }} />
+      </Animated.View>
+      <View style={[lp.checklistCard, { borderColor:accent+'40' }]}>
+        <View style={{ flexDirection:'row', alignItems:'center', gap:8, marginBottom:10 }}>
+          <MaterialCommunityIcons name="shield-check" size={14} color={T.green} />
+          <Text style={{ fontSize:10, fontWeight:'900', fontFamily:MONO, color:T.green, letterSpacing:1 }}>AGREEMENTS ON RECORD</Text>
+        </View>
+        {CHECKS.map((c, i) => (
+          <View key={i} style={{ flexDirection:'row', alignItems:'center', gap:8, paddingVertical:5, borderBottomWidth:i<CHECKS.length-1?StyleSheet.hairlineWidth:0, borderBottomColor:'rgba(255,255,255,0.06)' }}>
+            <MaterialIcons name="check-circle" size={14} color={c.color} />
+            <Text style={{ flex:1, fontSize:11, fontFamily:MONO, color:T.text, lineHeight:16 }}>{c.text}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+const lp = StyleSheet.create({
+  systemsGoBanner: { borderWidth:2, borderRadius:14, backgroundColor:'#050810', padding:14, overflow:'hidden', position:'relative' },
+  shieldWrap:   { width:155, height:155, borderRadius:24, borderWidth:3, alignItems:'center', justifyContent:'center', overflow:'hidden', backgroundColor:'#000' },
+  liveOrb:      { position:'absolute', bottom:8, right:8, width:12, height:12, borderRadius:6, borderWidth:2, borderColor:'#000' },
+  tapTabsCard:   { borderWidth:3, borderRadius:20, backgroundColor:'#050810', overflow:'hidden', position:'relative' },
+  miniTabIcon:   { width:36, height:36, borderRadius:10, borderWidth:1.5, alignItems:'center', justifyContent:'center' },
+  checklistCard:{ borderWidth:1.5, borderRadius:14, padding:14, backgroundColor:T.surface },
+  engageOuter:  { borderWidth:3, borderRadius:20, backgroundColor:'#050810', overflow:'hidden', position:'relative' },
+});
+
+// ─── NATIVE DOCUMENT NOTICE ───────────────────────────────────────
+function InlineBrowser({ visible, url, title, accent, onClose }: { visible:boolean; url:string; title:string; accent:string; onClose:()=>void }) {
+  const handleOpenExternal = useCallback(() => {
+    import('react-native').then(({ Linking }) => Linking.openURL(url).catch(() => {}));
+  }, [url]);
+  if (!visible) return null;
+  return (
+    <View style={[StyleSheet.absoluteFill, { backgroundColor:T.bg, zIndex:9999 }]}> 
+      <View style={[ib.header, { borderBottomColor:accent+'30' }]}> 
+        <TouchableOpacity onPress={onClose} style={ib.closeBtn} hitSlop={{top:10,bottom:10,left:10,right:10}}>
+          <MaterialIcons name="arrow-back" size={20} color={accent} />
+        </TouchableOpacity>
+        <View style={{ flex:1, alignItems:'center' }}>
+          <Text style={[ib.title, { color:accent }]} numberOfLines={1}>{title}</Text>
+        </View>
+        <MaterialIcons name="verified-user" size={16} color={accent} />
+      </View>
+      <View style={{ flex:1, alignItems:'center', justifyContent:'center', paddingHorizontal:28, gap:16 }}>
+        <MaterialCommunityIcons name="file-document" size={58} color={accent} />
+        <Text style={{ fontSize:18, fontWeight:'900', fontFamily:MONO, color:'#FFF', textAlign:'center' }}>{title}</Text>
+        <Text style={{ fontSize:12, fontFamily:MONO, color:T.textMid, textAlign:'center', lineHeight:19 }}>
+          {'This document is publicly hosted and opens only when you choose to continue. Verify the address before accepting.'}
+        </Text>
+        <TouchableOpacity onPress={handleOpenExternal} activeOpacity={0.85} style={{ backgroundColor:accent, borderRadius:12, paddingHorizontal:20, paddingVertical:13, flexDirection:'row', alignItems:'center', gap:8 }}>
+          <MaterialIcons name="open-in-new" size={18} color="#000" />
+          <Text style={{ fontSize:12, fontWeight:'900', fontFamily:MONO, color:'#000' }}>OPEN SECURE DOCUMENT</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+const ib = StyleSheet.create({
+  header:   { flexDirection:'row', alignItems:'center', gap:10, paddingHorizontal:14, paddingTop:Platform.OS==='ios'?54:32, paddingBottom:12, borderBottomWidth:1, backgroundColor:T.surface },
+  closeBtn: { width:38, height:38, borderRadius:10, backgroundColor:T.surfHi, alignItems:'center', justifyContent:'center' },
+  title:    { fontSize:13, fontWeight:'900', fontFamily:MONO, letterSpacing:0.5 },
+  url:      { fontSize:8.5, fontFamily:MONO, color:T.textMid, marginTop:1 },
+  extBtn:   { width:38, height:38, alignItems:'center', justifyContent:'center' },
+});
+
+// ─── QR SCANNER MODAL ──────────────────────────────────────────────
+function QRScanModal({ visible, onClose, onPaired }: { visible:boolean; onClose:()=>void; onPaired:()=>void }) {
+  const [scanMsg, setScanMsg] = useState('');
+  const [scanning, setScanning] = useState(false);
+  const [permission, setPermission] = useState<any>(null);
+  const [CameraView, setCameraView] = useState<any>(null);
+  const doneRef = useRef(false);
+  useEffect(() => {
+    if (visible) {
+      doneRef.current = false; setScanMsg(''); setScanning(false);
+      import('expo-camera').then(m => {
+        setCameraView(() => m.CameraView);
+        m.Camera.requestCameraPermissionsAsync().then(p => setPermission(p));
+      }).catch(() => setScanMsg('Camera not available'));
+    }
+  }, [visible]);
+  const handleScan = useCallback(async ({ data }: { data: string }) => {
+    if (doneRef.current || scanning) return;
+    doneRef.current = true; setScanning(true);
+    try { haptics.medium(); } catch {}
+    try {
+      const { parseQRConnection } = await import('@/services/qrParser');
+      const parsed = parseQRConnection(data) as any;
+      if (!parsed) { setScanMsg('Invalid QR'); setScanning(false); doneRef.current = false; return; }
+      setScanMsg(`Connecting to ${parsed.ip}:${parsed.port}\u2026`);
+      const { serverConnection } = await import('@/services/serverConnection');
+      const result = await serverConnection.pair(parsed.ip, String(parsed.port), parsed.pairingCode || '', false, parsed.appSig || '', parsed.scheme || 'http');
+      if (!result.success) throw new Error(result.error || 'Pair failed');
+      setScanMsg('Connected! \u2713'); try { haptics.success(); } catch {}
+      setTimeout(() => { onClose(); onPaired(); }, 900);
+    } catch (e: any) {
+      setScanMsg(`Failed: ${e?.message || 'Connection error'}`);
+      setScanning(false); doneRef.current = false;
+    }
+  }, [scanning, onClose, onPaired]);
+  if (!visible) return null;
+  return (
+    <View style={[StyleSheet.absoluteFill, { backgroundColor:'#000', zIndex:9999 }]}>
+      <View style={qrs.header}>
+        <TouchableOpacity onPress={onClose} style={qrs.closeBtn} hitSlop={{top:10,bottom:10,left:10,right:10}}>
+          <MaterialIcons name="arrow-back" size={20} color={T.cyan} />
+        </TouchableOpacity>
+        <View style={{ flex:1, alignItems:'center' }}>
+          <Text style={qrs.title}>SCAN QR TO PAIR</Text>
+          <Text style={qrs.sub}>Show QR code from your PC server terminal</Text>
+        </View>
+        <View style={{ width:40 }} />
+      </View>
+      {permission?.granted && CameraView ? (
+        <View style={{ flex:1 }}>
+          <CameraView style={{ flex:1 }} facing="back" onBarcodeScanned={scanning ? undefined : handleScan} barcodeScannerSettings={{ barcodeTypes: ['qr'] }}>
+            <View style={StyleSheet.absoluteFill} pointerEvents="none">
+              <View style={{ flex:1, backgroundColor:'rgba(0,0,0,0.6)' }} />
+              <View style={{ flexDirection:'row', height:240 }}>
+                <View style={{ flex:1, backgroundColor:'rgba(0,0,0,0.6)' }} />
+                <View style={{ width:240 }}>
+                  {[{top:0,left:0,bT:3,bL:3},{top:0,right:0,bT:3,bR:3},{bottom:0,left:0,bB:3,bL:3},{bottom:0,right:0,bB:3,bR:3}].map((c:any,i)=>(
+                    <View key={i} style={{ position:'absolute', width:28, height:28, borderColor:T.cyan, ...(c.top!==undefined?{top:c.top}:{bottom:c.bottom}), ...(c.left!==undefined?{left:c.left}:{right:c.right}), borderTopWidth:c.bT||0, borderLeftWidth:c.bL||0, borderBottomWidth:c.bB||0, borderRightWidth:c.bR||0 }} />
+                  ))}
+                </View>
+                <View style={{ flex:1, backgroundColor:'rgba(0,0,0,0.6)' }} />
+              </View>
+              <View style={{ flex:1, backgroundColor:'rgba(0,0,0,0.6)' }} />
+            </View>
+          </CameraView>
+        </View>
+      ) : (
+        <View style={{ flex:1, alignItems:'center', justifyContent:'center', padding:32, gap:16 }}>
+          <MaterialIcons name="camera-alt" size={52} color={T.textMid} />
+          <Text style={{ fontSize:16, fontWeight:'900', fontFamily:MONO, color:T.text, textAlign:'center' }}>Camera Access Needed</Text>
+          {permission && !permission.granted && (
+            <TouchableOpacity onPress={() => import('react-native').then(({Linking})=>Linking.openSettings())}
+              style={[qrs.permBtn, { backgroundColor:T.cyan }]}>
+              <Text style={{ fontSize:13, fontWeight:'900', fontFamily:MONO, color:'#000' }}>OPEN SETTINGS</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+      {scanMsg ? (
+        <View style={[qrs.msgBox, { borderColor: scanMsg.includes('\u2713') ? T.green+'60' : scanMsg.includes('Failed') ? T.danger+'60' : T.amber+'60' }]}>
+          <MaterialIcons name={scanMsg.includes('\u2713') ? 'check-circle' : scanMsg.includes('Failed') ? 'error' : 'info'} size={14}
+            color={scanMsg.includes('\u2713') ? T.green : scanMsg.includes('Failed') ? T.danger : T.amber} />
+          <Text style={[qrs.msgTxt, { color: scanMsg.includes('\u2713') ? T.green : scanMsg.includes('Failed') ? T.danger : T.amber }]}>{scanMsg}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+const qrs = StyleSheet.create({
+  header:  { flexDirection:'row', alignItems:'center', paddingHorizontal:14, paddingTop:Platform.OS==='ios'?54:32, paddingBottom:14, backgroundColor:T.bg, borderBottomWidth:1, borderBottomColor:T.border },
+  closeBtn:{ width:40, height:40, borderRadius:12, backgroundColor:T.surface, alignItems:'center', justifyContent:'center' },
+  title:   { fontSize:13, fontWeight:'900', fontFamily:MONO, color:T.text, letterSpacing:1.5 },
+  sub:     { fontSize:9, fontFamily:MONO, color:T.textMid, marginTop:2 },
+  permBtn: { borderRadius:12, paddingHorizontal:28, paddingVertical:14, marginTop:8 },
+  msgBox:  { flexDirection:'row', alignItems:'center', gap:8, margin:14, padding:14, borderRadius:12, borderWidth:1.5, backgroundColor:T.surface },
+  msgTxt:  { fontFamily:MONO, fontSize:12, flex:1 },
+});
+
+// ─── PROGRESS BAR ──────────────────────────────────────────────────
+function ProgressBar({ idx, accent }: { idx: number; accent: string }) {
+  const widthAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(widthAnim, { toValue: ((idx + 1) / TOTAL) * 100, duration: 380, useNativeDriver: ND }).start();
+  }, [idx]);
+  const width = widthAnim.interpolate({ inputRange:[0,100], outputRange:['0%','100%'] });
+  return (
+    <View style={{ height:3.5, backgroundColor:T.surfHi, overflow:'hidden', borderRadius:2 }}>
+      <Animated.View style={{ height:'100%', borderRadius:2, width: width as any, backgroundColor: accent }} />
+    </View>
+  );
+}
+
+// ─── NAV BAR ───────────────────────────────────────────────────────
+function NavBar({ idx, isFirst, isLast, nextDisabled, insetBottom, accent, onBack, onNext, onFinish }: {
+  idx:number; isFirst:boolean; isLast:boolean; nextDisabled:boolean;
+  insetBottom:number; accent:string;
+  onBack:()=>void; onNext:()=>void; onFinish:()=>void;
+}) {
+  return (
+    <View style={[nav.wrap, { paddingBottom: Math.max(insetBottom + 6, 10), borderTopColor: accent + '28' }]}>
+      <View style={nav.row}>
+        <TouchableOpacity onPress={() => { try { haptics.light(); } catch {} onBack(); }} disabled={isFirst} activeOpacity={0.8}
+          hitSlop={{top:8,bottom:8,left:8,right:8}}
+          style={[nav.backBtn, { borderColor: isFirst ? T.textDim+'20' : accent+'50', opacity: isFirst ? 0.2 : 1 }]}>
+          <MaterialIcons name="chevron-left" size={22} color={isFirst ? T.textDim : accent} />
+          <Text style={[nav.backTxt, { color: isFirst ? T.textDim : accent }]}>BACK</Text>
+        </TouchableOpacity>
+        <View style={{ flex:1, alignItems:'center' }}>
+          <Text style={[nav.counter, { color: accent }]}>{idx + 1}</Text>
+          <Text style={nav.counterOf}>OF {TOTAL}</Text>
+        </View>
+        {isLast ? (
+          <TouchableOpacity onPress={() => { try { haptics.success(); } catch {} onFinish(); }} activeOpacity={0.85}
+            style={[nav.nextBtn, { backgroundColor: accent }]}>
+            <MaterialIcons name="check" size={18} color="#000" />
+            <Text style={[nav.nextTxt, { color:'#000' }]}>FINISH</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={() => { if (!nextDisabled) { try { haptics.medium(); } catch {} onNext(); } }}
+            disabled={nextDisabled} activeOpacity={nextDisabled ? 1 : 0.85}
+            style={[nav.nextBtn, { backgroundColor: nextDisabled ? T.surfHi : accent, opacity: nextDisabled ? 0.5 : 1 }]}>
+            <Text style={[nav.nextTxt, { color: nextDisabled ? T.textMid : '#000' }]}>NEXT</Text>
+            <MaterialIcons name="chevron-right" size={18} color={nextDisabled ? T.textMid : '#000'} />
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+}
+const nav = StyleSheet.create({
+  wrap:     { borderTopWidth:1, paddingHorizontal:12, paddingTop:7, backgroundColor:T.bg },
+  row:      { flexDirection:'row', alignItems:'center', gap:10, paddingBottom:4 },
+  backBtn:  { flexDirection:'row', alignItems:'center', gap:3, borderWidth:1.5, borderRadius:20, paddingVertical:10, paddingHorizontal:13, minWidth:74, justifyContent:'center' },
+  backTxt:  { fontSize:10, fontWeight:'900', fontFamily:MONO, letterSpacing:0.8 },
+  counter:  { fontSize:24, fontWeight:'900', fontFamily:MONO, lineHeight:28 },
+  counterOf:{ fontSize:10, fontWeight:'700', fontFamily:MONO, color:T.textMid },
+  nextBtn:  { flexDirection:'row', alignItems:'center', justifyContent:'center', gap:5, borderRadius:20, paddingVertical:12, paddingHorizontal:18, minWidth:100 },
+  nextTxt:  { fontSize:12, fontWeight:'900', fontFamily:MONO, letterSpacing:1 },
+});
+
+// ─── ONBOARDING ERROR BOUNDARY ────────────────────────────────
+// If the onboarding screen crashes during render (corrupted state,
+// missing asset, JS error), this catches it and shows a minimal
+// escape hatch that writes all completion keys and navigates home.
+// The user is never left on a black screen.
+class OnboardingErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { crashed: boolean; errMsg: string }
+> {
+  state = { crashed: false, errMsg: '' };
+
+  static getDerivedStateFromError(e: Error) {
+    return { crashed: true, errMsg: e?.message || 'Unknown error' };
+  }
+
+  componentDidCatch(e: Error) {
+    // Write the done key silently so even if navigation fails,
+    // the next cold boot skips onboarding
+    try { markOnboardingDone().catch(() => {}); } catch {}
+    try { notifyOnboardingComplete(); } catch {}
+    try {
+      require('@/services/autoErrorLogger').autoErrorLogger
+        .log('error', 'OnboardingScreen', e.message);
+    } catch {}
+  }
+
+  handleEscape = async () => {
+    try { await markOnboardingDone(); } catch {}
+    try { notifyOnboardingComplete(); } catch {}
+    forceNavigateToHome();
+  };
+
+  render() {
+    if (!this.state.crashed) return this.props.children;
+    const MONOF: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+    return (
+      <View style={{ flex: 1, backgroundColor: '#050810', alignItems: 'center', justifyContent: 'center', padding: 28 }}>
+        {/* HUD corner brackets */}
+        {[{ top:40,left:20 },{ top:40,right:20 },{ bottom:80,left:20 },{ bottom:80,right:20 }].map((pos, i) => (
+          <View key={i} style={[
+            { position:'absolute', width:18, height:18, borderColor:'rgba(0,229,255,0.45)' },
+            pos,
+            i===0 && { borderTopWidth:2, borderLeftWidth:2 },
+            i===1 && { borderTopWidth:2, borderRightWidth:2 },
+            i===2 && { borderBottomWidth:2, borderLeftWidth:2 },
+            i===3 && { borderBottomWidth:2, borderRightWidth:2 },
+          ]} />
+        ))}
+        <View style={{ width:72, height:72, borderRadius:36, borderWidth:2, borderColor:'rgba(255,49,49,0.5)', backgroundColor:'rgba(255,49,49,0.08)', alignItems:'center', justifyContent:'center', marginBottom:20 }}>
+          <MaterialCommunityIcons name="alert-circle" size={36} color="#FF4D5E" />
+        </View>
+        <Text style={{ fontFamily:MONOF, fontSize:16, fontWeight:'900', color:'#FF4D5E', letterSpacing:2, textAlign:'center', marginBottom:8 }}>ONBOARDING CRASHED</Text>
+        <Text style={{ fontFamily:MONOF, fontSize:10, color:'rgba(100,140,160,0.7)', textAlign:'center', lineHeight:16, marginBottom:24, maxWidth:280 }}>
+          {this.state.errMsg.slice(0, 120)}
+        </Text>
+        <Text style={{ fontFamily:MONOF, fontSize:10, color:'rgba(0,229,255,0.6)', textAlign:'center', marginBottom:20, lineHeight:15 }}>
+          {'All your agreements will be saved automatically.\nYou can still use the full app.'}
+        </Text>
+        <TouchableOpacity
+          onPress={this.handleEscape}
+          activeOpacity={0.85}
+          style={{ flexDirection:'row', alignItems:'center', gap:10, backgroundColor:'#2FE38A', borderRadius:16, paddingHorizontal:28, paddingVertical:14 }}>
+          <MaterialCommunityIcons name="rocket-launch" size={20} color="#000" />
+          <Text style={{ fontFamily:MONOF, fontSize:14, fontWeight:'900', color:'#000', letterSpacing:1.5 }}>ENTER APP ANYWAY</Text>
+        </TouchableOpacity>
+        <Text style={{ fontFamily:MONOF, fontSize:8, color:'rgba(80,100,120,0.5)', marginTop:16, letterSpacing:0.5 }}>Agreements saved · Butler AI v7.3</Text>
+      </View>
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ══════════════════════════════════════════════════════════════
+function OnboardingScreenInner() {
+  const insets = useSafeAreaInsets();
+  const { height, fontScale } = useWindowDimensions();
+  const [idx, setIdx]     = useState(0);
+  const compactWelcome = height < 720 || fontScale > 1.12;
+  const welcomePeek = useRef(new Animated.Value(0)).current;
+
+  // Stable refs so BackHandler + PanResponder never hold stale closures
+  const idxRef  = useRef(idx);
+  const goToRef = useRef<(n: number) => void>(() => {});
+  useEffect(() => { idxRef.current = idx; }, [idx]);
+
+  // Android hardware back — go to previous onboarding step
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      const cur = idxRef.current;
+      if (cur > 0) { goToRef.current(cur - 1); return true; }
+      return false;
+    });
+    return () => sub.remove();
+  }, []);
+
+  // Swipe left/right between onboarding pages
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) =>
+        (Math.abs(g.dx) > 20 && Math.abs(g.dy) < 50) ||
+        (idxRef.current === 0 && Math.abs(g.dy) > 10 && Math.abs(g.dy) > Math.abs(g.dx)),
+      onPanResponderMove: (_, g) => {
+        if (idxRef.current === 0 && Math.abs(g.dy) > Math.abs(g.dx)) {
+          welcomePeek.setValue(Math.min(1, Math.abs(g.dy) / 84));
+        }
+      },
+      onPanResponderRelease: (_, g) => {
+        const cur = idxRef.current;
+        if (cur === 0 && Math.abs(g.dy) > Math.abs(g.dx)) {
+          Animated.spring(welcomePeek, { toValue: 0, tension: 240, friction: 16, useNativeDriver: ND }).start();
+          return;
+        }
+        if (g.dx < -50 && cur < TOTAL - 1) { try { haptics.light(); } catch {} goToRef.current(cur + 1); }
+        else if (g.dx > 50 && cur > 0)    { try { haptics.light(); } catch {} goToRef.current(cur - 1); }
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(welcomePeek, { toValue: 0, tension: 240, friction: 16, useNativeDriver: ND }).start();
+      },
+    })
+  ).current;
+  const [showQR, setShowQR]    = useState(false);
+  const [celebrationVisible, setCelebrationVisible] = useState(false);
+
+  // ── SCAN-LINE WIPE + INFO BUBBLE ──────────────────────────────────
+  const wipeAccentRef   = useRef(PAGES[0].accent);
+  const wipeTriggerRef  = useRef<((advancing: boolean, accent: string, cb: () => void) => void) | null>(null);
+  const [bubbleVisible, setBubbleVisible] = useState(false);
+  const [bubbleIdx,     setBubbleIdx]     = useState(0);
+  const bubbleTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showBubble = useCallback((nextIdx: number) => {
+    if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current);
+    setBubbleIdx(nextIdx);
+    setBubbleVisible(true);
+    bubbleTimerRef.current = setTimeout(() => setBubbleVisible(false), 4500);
+  }, []);
+
+  const dismissBubble = useCallback(() => {
+    if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current);
+    setBubbleVisible(false);
+  }, []);
+
+  // Show bubble on first mount
+  useEffect(() => {
+    const t = setTimeout(() => showBubble(0), 900);
+    return () => {
+      clearTimeout(t);
+      if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current);
+    };
+  }, []);
+
+  // NOTE: This screen no longer has a useFocusEffect redirect guard.
+  // _layout.tsx is the single source of truth — it holds first paint
+  // until AsyncStorage resolves so this screen is never mounted for
+  // a returning user. Do NOT re-add useFocusEffect redirect logic here.
+
+  // Publish current step index globally so _layout.tsx can show/hide tab bar
+  useEffect(() => {
+    (global as any).__butlerOnboardingStepIdx = idx;
+    try { (global as any).__butlerUpdateOnboardingStep?.(idx); } catch {}
+    if (idx === 9) {
+      setTimeout(() => {
+        try { (global as any).__butlerRevealTabBar?.(); } catch {}
+      }, 500);
+    }
+  }, [idx]);
+
+  useEffect(() => {
+    welcomePeek.setValue(0);
+  }, [idx, welcomePeek]);
+
+  useEffect(() => {
+    _triggerCelebration = () => setCelebrationVisible(true);
+    return () => { _triggerCelebration = null; };
+  }, []);
+
+  const handleCelebrationDone = useCallback(() => {
+    setCelebrationVisible(false);
+    if (_pendingCelebrationCb) { _pendingCelebrationCb(); _pendingCelebrationCb = null; }
+  }, []);
+
+  const [browserVisible, setBrowserVisible] = useState(false);
+  const [browserUrl,     setBrowserUrl]     = useState('');
+  const [browserTitle,   setBrowserTitle]   = useState('');
+  const [consentChecked, setConsentChecked] = useState<Record<string,boolean>>({});
+  const [pledgeChecked,  setPledgeChecked]  = useState<Record<string,boolean>>({});
+  const launchingRef = useRef(false);
+
+  const fadeAnim   = useRef(new Animated.Value(1)).current;
+  const slideAnim  = useRef(new Animated.Value(0)).current;
+  const scaleAnim  = useRef(new Animated.Value(1)).current;
+  const scrollRef  = useRef<ScrollView>(null);
+
+  const page        = PAGES[idx];
+  const isFirst     = idx === 0;
+  const isLast      = idx === TOTAL - 1;
+  const allConsents = Object.keys(consentChecked).length === CONSENT_ITEMS.length && Object.values(consentChecked).every(Boolean);
+  const allPledges  = Object.keys(pledgeChecked).length === PLEDGE_ITEMS.length && Object.values(pledgeChecked).every(Boolean);
+  const nextDisabled = (idx === 2 && !allConsents) || (idx === 3 && !allPledges);
+
+  const openBrowser = useCallback((url: string, title: string) => {
+    setBrowserUrl(url); setBrowserTitle(title); setBrowserVisible(true);
+    try { haptics.light(); } catch {}
+  }, []);
+
+  // Keep goToRef in sync with the latest goTo (defined here, used above via ref)
+  const goTo = useCallback((nextIdx: number) => {
+    const advancing = nextIdx > idx;
+    try { advancing ? haptics.medium() : haptics.light(); } catch {}
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    setBubbleVisible(false);
+    const pageAccent = PAGES[nextIdx].accent;
+
+    // Use the scan-line wipe if registered, else fall back to original
+    if (wipeTriggerRef.current) {
+      wipeTriggerRef.current(advancing, pageAccent, () => {
+        // Instant content swap at peak coverage — no fade flicker
+        fadeAnim.setValue(0);
+        slideAnim.setValue(advancing ? 28 : -28);
+        scaleAnim.setValue(0.96);
+        setIdx(nextIdx);
+        setTimeout(() => scrollRef.current?.scrollTo({ y: 0, animated: false }), 6);
+        Animated.parallel([
+          Animated.timing(fadeAnim,  { toValue: 1, duration: 220, useNativeDriver: ND }),
+          Animated.spring(slideAnim, { toValue: 0, tension: 200, friction: 16, useNativeDriver: ND }),
+          Animated.spring(scaleAnim, { toValue: 1, tension: 220, friction: 14, useNativeDriver: ND }),
+        ]).start(() => {
+          // Show tip bubble after content has settled
+          setTimeout(() => showBubble(nextIdx), 350);
+        });
+      });
+    } else {
+      // Fallback original animation
+      const exitX  = advancing ? -40 : 40;
+      const enterX = advancing ?  50 : -50;
+      Animated.parallel([
+        Animated.timing(fadeAnim,  { toValue: 0,   duration: 90,  useNativeDriver: ND }),
+        Animated.timing(slideAnim, { toValue: exitX, duration: 110, useNativeDriver: ND }),
+        Animated.timing(scaleAnim, { toValue: 0.95, duration: 110, useNativeDriver: ND }),
+      ]).start(() => {
+        slideAnim.setValue(enterX);
+        scaleAnim.setValue(0.97);
+        setIdx(nextIdx);
+        setTimeout(() => scrollRef.current?.scrollTo({ y: 0, animated: false }), 10);
+        Animated.parallel([
+          Animated.timing(fadeAnim,  { toValue: 1, duration: 200, useNativeDriver: ND }),
+          Animated.spring(slideAnim, { toValue: 0, tension: 160, friction: 14, useNativeDriver: ND }),
+          Animated.spring(scaleAnim, { toValue: 1, tension: 180, friction: 12, useNativeDriver: ND }),
+        ]).start(() => setTimeout(() => showBubble(nextIdx), 350));
+      });
+    }
+  }, [idx, fadeAnim, slideAnim, scaleAnim, showBubble]);
+  // Sync goToRef so BackHandler + PanResponder always call the latest version
+  useEffect(() => { goToRef.current = goTo; }, [goTo]);
+
+  const finish = useCallback(async () => {
+    if (launchingRef.current) return;
+    launchingRef.current = true;
+    await persistAndComplete();
+    setTimeout(() => { launchingRef.current = false; }, 4000);
+  }, []);
+
+  const toggleConsent = useCallback((key: string) => {
+    setConsentChecked(prev => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
+  const togglePledge = useCallback((key: string) => {
+    setPledgeChecked(prev => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
+  let _BG: any = null;
+  try { _BG = require('@/assets/images/butler-circuit-grid.jpg'); } catch {}
+
+  return (
+    <>
+      <ButlerCelebrationOverlay visible={celebrationVisible} onDone={handleCelebrationDone} />
+      {browserVisible && (
+        <InlineBrowser visible={browserVisible} url={browserUrl} title={browserTitle} accent={page.accent} onClose={() => setBrowserVisible(false)} />
+      )}
+      <QRScanModal visible={showQR} onClose={() => setShowQR(false)} onPaired={finish} />
+
+      <View style={[main.root, { paddingTop: insets.top, backgroundColor: T.bg }]}>
+        {/* SCAN-LINE WIPE OVERLAY — must be outside scroll, inside root */}
+        <ScanLineWipe triggerRef={wipeTriggerRef} color={page.accent} />
+        {_BG && (
+          <Image source={_BG} style={[StyleSheet.absoluteFill, { opacity: 0.05 }]} contentFit="cover" pointerEvents="none" />
+        )}
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          {[15,30,45,60,75,90].map(p => (
+            <View key={p} style={{ position:'absolute', left:0, right:0, top:`${p}%` as any, height:StyleSheet.hairlineWidth, backgroundColor:'rgba(0,229,255,0.025)' }} />
+          ))}
+        </View>
+
+        <View style={[main.topBar, { borderBottomColor: page.accent + '28' }]}>
+          <ProgressBar idx={idx} accent={page.accent} />
+          <View style={{ flexDirection:'row', alignItems:'center', paddingHorizontal:14, paddingTop:8, paddingBottom:6 }}>
+            <View style={[main.stepPill, { borderColor:page.accent+'55', backgroundColor:page.accent+'10' }]}>
+              <PulseDot color={page.accent} size={5} />
+              <Text style={{ fontSize:9.5, fontWeight:'900', fontFamily:MONO, color:page.accent, letterSpacing:0.8 }}>{page.label}</Text>
+            </View>
+            <View style={{ flex:1 }} />
+            <SkipHUDButton onSkip={finish} accent={page.accent} pageIdx={idx} />
+          </View>
+        </View>
+
+        {/* INFO BUBBLE — floats above content, below wipe overlay */}
+        <InfoBubble
+          visible={bubbleVisible}
+          pageIdx={bubbleIdx}
+          accent={page.accent}
+          onDismiss={dismissBubble}
+        />
+
+        <View style={{ flex: 1 }} {...panResponder.panHandlers}>
+          {/* Left/right page arrows */}
+          {idx > 0 && (
+            <TouchableOpacity
+              onPress={() => { try { haptics.light(); } catch {} goTo(idx - 1); }}
+              hitSlop={{ top: 12, bottom: 12, left: 8, right: 12 }}
+              style={[onbArrow.btn, { left: 2, borderColor: page.accent + '55', backgroundColor: page.accent + '0C' }]}
+              accessibilityLabel="Previous page" accessibilityRole="button"
+            >
+              <MaterialIcons name="chevron-left" size={26} color={page.accent + '99'} />
+            </TouchableOpacity>
+          )}
+          {idx > 0 && idx < TOTAL - 1 && (
+            <TouchableOpacity
+              onPress={() => { if (!nextDisabled) { try { haptics.light(); } catch {} goTo(idx + 1); } }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 8 }}
+              style={[onbArrow.btn, { right: 2, borderColor: page.accent + '55', backgroundColor: page.accent + '0C', opacity: nextDisabled ? 0.3 : 1 }]}
+              accessibilityLabel="Next page" accessibilityRole="button"
+            >
+              <MaterialIcons name="chevron-right" size={26} color={page.accent + '99'} />
+            </TouchableOpacity>
+          )}
+          <ScrollView ref={scrollRef} style={{ flex:1 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+            scrollEnabled={idx !== 0} bounces={idx !== 0} overScrollMode={idx === 0 ? "never" : "auto"}
+            contentContainerStyle={idx === 0
+              ? { flexGrow:1, paddingHorizontal:14, paddingTop:10, paddingBottom:8 }
+              : { paddingHorizontal:14, paddingTop:10, paddingBottom:200 }}>
+            <Animated.View style={[idx === 0 && { flex:1 }, { opacity: fadeAnim, transform: [{ translateX: slideAnim }, { scale: scaleAnim }] }]}>
+              <AmbientPageGlow accent={page.accent} />
+              {idx !== 0 && <HoloHeader page={page} idx={idx} />}
+              {idx !== 0 && <PageSignature idx={idx} accent={page.accent} />}
+              {idx === 0 && <WelcomePage accent={page.accent} compact={compactWelcome} peek={welcomePeek} />}
+              {idx === 1 && <AppTourPage accent={page.accent} />}
+              {idx === 2 && <SafetyConsentPage accent={page.accent} checkedState={consentChecked} onToggle={toggleConsent} allChecked={allConsents} />}
+              {idx === 3 && <SafetyPledgePage accent={page.accent} checkedState={pledgeChecked} onToggle={togglePledge} allChecked={allPledges} />}
+              {idx === 4 && <LegalPage accent={page.accent} onOpen={openBrowser} />}
+              {idx === 5 && <PermissionsPage accent={page.accent} />}
+              {idx === 6 && <QAPage accent={page.accent} />}
+              {idx === 7 && <ServerPrivacyPage accent={page.accent} />}
+              {idx === 8 && <PCSetupPage accent={page.accent} onScanQR={() => setShowQR(true)} />}
+              {idx === 9 && <LaunchPage accent={page.accent} />}
+            </Animated.View>
+          </ScrollView>
+        </View>
+
+        <NavBar
+          idx={idx} isFirst={isFirst} isLast={isLast} nextDisabled={nextDisabled}
+          insetBottom={insets.bottom} accent={page.accent}
+          onBack={() => { if (!isFirst) goTo(idx - 1); }}
+          onNext={() => { if (!nextDisabled) goTo(idx + 1); }}
+          onFinish={finish}
+        />
+      </View>
+    </>
+  );
+}
+
+// ─── SKIP HUD BYPASS BUTTON ───────────────────────────────────────
+// Cinematic HUD-style bypass bar inspired by the butler pairing bar reference.
+// Scan line sweeps left→right. Corner brackets pulse on accent. Triangle warning glyph.
+// Completely self-contained — no external deps beyond what onboarding already imports.
+function SkipHUDButton({ onSkip, accent, pageIdx }: {
+  onSkip: () => void; accent: string; pageIdx: number;
+}) {
+  const scanX   = useRef(new Animated.Value(-110)).current;
+  const glowA   = useRef(new Animated.Value(0.3)).current;
+  const scaleA  = useRef(new Animated.Value(1)).current;
+  const alertA  = useRef(new Animated.Value(0)).current;
+  const [pressed, setPressed] = useState(false);
+
+  useEffect(() => {
+    // Scan sweep — 3 passes then pause
+    const sweep = Animated.loop(
+      Animated.sequence([
+        Animated.timing(scanX, { toValue: 160, duration: 900, useNativeDriver: ND }),
+        Animated.timing(scanX, { toValue: -110, duration: 0,   useNativeDriver: ND }),
+        Animated.delay(2800),
+      ]),
+      { iterations: 6 }
+    );
+    // Border glow breathe
+    const glow = Animated.loop(Animated.sequence([
+      Animated.timing(glowA, { toValue: 1,   duration: 1100, useNativeDriver: ND }),
+      Animated.timing(glowA, { toValue: 0.2, duration: 1100, useNativeDriver: ND }),
+    ]));
+    // Alert triangle blink — starts after 1.5s
+    const alert = Animated.loop(Animated.sequence([
+      Animated.delay(1500),
+      Animated.timing(alertA, { toValue: 1,   duration: 300, useNativeDriver: ND }),
+      Animated.timing(alertA, { toValue: 0.2, duration: 300, useNativeDriver: ND }),
+    ]));
+    sweep.start(); glow.start(); alert.start();
+    return () => { sweep.stop(); glow.stop(); alert.stop(); };
+  }, []);
+
+  const handlePressIn = () => {
+    setPressed(true);
+    try { haptics.medium(); } catch {}
+    Animated.spring(scaleA, { toValue: 0.93, tension: 400, friction: 10, useNativeDriver: ND }).start();
+  };
+  const handlePressOut = () => {
+    setPressed(false);
+    Animated.spring(scaleA, { toValue: 1, tension: 280, friction: 10, useNativeDriver: ND }).start();
+  };
+  const handlePress = () => {
+    try { haptics.success(); } catch {}
+    onSkip();
+  };
+
+  const borderCol = glowA.interpolate({ inputRange:[0.2,1], outputRange:[accent+'55', accent+'CC'] });
+  const alertOp   = alertA.interpolate({ inputRange:[0.2,1], outputRange:[0.25, 1] });
+
+  return (
+    <TouchableOpacity
+      onPressIn={handlePressIn} onPressOut={handlePressOut} onPress={handlePress}
+      activeOpacity={1} hitSlop={{ top:8, bottom:8, left:6, right:6 }}
+    >
+      <Animated.View style={[shb.outer, {
+        borderColor: borderCol,
+        transform: [{ scale: scaleA }],
+        backgroundColor: pressed ? accent + '18' : accent + '08',
+      }]}>
+        {/* Scan sweep */}
+        <Animated.View pointerEvents="none"
+          style={[shb.scan, { transform:[{ translateX: scanX }] }]} />
+
+        {/* HUD corner brackets */}
+        <View style={[shb.corner, { top:1,left:1, borderTopWidth:1.5, borderLeftWidth:1.5, borderColor:accent+'90' }]} />
+        <View style={[shb.corner, { top:1,right:1, borderTopWidth:1.5, borderRightWidth:1.5, borderColor:accent+'90' }]} />
+        <View style={[shb.corner, { bottom:1,left:1, borderBottomWidth:1.5, borderLeftWidth:1.5, borderColor:accent+'60' }]} />
+        <View style={[shb.corner, { bottom:1,right:1, borderBottomWidth:1.5, borderRightWidth:1.5, borderColor:accent+'60' }]} />
+
+        {/* Left: warning alert glyph */}
+        <Animated.View style={[shb.alertBox, { borderColor:accent+'50', backgroundColor:accent+'10', opacity:alertOp }]}>
+          {/* Triangle (drawn with borders) */}
+          <View style={shb.triangle} />
+        </Animated.View>
+
+        {/* Dashed divider */}
+        <View style={[shb.divider, { borderColor: accent+'40' }]} />
+
+        {/* Center: BYPASS text */}
+        <View style={shb.center}>
+          <Text style={[shb.bypassLabel, { color: accent+'70' }]}>BYPASS</Text>
+          <Text style={[shb.initLabel, { color: accent }]}>INITIALIZATION</Text>
+        </View>
+
+        {/* Dashed divider */}
+        <View style={[shb.divider, { borderColor: accent+'40' }]} />
+
+        {/* Right: SKIP → */}
+        <View style={[shb.rightBox, { borderColor: accent+'55', backgroundColor: accent+'12' }]}>
+          <MaterialIcons name="double-arrow" size={12} color={accent} />
+          <Text style={[shb.skipTxt, { color: accent }]}>SKIP</Text>
+        </View>
+
+        {/* Page counter micro-badge */}
+        <View style={[shb.counterBadge, { borderColor: accent+'35' }]}>
+          <Text style={[shb.counterTxt, { color: accent+'80' }]}>{pageIdx+1}/{TOTAL}</Text>
+        </View>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
+
+const shb = StyleSheet.create({
+  outer: {
+    flexDirection: 'row', alignItems: 'center',
+    borderWidth: 1.5, borderRadius: 10,
+    height: 36, overflow: 'hidden',
+    position: 'relative', minWidth: 160,
   },
-  ghostText: {
-    color: '#D3E4F7',
-    fontWeight: '700',
-    fontSize: 14,
+  scan: {
+    position: 'absolute', top: 0, bottom: 0, width: 50,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    transform: [{ skewX: '-18deg' }],
   },
-  primaryButton: {
-    flex: 1,
-    height: 46,
-    borderRadius: 12,
-    backgroundColor: '#6CC3FF',
+  corner: { position: 'absolute', width: 7, height: 7, zIndex: 2 },
+  alertBox: {
+    width: 34, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center',
+    borderRightWidth: 1, marginLeft: 0,
+  },
+  triangle: {
+    width: 0, height: 0,
+    borderLeftWidth: 6, borderRightWidth: 6, borderBottomWidth: 10,
+    borderLeftColor: 'transparent', borderRightColor: 'transparent',
+    borderBottomColor: '#FFB43D',
+  },
+  divider: { width: 1, height: '60%', borderLeftWidth: 1, borderStyle: 'dashed' as any },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  bypassLabel: { fontFamily: MONO, fontSize: 6.5, fontWeight: '900', letterSpacing: 1.5, lineHeight: 8 },
+  initLabel: { fontFamily: MONO, fontSize: 8.5, fontWeight: '900', letterSpacing: 0.8 },
+  rightBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    height: '100%', paddingHorizontal: 9, borderLeftWidth: 1.5,
+  },
+  skipTxt: { fontFamily: MONO, fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
+  counterBadge: {
+    position: 'absolute', bottom: 1, left: 36,
+    borderWidth: 1, borderRadius: 3,
+    paddingHorizontal: 3, backgroundColor: 'transparent',
+  },
+  counterTxt: { fontFamily: MONO, fontSize: 6, fontWeight: '900' },
+});
+
+const main = StyleSheet.create({
+  root:     { flex:1 },
+  topBar:   { borderBottomWidth:1, paddingHorizontal:0, paddingTop:6 },
+  stepPill: { flexDirection:'row', alignItems:'center', gap:6, borderWidth:1.5, borderRadius:16, paddingHorizontal:10, paddingVertical:5 },
+  // skipBtn/skipTxt removed — replaced by SkipHUDButton component
+});
+
+const onbArrow = StyleSheet.create({
+  btn: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -24,
+    zIndex: 10,
+    width: 44,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  primaryText: {
-    color: '#08111E',
-    fontWeight: '800',
-    fontSize: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
   },
 });
+
+// ─── WRAPPED EXPORT with error boundary ───────────────────────
+export default function OnboardingScreen() {
+  return (
+    <OnboardingErrorBoundary>
+      <OnboardingScreenInner />
+    </OnboardingErrorBoundary>
+  );
+}

@@ -1,0 +1,15 @@
+{
+  "name": "WiFi Deauth Attack Monitor",
+  "description": "Monitor WiFi connection drops that may indicate deauthentication attacks.",
+  "category": "Security",
+  "tags": [
+    "security",
+    "wifi",
+    "deauth",
+    "wireless",
+    "monitor"
+  ],
+  "icon": "wifi_off",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

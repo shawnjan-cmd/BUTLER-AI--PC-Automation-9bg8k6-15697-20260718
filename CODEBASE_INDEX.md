@@ -40,34 +40,9 @@ Step 3: (optional) tools/PATTERNS.md — if writing new components
 
 ---
 
-## 🤖 GEMINI AI — PERMANENT CODING ASSISTANT (ALWAYS ACTIVE)
+## Local-Only AI and Continuation Rules
 
-> **MANDATORY RULE**: Every session where user says "codebase", BEFORE writing any code:
-> 1. Run `search_web` with a detailed technical query to get free code examples/patterns
-> 2. This replaces calling Gemini directly (fetch_web is GET-only, Gemini needs POST)
-> 3. Use the research to inform every code change — saves OnSpace credits every session
-
-**User's Gemini API Key (for reference / server prompts):**
-`AQ.Ab8RN6Ks59g1meSwPLipy93HKLhLdmV9aLy0fUk2rkhGp7dvXA`
-
-**Credit-saving workflow (MANDATORY every "codebase" session):**
-```
-STEP 1: search_web("[feature] React Native TypeScript expo 2025 site:github.com")
-STEP 2: search_files(pattern="existing pattern to reuse")
-STEP 3: edit_file with ALL changes in ONE call
-STEP 4: finish + present_suggestions in SAME parallel block
-```
-
-**Free research sources to use instead of burning credits:**
-- `search_web("... site:stackoverflow.com")` — battle-tested patterns
-- `search_web("... site:github.com")` — real code examples
-- `fetch_web(url="https://docs.expo.dev/...")` — official Expo docs
-- `fetch_web(url="https://reactnative.dev/docs/...")` — RN docs
-
-**Gemini aistudio prompt URL for user to paste server prompts:**
-`https://aistudio.google.com/prompts/new_chat`
-
----
+The shipped architecture uses the user's paired PC and local Ollama only. Do not add cloud-AI fallbacks, hidden telemetry, or credentials to source. When continuing work, inspect existing patterns, make the smallest safe change, run guards and tests, and record incomplete work in `NEXT_AI_TODO.md`.
 
 ## 🔑 Credit-Saving & Efficiency Tricks (ALWAYS APPLY)
 
@@ -109,7 +84,7 @@ python_server/       ← PC-side server (butler_server.py)
 
 | File | Purpose |
 |------|---------|
-| `app/(tabs)/nexushome.tsx` | Main dashboard — metrics, quick scripts, command grid |
+| `app/(tabs)/butlerhome.tsx` | Main dashboard — metrics, quick scripts, command grid |
 | `app/(tabs)/scripts.tsx` | Script library — 250+ scripts, AI builder, favorites |
 | `app/(tabs)/butler.tsx` | AI chat tab — ChatModeBar, sendMessage, ChatStatsStrip |
 | `app/(tabs)/_layout.tsx` | Tab bar, AIChatWidget, QR modal |
@@ -122,13 +97,13 @@ python_server/       ← PC-side server (butler_server.py)
 | `services/performanceTuner.ts` | Device tier detection + adaptive fetch/anim config |
 | `services/autoResearch.ts` | Debounced KB pre-fetch as user types in chat |
 | `services/smartPrefetch.ts` | Pre-warms tab data before user navigates |
-| `services/geminiAssist.ts` | Free Gemini 1.5 Flash offline AI fallback |
+| `services/localOllamaAI.ts` | Free removed cloud AI provider 1.5 Flash offline AI fallback |
 | `services/pcActionScripts.ts` | Python scripts replacing removed /api/pc-check/* endpoints |
 | `services/scriptExecutor.ts` | Script execution + streaming |
 | `services/executionHistory.ts` | Run log persistence |
-| `components/ui/NexusPageBanner.tsx` | Shared page header with particles |
-| `components/ui/NexusGlowButton.tsx` | Reusable glowing CTA button |
-| `components/ui/NexusLiveCard.tsx` | Live stats card with sparkline |
+| `components/ui/ButlerPageBanner.tsx` | Shared page header with particles |
+| `components/ui/ButlerGlowButton.tsx` | Reusable glowing CTA button |
+| `components/ui/ButlerLiveCard.tsx` | Live stats card with sparkline |
 | `constants/onboardingKeys.ts` | AsyncStorage key constants |
 
 ---
@@ -212,7 +187,7 @@ const result = await connectionHub.execute(script, (line) => console.log(line));
 - ~~`/api/scripts/library`~~ → not available
 - ~~`/api/scripts/build`~~ → use `/api/butler/chat` with code prompt
 - ~~`/api/scheduler`~~ → not in v20
-- ~~`/api/nexus_brain/status`~~ → not in v20
+- ~~`/api/butler_brain/status`~~ → not in v20
 
 ---
 
@@ -223,7 +198,7 @@ const result = await connectionHub.execute(script, (line) => console.log(line));
 - **Lazy mount**: `useState(false)` + `setTimeout(setReady(true), perf.lazyDelay)` after initial render
 - **Animation**: `useNativeDriver: true` for opacity/transform; `false` only for color/size
 
-### nexushome.tsx useFocusEffect fetch pattern (CRITICAL)
+### butlerhome.tsx useFocusEffect fetch pattern (CRITICAL)
 ```typescript
 useFocusEffect(useCallback(() => {
   if (!isConnected || !serverAddr) return;
@@ -261,12 +236,12 @@ Colors (designSystem.ts / local C objects):
 
 ## 🧩 Component Patterns
 
-### NexusPageBanner props
+### ButlerPageBanner props
 ```tsx
-<NexusPageBanner
+<ButlerPageBanner
   accent="#00DCFF" accent2="#00FF88"
   icon="view-dashboard-variant" iconLib="community"
-  title="HOME" subtitle="NEXUS COMMAND CENTER"
+  title="HOME" subtitle="BUTLER COMMAND CENTER"
   safeTop={insets.top} isConnected={boolean}
   badge="LIVE" badgeColor="#00FF88"
   rightAction={{ icon: 'qr-code-scanner', onPress: fn, color: '#00DCFF' }}
@@ -306,7 +281,7 @@ const CHAT_MODE_PROMPTS = {
 
 ## 🚫 No Mock / Static Data Rules (HOME PAGE)
 
-**Verify**: `search_files(path="nexushome.tsx", pattern="Math.random")` — must return 0 results.
+**Verify**: `search_files(path="butlerhome.tsx", pattern="Math.random")` — must return 0 results.
 
 | Component | Real data source |
 |-----------|------------------|
@@ -323,8 +298,8 @@ const CHAT_MODE_PROMPTS = {
 |-----|------|-------|
 | "Send to Butler AI" + EXPLAIN/IMPROVE/DEBUG buttons not in scripts.tsx | `scripts.tsx` | History says added; 0 search hits — **re-add** |
 | UndoCountdownBanner never shows after run | `scripts.tsx` | `undoId`/`undoExpiresSec` not found in file — **re-wire** |
-| builder.tsx uses tall NexusPageBanner | `builder.tsx` | Migrate to CompactPageHeader (~130px saved) |
-| settings.tsx uses tall NexusPageBanner | `settings.tsx` | Migrate to CompactPageHeader (~130px saved) |
+| builder.tsx uses tall ButlerPageBanner | `builder.tsx` | Migrate to CompactPageHeader (~130px saved) |
+| settings.tsx uses tall ButlerPageBanner | `settings.tsx` | Migrate to CompactPageHeader (~130px saved) |
 | `extractPythonCode` returns `string\|null` not array | `butlerScripts.ts` | butler.tsx workarounds inline; any other callers will crash |
 
 ---
@@ -340,7 +315,7 @@ const CHAT_MODE_PROMPTS = {
 | `/api/pc_scripts/*` 404 | Removed calls; app uses local embedded library |
 | Raw fetch() in logs.tsx bypassing auth | Use `serverConnection.fetchWithAuth(serverConnection.buildUrl(...))` |
 | butler.tsx first-load isConnected=false | Seed from `autoConnectEngine.getCurrentConnection()` on mount |
-| nexushome.tsx stale state after tab switch | `active` flag + fresh AbortController per tick |
+| butlerhome.tsx stale state after tab switch | `active` flag + fresh AbortController per tick |
 | fileshare.tsx scheduler dead call | Orphaned fetch body removed; /api/scheduler not in v20 |
 
 ---

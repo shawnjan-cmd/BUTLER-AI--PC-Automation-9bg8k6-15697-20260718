@@ -5,6 +5,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { encryptedStorage } from './encryptedStorage';
 import { detectErrorPattern, ErrorPattern } from './errorPatternDetector';
 import { aiLogger } from './aiLogger';
 import { serverConnection } from './serverConnection';
@@ -105,8 +106,8 @@ class ErrorAutoFixEngine {
     // Check server availability
     let serverAvailable = false;
     try {
-      const ip = await AsyncStorage.getItem('commandcube_server_ip');
-      const port = await AsyncStorage.getItem('commandcube_server_port');
+      const ip = await encryptedStorage.getItem('commandcube_server_ip');
+      const port = await encryptedStorage.getItem('commandcube_server_port');
       if (ip && port) {
         const res = await serverConnection.ping(ip, port, 3000);
         serverAvailable = res.connected;

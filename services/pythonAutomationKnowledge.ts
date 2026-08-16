@@ -1864,7 +1864,7 @@ from email.mime.multipart import MIMEMultipart
 from pathlib import Path
 
 SENDER    = "your.email@gmail.com"
-PASSWORD  = "your_app_password"  # Gmail App Password
+PASSWORD  = ""  # supplied interactively at runtime  # Gmail App Password
 RECIPIENT = "recipient@email.com"
 
 def send_email(subject, body, attachment=None):

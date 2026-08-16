@@ -1,5 +1,5 @@
 /**
- * FuturisticTabBar — NEXUS DOCK v10.0 · PROFESSIONAL FLOATING PILL
+ * FuturisticTabBar — BUTLER DOCK v10.0 · PROFESSIONAL FLOATING PILL
  * © 2026 Andrej Sladkovic — Butler AI — ALL RIGHTS RESERVED
  *
  * Design language:
@@ -23,10 +23,11 @@ import { haptics } from '@/services/haptics';
 import { autoErrorLogger } from '@/services/autoErrorLogger';
 import QuickButlerBar from '@/components/ui/QuickButlerBar';
 import {
-  NexusCoreIcon, ForgeScriptsIcon, ButlerAIIcon, KnowledgeBaseIcon,
+  ButlerCoreIcon, ForgeScriptsIcon, ButlerAIIcon, KnowledgeBaseIcon,
   IntelLogsIcon, BuilderIcon, VaultIcon, ConfigIcon, SkinsIcon,
-} from '@/components/ui/NexusTabIcons';
+} from '@/components/ui/ButlerTabIcons';
 import Svg, { Rect, Circle, Path } from 'react-native-svg';
+import { Guard } from '@/components/ui/Guard';
 
 // ── GLOBAL AI NOTIFICATION STATE ──────────────────────────────────
 let _butlerUnread = false;
@@ -48,8 +49,11 @@ const MONO: any = Platform.OS === 'ios' ? 'Courier' : 'monospace';
 const ICON_SIZE = 20;
 const HIDDEN_TABS = new Set(['onboarding', 'index', 'terminal', 'support']);
 
+/** Left→right dock order. Anything unlisted sits before Settings, which is pinned last. */
+const TAB_ORDER = ['home', 'scripts', 'butler', 'knowledge', 'connect', 'logs', 'settings'];
+
 const TAB_ALIASES: Record<string, string> = {
-  home: 'nexushome', nexushome: 'nexushome', core: 'nexushome',
+  home: 'home', core: 'home',
   scripts: 'scripts', forge: 'scripts',
   butlr: 'butler', butler: 'butler', ai: 'butler', chat: 'butler',
   knowledge: 'knowledge', kb: 'knowledge',
@@ -63,29 +67,29 @@ const TAB_ALIASES: Record<string, string> = {
 
 // Per-tab brand colours and 3-char labels
 const TAB_META: Record<string, { color: string; label: string }> = {
-  nexushome: { color: '#00E5FF', label: 'CORE'  },
-  scripts:   { color: '#CC44FF', label: 'FRGE'  },
-  butler:    { color: '#00FF88', label: 'BTLR'  },
+  home: { color: '#38D9E8', label: 'CORE'  },
+  scripts:   { color: '#A468FF', label: 'LIB'   },
+  butler:    { color: '#2FE38A', label: 'BTLR'  },
   knowledge: { color: '#4A9EFF', label: 'KB'    },
-  logs:      { color: '#FFB020', label: 'LOG'   },
-  builder:   { color: '#FF6644', label: 'BILD'  },
-  fileshare: { color: '#FF44AA', label: 'VAULT' },
-  settings:  { color: '#8888BB', label: 'CFG'   },
-  cosmetic:  { color: '#AA44FF', label: 'SKIN'  },
-  connect:   { color: '#00CCBB', label: 'PAIR'  },
+  logs:      { color: '#FFB43D', label: 'LOG'   },
+  builder:   { color: '#FF7A1F', label: 'BILD'  },
+  fileshare: { color: '#FF5FA8', label: 'VAULT' },
+  settings:  { color: '#A468FF', label: 'CFG'   },
+  cosmetic:  { color: '#A468FF', label: 'SKIN'  },
+  connect:   { color: '#38D9E8', label: 'PAIR'  },
 };
 
-// Palette — matches the rest of the app
-const BG_CARD  = '#020A16';
-const BORDER_C = 'rgba(0,200,224,0.16)';
-const DIM_C    = 'rgba(255,255,255,0.20)';
-const DIM_LBL  = 'rgba(255,255,255,0.28)';
+// Palette — matches home.tsx / knowledge.tsx exactly
+const BG_CARD  = '#0B0F17';
+const BORDER_C = 'rgba(0,229,255,0.18)';
+const DIM_C    = 'rgba(74,104,128,0.9)';
+const DIM_LBL  = 'rgba(74,104,128,0.85)';
 
-function getColor(r: string) { return TAB_META[r]?.color ?? '#00E5FF'; }
+function getColor(r: string) { return TAB_META[r]?.color ?? '#38D9E8'; }
 function getLabel(r: string) { return TAB_META[r]?.label ?? r.slice(0, 4).toUpperCase(); }
 
 // ── PAIR ICON (custom SVG for connect tab) ────────────────────────
-function PairIcon({ size = 18, color = '#00CCBB' }: { size?: number; color?: string }) {
+function PairIcon({ size = 18, color = '#38D9E8' }: { size?: number; color?: string }) {
   const s = size; const cx = s / 2; const cy = s / 2;
   return (
     <Svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}>
@@ -110,7 +114,7 @@ function PairIcon({ size = 18, color = '#00CCBB' }: { size?: number; color?: str
 function renderIcon(routeName: string, color: string, active: boolean) {
   const p = { size: ICON_SIZE, color, active, dimOpacity: 0.9 };
   switch (routeName) {
-    case 'nexushome':  return <NexusCoreIcon     {...p} />;
+    case 'home':  return <ButlerCoreIcon     {...p} />;
     case 'scripts':    return <ForgeScriptsIcon  {...p} />;
     case 'butler':     return <ButlerAIIcon      {...p} />;
     case 'knowledge':  return <KnowledgeBaseIcon {...p} />;
@@ -199,8 +203,8 @@ const TabItem = React.memo(function TabItem({ routeName, isFocused, flex, onPres
 
 const ti = StyleSheet.create({
   iconPill: {
-    width: 42, height: 34,
-    borderRadius: 11,
+    width: 44, height: 36,
+    borderRadius: 13,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -214,14 +218,14 @@ const ti = StyleSheet.create({
   unreadDot: {
     position: 'absolute', top: 2, right: 2,
     width: 7, height: 7, borderRadius: 3.5,
-    backgroundColor: '#FF3344',
+    backgroundColor: '#FF4D5E',
     borderWidth: 1.5, borderColor: BG_CARD,
   },
   label: {
     fontFamily: MONO,
-    fontSize: 8,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontSize: 8.5,
+    fontWeight: '900',
+    letterSpacing: 0.7,
     textAlign: 'center',
     includeFontPadding: false,
   },
@@ -256,11 +260,21 @@ export default function FuturisticTabBar(
         if (opts?.tabBarButton === null)                          return false;
         if ((opts?.tabBarItemStyle as any)?.display === 'none')  return false;
         return true;
+      })
+      // Explicit dock order — Settings is ALWAYS the last icon, whatever
+      // order the router happens to register the screens in.
+      .sort((a, b) => {
+        const rank = (n: string) => {
+          if (n === 'settings') return 9999;
+          const i = TAB_ORDER.indexOf(n);
+          return i === -1 ? 5000 : i;
+        };
+        return rank(a.route.name) - rank(b.route.name);
       }),
     [state.routes, descriptors],
   );
 
-  const activeRouteName = visibleRoutes.find(r => r.idx === state.index)?.route?.name ?? 'nexushome';
+  const activeRouteName = visibleRoutes.find(r => r.idx === state.index)?.route?.name ?? 'home';
   const isOnButlerTab   = activeRouteName === 'butler';
   const activeColor     = getColor(activeRouteName);
   const bottomPad       = Math.max(insets.bottom, Platform.OS === 'android' ? 4 : 0);
@@ -270,7 +284,9 @@ export default function FuturisticTabBar(
       {/* QuickButlerBar floats above dock (hidden on butler tab) */}
       {!isOnButlerTab && (
         <View style={dock.barWrapper} pointerEvents="box-none">
-          <QuickButlerBar />
+          <Guard name="ui.quickAskBar">
+            <QuickButlerBar />
+          </Guard>
         </View>
       )}
 
@@ -318,25 +334,25 @@ const dock = StyleSheet.create({
   card: {
     marginHorizontal: 8,
     marginBottom: 6,
-    borderRadius: 20,
+    borderRadius: 22,
     backgroundColor: BG_CARD,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: BORDER_C,
     overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: -3 },
-        shadowOpacity: 0.85,
-        shadowRadius: 14,
+        shadowOffset: { width: 0, height: -6 },
+        shadowOpacity: 0.75,
+        shadowRadius: 18,
       },
-      android: { elevation: 22 },
+      android: { elevation: 20 },
       default: {},
     }),
   },
   accent: {
-    height: 2.5,
-    opacity: 0.75,
+    height: 3,
+    opacity: 0.95,
   },
   tabRow: {
     flexDirection: 'row',

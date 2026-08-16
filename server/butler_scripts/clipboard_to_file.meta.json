@@ -1,0 +1,12 @@
+{
+  "name": "Save Clipboard to File",
+  "description": "Dump current clipboard text to ~/Desktop/clipboard.txt.",
+  "category": "Automation",
+  "tags": [
+    "clipboard",
+    "text"
+  ],
+  "icon": "terminal",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

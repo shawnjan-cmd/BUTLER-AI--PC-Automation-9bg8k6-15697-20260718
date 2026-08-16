@@ -14,7 +14,8 @@ export interface ParsedConn {
   ip:          string;
   port:        string;
   pairingCode: string;
-  appSig:      string; // NEW — captured from JSON QR payload only
+  appSig:      string; // captured from JSON QR payload only
+  scheme:      'http' | 'https';
 }
 
 export function parseQRConnection(rawData: string): ParsedConn | null {
@@ -26,6 +27,7 @@ export function parseQRConnection(rawData: string): ParsedConn | null {
     .replace(/←\[[0-9;]*m/g, '');
 
   let ip = '', port = '', pairingCode = '';
+  let scheme: 'http' | 'https' = 'http';
 
   // 2. JSON object anywhere in the string
   const jsonStart = s.indexOf('{');
@@ -36,7 +38,8 @@ export function parseQRConnection(rawData: string): ParsedConn | null {
       port        = String(o.port || '').trim();
       pairingCode = String(o.pairingCode || o.code || o.pin || o.token || '').trim();
       const appSig = String(o.appSig || '').trim();
-      if (ip) return { ip, port, pairingCode, appSig };
+      scheme = String(o.scheme || o.transport || '').toLowerCase() === 'https' ? 'https' : 'http';
+      if (ip) return { ip, port, pairingCode, appSig, scheme };
     } catch {}
   }
 
@@ -47,20 +50,20 @@ export function parseQRConnection(rawData: string): ParsedConn | null {
     port = pm[2];
     const cm = s.match(/[?&](?:code|pairingCode|pin|token)=([\w-]+)/i);
     if (cm) pairingCode = cm[1];
-    return { ip, port, pairingCode, appSig: '' };
+    return { ip, port, pairingCode, appSig: '', scheme };
   }
 
   // 4. Scheme URL: http://IP:PORT or botler://IP:PORT
   const sm = s.match(/[a-z]+:\/\/([\d.]+):(\d+)/i);
-  if (sm) return { ip: sm[1], port: sm[2], pairingCode, appSig: '' };
+  if (sm) return { ip: sm[1], port: sm[2], pairingCode, appSig: '', scheme: sm[0].toLowerCase().startsWith('https://') ? 'https' : 'http' };
 
   // 5. Butler stdout: "ADDRESS: http://192.168.1.5:PORT"
   const am = s.match(/(?:ADDRESS|IP|Server)[:\s]+(https?:\/\/)?([\d.]+):(\d+)/i);
-  if (am) return { ip: am[2], port: am[3], pairingCode, appSig: '' };
+  if (am) return { ip: am[2], port: am[3], pairingCode, appSig: '', scheme: (am[1] || '').toLowerCase().startsWith('https://') ? 'https' : 'http' };
 
   // 6. Plain IP:PORT:TOKEN — port comes from the QR, never defaulted
   const bm = s.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d{1,5})(?::([\w-]+))?/);
-  if (bm) return { ip: bm[1], port: bm[2], pairingCode: bm[3] || '', appSig: '' };
+  if (bm) return { ip: bm[1], port: bm[2], pairingCode: bm[3] || '', appSig: '', scheme };
 
   // 7. Any IP + nearby port number — port extracted from QR, empty string if not found
   const anyIP = s.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
@@ -70,7 +73,7 @@ export function parseQRConnection(rawData: string): ParsedConn | null {
     const portMatch = afterIP.match(/(\d{2,5})/);
     if (portMatch) port = portMatch[1];
     // Never return empty port — if none found, serverConnection will use adaptive port scanning
-    return { ip, port, pairingCode, appSig: '' };
+    return { ip, port, pairingCode, appSig: '', scheme };
   }
 
   // 8. Nothing found

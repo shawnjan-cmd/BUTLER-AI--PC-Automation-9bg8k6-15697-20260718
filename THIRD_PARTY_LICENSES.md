@@ -1,4 +1,4 @@
-# Third-Party Licenses - Botler Project
+# Third-Party Licenses - Butler Project
 
 **All dependencies verified GPL-free ✅**  
 **Last Audit**: 2026-03-25
@@ -22,12 +22,6 @@
 ---
 
 ## Backend & Database
-
-### @supabase/supabase-js (MIT)
-- **Copyright**: Supabase
-- **Source**: https://github.com/supabase/supabase-js
-- **License**: MIT
-- **Usage**: Database, authentication, storage
 
 ### @react-native-async-storage/async-storage (MIT)
 - **Copyright**: React Native Community

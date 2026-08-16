@@ -1,0 +1,1 @@
+import ctypes; ctypes.windll.user32.LockWorkStation(); print('Locked.')

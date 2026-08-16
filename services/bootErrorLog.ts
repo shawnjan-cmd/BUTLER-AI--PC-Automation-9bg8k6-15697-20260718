@@ -13,10 +13,10 @@ const BOOT_ERROR_KEY     = '@butler_boot_errors_v1';
 const MAX_ENTRIES        = 5;
 
 // ── First-launch key migration constants ─────────────────────────
-// v7.2 and earlier used '@nexus_first_launch_v1'.
+// v7.2 and earlier used '@butler_first_launch_v1'.
 // v7.3+ uses '@butler_first_launch_v1' (unified in onboardingKeys.ts).
 // Migration runs once on boot — moves the old value and deletes the old key.
-const OLD_FIRST_LAUNCH_KEY = '@nexus_first_launch_v1';
+const OLD_FIRST_LAUNCH_KEY = '@butler_first_launch_v1';
 const NEW_FIRST_LAUNCH_KEY = '@butler_first_launch_v1';
 
 export interface BootErrorEntry {
@@ -115,11 +115,11 @@ export async function clearBootErrors(): Promise<void> {
 }
 
 /**
- * One-shot AsyncStorage key migration: '@nexus_first_launch_v1' → '@butler_first_launch_v1'.
+ * One-shot AsyncStorage key migration: '@butler_first_launch_v1' → '@butler_first_launch_v1'.
  *
  * Call this as early as possible in _layout.tsx — before the routing
  * decision reads FIRST_LAUNCH_KEY — so users upgrading from older APK
- * builds don't re-see the NexusSplash animation on every cold boot.
+ * builds don't re-see the ButlerSplash animation on every cold boot.
  *
  * Safety guarantees:
  *  - Idempotent: if the new key already has a value, does nothing.

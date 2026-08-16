@@ -1,0 +1,19 @@
+--- @shopify/react-native-skia
+--- expo-audio
+--- expo-calendar
+--- expo-camera
+app/(tabs)/onboarding.tsx
+components/qr/QRCameraScanner.tsx
+constants/appSourceBundle.ts
+--- expo-contacts
+--- expo-gl
+--- expo-location
+--- expo-media-library
+--- expo-notifications
+--- expo-sensors
+--- expo-video
+constants/appSourceBundle.ts
+constants/tabSourcesBundle.ts
+--- react-native-maps
+--- react-native-webrtc
+--- react-native-webview

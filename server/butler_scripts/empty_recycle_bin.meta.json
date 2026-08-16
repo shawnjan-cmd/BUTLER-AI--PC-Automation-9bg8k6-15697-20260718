@@ -1,0 +1,13 @@
+{
+  "name": "Empty Recycle Bin",
+  "description": "Empty the Windows Recycle Bin without confirmation (Windows only).",
+  "category": "Cleaning",
+  "tags": [
+    "windows",
+    "recycle",
+    "trash"
+  ],
+  "icon": "trash",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

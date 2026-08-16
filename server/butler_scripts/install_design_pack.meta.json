@@ -1,0 +1,15 @@
+{
+  "name": "Install Design Pack",
+  "description": "Install Figma, GIMP, Inkscape, Blender.",
+  "category": "Install",
+  "tags": [
+    "install",
+    "design",
+    "figma",
+    "gimp",
+    "blender"
+  ],
+  "icon": "brush",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

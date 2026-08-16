@@ -1,0 +1,13 @@
+{
+  "name": "List Outdated npm Packages",
+  "description": "Run npm outdated in the current directory.",
+  "category": "Developer",
+  "tags": [
+    "npm",
+    "node",
+    "updates"
+  ],
+  "icon": "code",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

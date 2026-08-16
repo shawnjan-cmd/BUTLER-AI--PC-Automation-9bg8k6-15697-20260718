@@ -1,0 +1,13 @@
+{
+  "name": "Toggle System Mute",
+  "description": "Mute or unmute the default audio output.",
+  "category": "Automation",
+  "tags": [
+    "audio",
+    "volume",
+    "mute"
+  ],
+  "icon": "volume-x",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

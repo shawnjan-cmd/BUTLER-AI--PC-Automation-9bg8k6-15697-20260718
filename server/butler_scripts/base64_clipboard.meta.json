@@ -1,0 +1,13 @@
+{
+  "name": "Base64 Encode Clipboard",
+  "description": "Take the current clipboard text and replace it with its base64 encoding.",
+  "category": "Developer",
+  "tags": [
+    "base64",
+    "encode",
+    "clipboard"
+  ],
+  "icon": "binary",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}
