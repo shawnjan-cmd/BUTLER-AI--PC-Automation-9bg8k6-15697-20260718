@@ -15,6 +15,7 @@ test_reports/
 playstore_assets/
 *.bak
 *.orig
+*.zip
 
 # ── Git internals ─────────────────────────────────────────────────────────────
 .git/
