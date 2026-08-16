@@ -1,0 +1,74 @@
+name: Unzip updates to main
+
+# Trigger: push a zip file to the `updates` branch.
+# The workflow finds the zip, extracts it, and force-replaces main with the
+# extracted content. No manual merge or PR needed.
+
+on:
+  push:
+    branches:
+      - updates
+
+jobs:
+  unzip-and-replace-main:
+    name: Extract zip → replace main
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout updates branch
+        uses: actions/checkout@v4
+        with:
+          ref: updates
+          fetch-depth: 0
+
+      - name: Find zip file
+        id: find_zip
+        run: |
+          ZIP=$(find . -maxdepth 1 -name "*.zip" | head -1)
+          if [ -z "$ZIP" ]; then
+            echo "❌ No zip file found in the root of the updates branch."
+            exit 1
+          fi
+          echo "Found: $ZIP"
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+
+      - name: Extract zip into staging directory
+        run: |
+          mkdir /tmp/extracted
+          unzip -q "${{ steps.find_zip.outputs.zip }}" -d /tmp/extracted
+
+          # If the zip contains a single top-level folder, move its contents up
+          CONTENTS=$(ls /tmp/extracted)
+          COUNT=$(echo "$CONTENTS" | wc -l)
+          if [ "$COUNT" -eq 1 ] && [ -d "/tmp/extracted/$CONTENTS" ]; then
+            mv /tmp/extracted/"$CONTENTS"/* /tmp/extracted/
+            mv /tmp/extracted/"$CONTENTS"/.[!.]* /tmp/extracted/ 2>/dev/null || true
+            rmdir /tmp/extracted/"$CONTENTS" 2>/dev/null || true
+          fi
+
+          echo "Extracted contents:"
+          ls /tmp/extracted
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Reset main to extracted content
+        run: |
+          git checkout main
+
+          # Remove everything except .git
+          find . -mindepth 1 -maxdepth 1 -not -name ".git" -exec rm -rf {} +
+
+          # Copy extracted files in
+          cp -a /tmp/extracted/. .
+
+          git add -A
+          git commit -m "chore: update main from $(basename '${{ steps.find_zip.outputs.zip }}')" || echo "Nothing to commit — zip content identical to main"
+
+      - name: Push main
+        run: git push origin main
