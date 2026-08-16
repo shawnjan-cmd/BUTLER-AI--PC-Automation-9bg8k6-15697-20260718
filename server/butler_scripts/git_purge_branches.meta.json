@@ -1,0 +1,14 @@
+{
+  "name": "Delete Merged Git Branches",
+  "description": "Delete local branches already merged into main/master (keeps main, master, dev).",
+  "category": "Developer",
+  "tags": [
+    "git",
+    "branches",
+    "cleanup",
+    "developer"
+  ],
+  "icon": "git-branch",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

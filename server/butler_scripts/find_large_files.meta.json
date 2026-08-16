@@ -1,0 +1,13 @@
+{
+  "name": "Find Large Files (> 100 MB)",
+  "description": "List the 30 biggest files under your home directory.",
+  "category": "Files",
+  "tags": [
+    "files",
+    "large",
+    "disk"
+  ],
+  "icon": "folder",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

@@ -1,0 +1,13 @@
+{
+  "name": "Internet Speed Test",
+  "description": "Auto-install speedtest-cli then run a full speed test.",
+  "category": "Network",
+  "tags": [
+    "network",
+    "speed",
+    "internet"
+  ],
+  "icon": "speed",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

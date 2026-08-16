@@ -1,0 +1,13 @@
+{
+  "name": "Hash a File (SHA-256)",
+  "description": "Compute SHA-256 of a file. Edit PATH at the top.",
+  "category": "Security",
+  "tags": [
+    "hash",
+    "sha256",
+    "checksum"
+  ],
+  "icon": "shield",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

@@ -28,7 +28,7 @@ export interface BundleFile {
 
 // ─── Manifest ─────────────────────────────────────────────────────────────────
 export const BUNDLE_MANIFEST: BundleFile[] = [
-  { path: 'app/(tabs)/nexushome.tsx',              description: 'Home page — neon hero header, stat cards, neural brain, quick scripts',   category: 'tab',       lines: 1050 },
+  { path: 'app/(tabs)/home.tsx',              description: 'Home page — neon hero header, stat cards, neural brain, quick scripts',   category: 'tab',       lines: 1050 },
   { path: 'app/(tabs)/scripts.tsx',                description: 'Script library — Python automation, favorites, undo, dash strip',          category: 'tab',       lines: 3200 },
   { path: 'app/(tabs)/butler.tsx',                 description: 'Butler AI chat — Ollama local AI, hero header, mode bar, context rail',    category: 'tab',       lines: 1100 },
   { path: 'app/(tabs)/knowledge.tsx',              description: 'Knowledge base — KB graph, crawler, growth, OMEGA loop',                   category: 'tab',       lines: 2800 },
@@ -103,26 +103,26 @@ export function computeSourceHash(): string {
 
 // ─── Color palette reference ──────────────────────────────────────────────────
 export const APP_PALETTE = {
-  bg:      '#090a0f',
-  surface: '#0f1520',
-  card:    '#060F18',
-  border:  '#1c1e28',
-  NCX_BG:      '#0d0e14',
-  NCX_SURFACE: '#111318',
-  NCX_BORDER:  '#1c1e28',
+  bg:      '#070A10',
+  surface: '#111621',
+  card:    '#0B0F17',
+  border:  '#4A9EFF',
+  NCX_BG:      '#0B0F17',
+  NCX_SURFACE: '#0B0F17',
+  NCX_BORDER:  '#4A9EFF',
   NCX_LIGHT:   'rgba(255,255,255,0.04)',
-  teal:    '#10d9a0',
-  cyan:    '#00CCDD',
-  green:   '#00FF88',
-  purple:  '#8b5cf6',
-  amber:   '#f59e0b',
-  red:     '#ef4444',
-  sigma:   '#CC33FF',
-  blue:    '#4488FF',
-  yellow:  '#FFD700',
-  pink:    '#FF6EB4',
-  text:    '#336677',
-  textBrt: '#88AACC',
+  teal:    '#2FE38A',
+  cyan:    '#38D9E8',
+  green:   '#2FE38A',
+  purple:  '#A468FF',
+  amber:   '#FFB43D',
+  red:     '#FF4D5E',
+  sigma:   '#A468FF',
+  blue:    '#4A9EFF',
+  yellow:  '#FFC94A',
+  pink:    '#FF5FA8',
+  text:    '#38D9E8',
+  textBrt: '#4A9EFF',
 };
 
 // ─── DETAILED AI BUILDER PROMPT ───────────────────────────────────────────────
@@ -146,7 +146,7 @@ The following packages were REMOVED in v9 due to incompatible native auto-linkin
   services/widgetStorage.ts — getForPage(), pin(), remove()
   services/haptics.ts — haptic feedback API
   services/knowledgeAccumulator.ts — KB compression
-  services/nexusBridge.ts — bridge protocol
+  services/butlerBridge.ts — bridge protocol
   services/lanScanner.ts — LAN auto-scan
   services/connectionPersistence.ts — connection state
 
@@ -178,17 +178,17 @@ The following packages were REMOVED in v9 due to incompatible native auto-linkin
   • All animations: useNativeDriver:true for transform/opacity; false for layout
 
 ## NCX CARD PATTERN (use for ALL cards)
-  backgroundColor: '#0d0e14', borderWidth:1, borderColor:'#1c1e28',
+  backgroundColor: '#0B0F17', borderWidth:1, borderColor:'#4A9EFF',
   borderLeftWidth:2, borderLeftColor:'<accent>',
   borderTopWidth:1, borderTopColor:'rgba(255,255,255,0.04)',
   borderRadius:12, elevation:3
 
 ## DESIGN PALETTE
-  bg:#090a0f  surface:#0f1520  card:#060F18
-  NCX_BG:#0d0e14  NCX_BORDER:#1c1e28
-  teal:#10d9a0  cyan:#00CCDD  green:#00FF88  purple:#8b5cf6
-  sigma:#CC33FF  blue:#4488FF  amber:#f59e0b  red:#ef4444
-  yellow:#FFD700  pink:#FF6EB4  text:#336677  textBrt:#88AACC
+  bg:#070A10  surface:#111621  card:#0B0F17
+  NCX_BG:#0B0F17  NCX_BORDER:#4A9EFF
+  teal:#2FE38A  cyan:#38D9E8  green:#2FE38A  purple:#A468FF
+  sigma:#A468FF  blue:#4A9EFF  amber:#FFB43D  red:#FF4D5E
+  yellow:#FFC94A  pink:#FF5FA8  text:#38D9E8  textBrt:#4A9EFF
 
 ## CLIPBOARD SAFE PATTERN (no expo-clipboard)
   import { safeSetClipboard, safeGetClipboard } from '@/services/safeClipboard';
@@ -210,7 +210,7 @@ The following packages were REMOVED in v9 due to incompatible native auto-linkin
 ## NAVIGATION
   Use router.push('/(tabs)/knowledge') — group prefix required
   Tab switching: (global as any).__butlerSwitchTab?.('butler')
-  QR modal: (global as any).__nexusHomeOpenQR?.()
+  QR modal: (global as any).__butlerHomeOpenQR?.()
 
 ## RETURN FORMAT
   Always return COMPLETE file content. Never partial diffs.
@@ -235,7 +235,7 @@ function getHeaderConstantsSrc(): string {
     '/**',
     ' * BUTLER AI — ZERO-CREDIT HEADER CONSTANTS v2',
     ' * Edit text labels, subtitles, button labels, and accent colors here.',
-    ' * All values consumed by CompactPageHeader / NexusPageHeader components.',
+    ' * All values consumed by CompactPageHeader / ButlerPageHeader components.',
     ' */',
     '',
     "export interface TabHeaderEntry {",
@@ -247,21 +247,21 @@ function getHeaderConstantsSrc(): string {
     "}",
     '',
     "export const TAB_HEADER_ENTRIES: Record<string, TabHeaderEntry> = {",
-    "  nexushome: { title:'NEXUS HOME',      subtitle:'PC Automation · Command Center',       actionLabel:'QR SCAN',  actionIcon:'qr-code-scanner', accentColor:'#00f3ff' },",
-    "  butler:    { title:'BUTLER AI',       subtitle:'Local Ollama · Private · Zero Cloud',  actionLabel:'CLEAR',    actionIcon:'delete-sweep',    accentColor:'#bc00ff' },",
-    "  scripts:   { title:'SCRIPTS',         subtitle:'Python Automation · Library',           actionLabel:'HISTORY',  actionIcon:'history',         accentColor:'#00DCFF' },",
-    "  knowledge: { title:'KNOWLEDGE BASE',  subtitle:'SIGMA-NET · Live Crawler · KB Graph',  actionLabel:'SYNC',     actionIcon:'sync',            accentColor:'#FF8C00' },",
-    "  fileshare: { title:'NET OPS',         subtitle:'LAN Scanner · Port Audit · Ping',      actionLabel:'REFRESH',  actionIcon:'refresh',         accentColor:'#00CCDD' },",
-    "  logs:      { title:'PC INTEL',        subtitle:'Health · Cleaning · Automation',       actionLabel:'REFRESH',  actionIcon:'refresh',         accentColor:'#00FF88' },",
-    "  cosmetic:  { title:'SKINS',           subtitle:'Themes · Cosmetics · Customization',   actionLabel:'BROWSE',   actionIcon:'palette',         accentColor:'#FF6EB4' },",
-    "  settings:  { title:'SYSTEM CONFIG',   subtitle:'App Settings · Preferences · Export',  actionLabel:'EXPORT',   actionIcon:'download',        accentColor:'#CC7755' },",
-    "  terminal:  { title:'LIVE TERMINAL',   subtitle:'nexus@terminal:~$',                    actionLabel:'CLEAR',    actionIcon:'delete-sweep',    accentColor:'#44FF22' },",
-    "  builder:   { title:'BUILDER',         subtitle:'Visual Node Pipeline · Drag & Build',  actionLabel:'CLEAR',    actionIcon:'delete-sweep',    accentColor:'#BB33FF' },",
+    "  home: { title:'BUTLER HOME',      subtitle:'PC Automation · Command Center',       actionLabel:'QR SCAN',  actionIcon:'qr-code-scanner', accentColor:'#38D9E8' },",
+    "  butler:    { title:'BUTLER AI',       subtitle:'Local Ollama · Private · Zero Cloud',  actionLabel:'CLEAR',    actionIcon:'delete-sweep',    accentColor:'#A468FF' },",
+    "  scripts:   { title:'SCRIPTS',         subtitle:'Python Automation · Library',           actionLabel:'HISTORY',  actionIcon:'history',         accentColor:'#38D9E8' },",
+    "  knowledge: { title:'KNOWLEDGE BASE',  subtitle:'SIGMA-NET · Live Crawler · KB Graph',  actionLabel:'SYNC',     actionIcon:'sync',            accentColor:'#FFB43D' },",
+    "  fileshare: { title:'NET OPS',         subtitle:'LAN Scanner · Port Audit · Ping',      actionLabel:'REFRESH',  actionIcon:'refresh',         accentColor:'#38D9E8' },",
+    "  logs:      { title:'PC INTEL',        subtitle:'Health · Cleaning · Automation',       actionLabel:'REFRESH',  actionIcon:'refresh',         accentColor:'#2FE38A' },",
+    "  cosmetic:  { title:'SKINS',           subtitle:'Themes · Cosmetics · Customization',   actionLabel:'BROWSE',   actionIcon:'palette',         accentColor:'#FF5FA8' },",
+    "  settings:  { title:'SYSTEM CONFIG',   subtitle:'App Settings · Preferences · Export',  actionLabel:'EXPORT',   actionIcon:'download',        accentColor:'#FF7A1F' },",
+    "  terminal:  { title:'LIVE TERMINAL',   subtitle:'butler@terminal:~$',                    actionLabel:'CLEAR',    actionIcon:'delete-sweep',    accentColor:'#2FE38A' },",
+    "  builder:   { title:'BUILDER',         subtitle:'Visual Node Pipeline · Drag & Build',  actionLabel:'CLEAR',    actionIcon:'delete-sweep',    accentColor:'#A468FF' },",
     "};",
     '',
     "export const CONN_COLORS = {",
-    "  connected:    '#00FF88',",
-    "  disconnected: '#FF3366',",
+    "  connected:    '#2FE38A',",
+    "  disconnected: '#FF4D5E',",
     "};",
     '',
     "export const SPLASH_CONFIG = {",
@@ -270,7 +270,7 @@ function getHeaderConstantsSrc(): string {
     "  tagline:     'PC AUTOMATION · COMMAND CENTER',",
     "  bootText:    'INITIALIZING SYSTEMS...',",
     "  versionBadge:'v9.x · ANDROID · LOCAL AI',",
-    "  accentColor: '#00f3ff',",
+    "  accentColor: '#38D9E8',",
     "};",
   ].join('\n');
 }
@@ -450,7 +450,7 @@ export function buildExportJson(): Record<string, unknown> {
         'All expo-document-picker static imports → replaced with lazy require() inside functions',
         'All expo-sharing static imports → replaced with RN Share',
         'All AbortSignal.timeout() → replaced with AbortController + setTimeout',
-        'nexushome.tsx: removed await import("expo-camera") dynamic import → uses QRCameraScanner component',
+        'home.tsx: removed await import("expo-camera") dynamic import → uses QRCameraScanner component',
         'stubs/hermes-parser-plugin.js: removed parserOverride (caused metro-source-map invariant crash)',
         'metro.config.js: intercepts both babel-plugin-syntax-hermes-parser copies → stubs file',
         'app/(tabs)/_layout.tsx: removed isDone from useEffect dependency array (caused infinite bootstrap loop)',
@@ -520,7 +520,7 @@ export function buildAllFilesExport(): string {
     '// • constants/animations.ts: removed react-native-reanimated Proxy (install() crash)',
     '// • All static expo-clipboard/document-picker/sharing → RN equivalents',
     '// • All AbortSignal.timeout() → AbortController + setTimeout (Hermes safe)',
-    '// • nexushome.tsx: removed dynamic await import("expo-camera")',
+    '// • home.tsx: removed dynamic await import("expo-camera")',
     '// • stubs/hermes-parser-plugin.js: removed parserOverride',
     '// • app/(tabs)/_layout.tsx: removed isDone from useEffect deps (infinite loop)',
     '',

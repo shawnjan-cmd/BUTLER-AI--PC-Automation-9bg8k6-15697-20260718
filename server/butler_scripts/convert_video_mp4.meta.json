@@ -1,0 +1,15 @@
+{
+  "name": "Convert Video to MP4 (H.264)",
+  "description": "Re-encode a video to MP4/H.264/AAC using ffmpeg (CRF 23).",
+  "category": "Media",
+  "tags": [
+    "video",
+    "ffmpeg",
+    "convert",
+    "mp4",
+    "h264"
+  ],
+  "icon": "file-video",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

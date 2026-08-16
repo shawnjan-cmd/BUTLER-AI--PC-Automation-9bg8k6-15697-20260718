@@ -1,0 +1,15 @@
+{
+  "name": "Windows Telemetry & Tracking Audit",
+  "description": "List Windows telemetry, tracking services, and privacy-related registry settings.",
+  "category": "Security",
+  "tags": [
+    "security",
+    "privacy",
+    "telemetry",
+    "windows",
+    "audit"
+  ],
+  "icon": "privacy_tip",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

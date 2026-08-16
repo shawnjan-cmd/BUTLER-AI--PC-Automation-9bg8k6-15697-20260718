@@ -1,0 +1,3 @@
+# Any change to the workflow definitions requires approval from the repo owner.
+# This prevents accidental or unauthorized edits to the deployment pipeline.
+.github/workflows/ @joahdnsjsn-star

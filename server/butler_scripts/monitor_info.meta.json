@@ -1,0 +1,13 @@
+{
+  "name": "Monitor Info",
+  "description": "List connected monitors with resolution and refresh rate.",
+  "category": "System",
+  "tags": [
+    "display",
+    "monitor",
+    "screen"
+  ],
+  "icon": "monitor",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

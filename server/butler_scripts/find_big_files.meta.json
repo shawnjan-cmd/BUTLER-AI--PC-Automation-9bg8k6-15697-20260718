@@ -1,0 +1,13 @@
+{
+  "name": "Find Biggest Files",
+  "description": "Scan a folder and list the 30 largest files. Default: user home.",
+  "category": "Cleaning",
+  "tags": [
+    "disk",
+    "large",
+    "files"
+  ],
+  "icon": "storage",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

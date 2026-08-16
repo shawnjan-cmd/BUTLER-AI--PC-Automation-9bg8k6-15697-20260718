@@ -1,0 +1,15 @@
+{
+  "name": "Secure File Wiper",
+  "description": "Overwrite a file 7 times before deleting \u2014 prevents forensic recovery.",
+  "category": "Security",
+  "tags": [
+    "security",
+    "delete",
+    "wipe",
+    "forensics",
+    "privacy"
+  ],
+  "icon": "delete_forever",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

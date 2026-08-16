@@ -1,0 +1,39 @@
+{
+  "dependencies": 129,
+  "devDependencies": 6,
+  "heavyNativeCandidates": [
+    "@expo-google-fonts/inter",
+    "@shopify/react-native-skia",
+    "expo-audio",
+    "expo-calendar",
+    "expo-camera",
+    "expo-contacts",
+    "expo-gl",
+    "expo-location",
+    "expo-media-library",
+    "expo-notifications",
+    "expo-sensors",
+    "expo-video",
+    "react-native-calendars",
+    "react-native-maps",
+    "react-native-webrtc",
+    "react-native-webview"
+  ],
+  "scripts": {
+    "start": "expo start",
+    "reset-project": "node ./scripts/reset-project.js",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "lint": "expo lint",
+    "typecheck": "tsc --noEmit",
+    "validate:android": "node ./scripts/guard-scan.mjs && node ./scripts/validate-android.mjs",
+    "build:android:check": "node ./scripts/ensure-ajv-compat.mjs && expo export --platform android --output-dir .android-build-check --clear",
+    "smoke:android": "node ./scripts/android-smoke-test.mjs",
+    "android:apk:debug": "node ./scripts/ensure-ajv-compat.mjs && expo prebuild --platform android --no-install && cd android && ./gradlew assembleDebug",
+    "smoke:android:full": "npm run android:apk:debug && node ./scripts/android-smoke-test.mjs",
+    "guard:scan": "node ./scripts/guard-scan.mjs",
+    "guard": "node scripts/guard-scan.mjs",
+    "verify:manifest": "node scripts/check-generated-manifest.mjs"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "Rename Photos by EXIF Date",
+  "description": "Rename each photo to YYYY-MM-DD_HHMMSS based on EXIF DateTimeOriginal.",
+  "category": "Media",
+  "tags": [
+    "photos",
+    "exif",
+    "rename"
+  ],
+  "icon": "image",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

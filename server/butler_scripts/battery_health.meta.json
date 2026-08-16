@@ -1,0 +1,14 @@
+{
+  "name": "Battery Health Report (Win)",
+  "description": "Run powercfg /batteryreport and open the HTML output.",
+  "category": "Monitoring",
+  "tags": [
+    "battery",
+    "health",
+    "laptop",
+    "windows"
+  ],
+  "icon": "battery-charging",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

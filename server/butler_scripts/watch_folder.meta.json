@@ -1,0 +1,14 @@
+{
+  "name": "Watch Folder for Changes (60s)",
+  "description": "Print add/remove/modify events in a folder for 60 seconds.",
+  "category": "Monitoring",
+  "tags": [
+    "watch",
+    "monitor",
+    "filesystem",
+    "changes"
+  ],
+  "icon": "eye",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

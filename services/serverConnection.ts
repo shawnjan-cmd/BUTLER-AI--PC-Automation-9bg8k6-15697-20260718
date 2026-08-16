@@ -20,20 +20,14 @@ import { encryptedStorage } from '@/services/encryptedStorage';
 const KNOWN_GOOD_KEY = '@sc_known_good_ips_v1';
 export const AUTH_DISABLED_KEY = '@sc_auth_disabled_v1';
 
-// ── Global auth-disabled flag (loaded once at startup, toggled from Settings) ──
-// Stored in encryptedStorage so an attacker cannot flip it by writing '1' to raw
-// AsyncStorage without holding the derived encryption key.
-let _authDisabled = false;
-export function isAuthDisabled(): boolean { return _authDisabled; }
-export async function setAuthDisabled(val: boolean): Promise<void> {
-  _authDisabled = val;
-  try { await encryptedStorage.setItem(AUTH_DISABLED_KEY, val ? '1' : '0'); } catch {}
+// Authentication is never disabled in the privacy-first baseline. The exported
+// compatibility functions clear any legacy opt-out rather than weakening requests.
+export function isAuthDisabled(): boolean { return false; }
+export async function setAuthDisabled(_val: boolean): Promise<void> {
+  await encryptedStorage.removeItem(AUTH_DISABLED_KEY).catch(() => {});
 }
 export async function loadAuthDisabled(): Promise<void> {
-  try {
-    const raw = await encryptedStorage.getItem(AUTH_DISABLED_KEY);
-    _authDisabled = raw === '1';
-  } catch {}
+  await encryptedStorage.removeItem(AUTH_DISABLED_KEY).catch(() => {});
 }
 
 const KEYS = {
@@ -43,6 +37,7 @@ const KEYS = {
   TOKEN:     'commandcube_session_token',
   PAIRED_AT: 'commandcube_last_paired',
   APP_SIG:   '@butler_app_sig',
+  SCHEME:    '@butler_transport_scheme',
 } as const;
 
 // All common server ports — no single "correct" port assumed.
@@ -66,6 +61,7 @@ export interface ConnState {
   port:      string;
   deviceId:  string;
   token:     string;
+  scheme:    'http' | 'https';
 }
 
 export interface ConnResult {
@@ -79,13 +75,16 @@ export interface ConnResult {
 class ServerConnectionService {
   private static _inst: ServerConnectionService;
 
-  private _ip     = '';
-  private _port   = '';
-  private _device = '';
-  private _token  = '';
-  private _appSig = '';
-  private _ok     = false;
+  private _ip        = '';
+  private _port      = '';
+  private _device    = '';
+  private _token     = '';
+  private _appSig    = '';
+  private _ok        = false;
+  private _remoteUrl = '';
+  private _scheme: 'http' | 'https' = 'http';
   private _storageLoaded = false; // FIX 1A — memory cache flag
+  private _reconnectFlight: Promise<ConnResult> | null = null;
 
   private _listeners: Set<(s: ConnState) => void> = new Set();
   private _knownGoodIPs: Array<{ ip: string; port: string }> = [];
@@ -96,13 +95,17 @@ class ServerConnectionService {
   }
 
   get state(): ConnState {
-    return { connected: this._ok, ip: this._ip, port: this._port, deviceId: this._device, token: this._token };
+    return { connected: this._ok, ip: this._ip, port: this._port, deviceId: this._device, token: this._token, scheme: this._scheme };
   }
   isConnected()  { return this._ok; }
   getIP()        { return this._ip; }
   getPort()      { return this._port; }
   getToken()     { return this._token; }
   getDeviceId()  { return this._device; }
+  getScheme(): 'http' | 'https' { return this._scheme; }
+  getBaseUrl(ip = this._ip, port = this._port): string {
+    return `${this._scheme}://${ip}:${port}`;
+  }
   /** Remote mode (Tailscale / Cloudflare) — not yet implemented, always false */
   isRemoteMode() { return false; }
 
@@ -145,8 +148,7 @@ class ServerConnectionService {
   // caused a new device ID to be generated every session → server always saw alien device.
   private async _ensureDeviceId(): Promise<string> {
     if (this._device) return this._device;
-    // Delegate to deviceIdentifier — which produces a hardware-derived stable ID
-    // (butler-hw-<32hex>) that survives APK rebuilds and reinstalls.
+    // Delegate to deviceIdentifier — which produces a random app-install ID.
     // It writes to the same KEYS.DEVICE_ID ('commandcube_device_id') so storage
     // is always consistent between both services.
     const id = await deviceIdentifier.getDeviceId();
@@ -157,16 +159,22 @@ class ServerConnectionService {
   // ── Load from storage ────────────────────────────────────────
   async load(): Promise<boolean> {
     try {
-      await loadAuthDisabled(); // sync auth-disabled flag on every load
-      const [[, ip],[, port],[, device],[, token],[, appSig]] = await encryptedStorage.multiGet([
-        KEYS.IP, KEYS.PORT, KEYS.DEVICE_ID, KEYS.TOKEN, KEYS.APP_SIG,
+      await loadAuthDisabled(); // clear any legacy authentication opt-out
+      const [[, ip],[, port],[, device],[, token],[, appSig],[, scheme]] = await encryptedStorage.multiGet([
+        KEYS.IP, KEYS.PORT, KEYS.DEVICE_ID, KEYS.TOKEN, KEYS.APP_SIG, KEYS.SCHEME,
       ]);
       this._ip     = ip     || '';
       this._port   = port   || '';
-      this._device = device || '';
-      this._token  = token  || '';
-      this._appSig = appSig || '';
+      const currentInstallId = await deviceIdentifier.getDeviceId();
+      const rotated = !!device && device !== currentInstallId;
+      this._device = currentInstallId;
+      this._token  = rotated ? '' : (token || '');
+      this._appSig = rotated ? '' : (appSig || '');
+      this._scheme = scheme === 'https' ? 'https' : 'http';
       this._storageLoaded = true; // mark cache warm
+      // A former device-fingerprint binding must never silently retain a session.
+      // The user intentionally re-pairs with the new app-scoped identifier.
+      if (rotated) await this._save();
       return !!(this._ip && this._port);
     } catch { return false; }
   }
@@ -181,6 +189,7 @@ class ServerConnectionService {
       [KEYS.TOKEN,     this._token],
       [KEYS.PAIRED_AT, new Date().toISOString()],
       [KEYS.APP_SIG,   this._appSig],
+      [KEYS.SCHEME,    this._scheme],
     ]).catch(() => {});
     this._storageLoaded = true; // re-mark warm after write
   }
@@ -190,9 +199,8 @@ class ServerConnectionService {
     this._listeners.forEach(cb => { try { cb(s); } catch {} });
   }
 
-  // ── Build auth header string (respects global auth-disabled flag) ─
+  // ── Build auth header string ───────────────────────────────────
   buildAuthHeader(): string | null {
-    if (_authDisabled) return null;
     return this._token ? `Bearer ${this._token}` : null;
   }
 
@@ -200,7 +208,7 @@ class ServerConnectionService {
   // Server uses X-Device-Id for per-device rate limiting and better auth context.
   buildHeaders(extra?: Record<string, string>): Record<string, string> {
     const h: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (!_authDisabled && this._token) h['Authorization'] = `Bearer ${this._token}`;
+    if (this._token) h['Authorization'] = `Bearer ${this._token}`;
     if (this._device) h['X-Device-Id'] = this._device;
     if (this._appSig) h['X-Butler-App-Sig'] = this._appSig;
     if (extra) Object.assign(h, extra);
@@ -210,15 +218,23 @@ class ServerConnectionService {
   private async _ensureLoaded(): Promise<void> {
     if (this._storageLoaded) return;
     try {
-      const [[, ip],[, port],[, device],[, token],[, appSig]] = await encryptedStorage.multiGet([
-        KEYS.IP, KEYS.PORT, KEYS.DEVICE_ID, KEYS.TOKEN, KEYS.APP_SIG,
+      const [[, ip],[, port],[, device],[, token],[, appSig],[, scheme]] = await encryptedStorage.multiGet([
+        KEYS.IP, KEYS.PORT, KEYS.DEVICE_ID, KEYS.TOKEN, KEYS.APP_SIG, KEYS.SCHEME,
       ]);
       if (ip)     this._ip     = ip;
       if (port)   this._port   = port;
-      if (device) this._device = device;
-      if (token)  this._token  = token;
-      if (appSig) this._appSig = appSig;
+      const currentInstallId = await deviceIdentifier.getDeviceId();
+      const rotated = !!device && device !== currentInstallId;
+      this._device = currentInstallId;
+      if (token && !rotated)  this._token  = token;
+      if (appSig && !rotated) this._appSig = appSig;
+      if (scheme) this._scheme = scheme === 'https' ? 'https' : 'http';
       this._storageLoaded = true;
+      if (rotated) {
+        this._token = '';
+        this._appSig = '';
+        await this._save();
+      }
     } catch {}
   }
 
@@ -249,7 +265,7 @@ class ServerConnectionService {
       try {
         const ctrl = new AbortController();
         const tid  = setTimeout(() => ctrl.abort(), 8000);
-        const res  = await fetch(`http://${ip}:${port}${path}`, { signal: ctrl.signal });
+        const res  = await fetch(`${this.getBaseUrl(ip, port)}${path}`, { signal: ctrl.signal });
         clearTimeout(tid);
         // Absorb self-healed token if present in health response
         const ht = res.headers.get('X-New-Token');
@@ -276,7 +292,7 @@ class ServerConnectionService {
         try {
           const ctrl = new AbortController();
           const tid  = setTimeout(() => ctrl.abort(), 6000); // 6s for primary port
-          const res  = await fetch(`http://${ip}:${port}${path}`, { signal: ctrl.signal });
+          const res  = await fetch(`${this.getBaseUrl(ip, port)}${path}`, { signal: ctrl.signal });
           clearTimeout(tid);
           if (res.status < 500) {
             return { success: true, connected: true, latency: Date.now() - t0, resolvedPort: port };
@@ -296,7 +312,7 @@ class ServerConnectionService {
         try {
           const ctrl = new AbortController();
           const tid   = setTimeout(() => ctrl.abort(), 1500);
-          const res   = await fetch(`http://${ip}:${tryPort}${path}`, { signal: ctrl.signal });
+          const res   = await fetch(`${this.getBaseUrl(ip, tryPort)}${path}`, { signal: ctrl.signal });
           clearTimeout(tid);
           const latency = Date.now() - t0;
 
@@ -342,7 +358,7 @@ class ServerConnectionService {
       const tid  = setTimeout(() => ctrl.abort(), 5000);
       const t0   = Date.now();
       const resolvedPort = (health as any).resolvedPort || this._port;
-      const res  = await fetch(`http://${this._ip}:${resolvedPort}/reconnect`, {
+      const res  = await fetch(`${this.getBaseUrl(this._ip, resolvedPort)}/reconnect`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ deviceId }),
@@ -379,8 +395,9 @@ class ServerConnectionService {
   // ── Full QR pair ─────────────────────────────────────────────
   // Auto-unlock: if /pair returns 403, silently call /api/reset_pair then retry once.
   // The user never sees the lock error unless a different device holds the lock.
-  async pair(ip: string, port: string, pairingCode: string = '', skipPing = false, appSig = ''): Promise<ConnResult & { token?: string }> {
+  async pair(ip: string, port: string, pairingCode: string = '', skipPing = false, appSig = '', scheme: 'http' | 'https' = 'http'): Promise<ConnResult & { token?: string }> {
     const deviceId = await this._ensureDeviceId();
+    this._scheme = scheme === 'https' ? 'https' : 'http';
     // Capture appSig from QR payload immediately — persisted in _save() after successful pair
     if (appSig) this._appSig = appSig;
     // Discover the correct port — skip ping if caller already confirmed server is alive
@@ -396,7 +413,7 @@ class ServerConnectionService {
         const t0   = Date.now();
         const ctrl = new AbortController();
         const tid  = setTimeout(() => ctrl.abort(), 8000);
-        const res  = await fetch(`http://${ip}:${resolvedPort}/pair`, {
+        const res  = await fetch(`${this.getBaseUrl(ip, resolvedPort)}/pair`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify({ pairingCode, deviceId, platform: 'android' }),
@@ -424,7 +441,7 @@ class ServerConnectionService {
         try {
           const resetCtrl = new AbortController();
           const resetTid  = setTimeout(() => resetCtrl.abort(), 4000);
-          await fetch(`http://${ip}:${resolvedPort}/api/reset_pair`, {
+          await fetch(`${this.getBaseUrl(ip, resolvedPort)}/api/reset_pair`, {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({ pairingCode }),
@@ -465,7 +482,7 @@ class ServerConnectionService {
         // Silent token verification — fire-and-forget, just logs if it fails
         const verifyDeviceId = this._device;
         const verifyToken    = data.sessionToken;
-        fetch(`http://${ip}:${resolvedPort}/api/verify`, {
+        fetch(`${this.getBaseUrl(ip, resolvedPort)}/api/verify`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${verifyToken}` },
           body:    JSON.stringify({ deviceId: verifyDeviceId }),
@@ -474,16 +491,16 @@ class ServerConnectionService {
       }
       if (res.status === 403) return { success: false, connected: false, error: data.error || 'Server locked to another device', errorType: 'ALIEN' };
       if (res.status === 401) return { success: false, connected: false, error: data.error || 'Wrong pairing code', errorType: 'AUTH' };
-      // Some custom servers return 200 with an error field instead of the sessionToken
-      // Try connectManual as a last resort (works with auth-off servers)
+      // A healthy HTTP response without a session token is never a successful
+      // pair. Accepting token-less custom servers would silently weaken the
+      // privacy-first paired-PC boundary.
       if (res.ok && !data.sessionToken && !data.token) {
-        this._ip   = ip;
-        this._port = resolvedPort;
-        this._ok   = true;
-        await this._save();
-        await this.saveKnownGood(ip, resolvedPort);
-        this._notify();
-        return { success: true, connected: true, latency, token: '' };
+        return {
+          success: false,
+          connected: false,
+          error: 'Pairing server did not return a session token',
+          errorType: 'AUTH',
+        };
       }
       return { success: false, connected: false, error: data.message || data.error || `HTTP ${res.status}` };
     } catch (e: any) {
@@ -509,8 +526,11 @@ class ServerConnectionService {
 
   // ── Full manual connect ──────────────────────────────────────
   // Adaptively discovers the right port if the primary doesn't work.
-  async connectManual(ip: string, port: string): Promise<ConnResult> {
+  async connectManual(ip: string, port: string, pairingCode: string = ''): Promise<ConnResult> {
     await this._ensureLoaded();
+    // A new manual target must earn a fresh authenticated token. Retaining a
+    // token from a prior endpoint would make a token-less server look trusted.
+    this._token = '';
     // Save immediately so other tabs see the IP even before we confirm
     await this.saveManual(ip, port);
 
@@ -533,7 +553,7 @@ class ServerConnectionService {
     try {
       const ctrl = new AbortController();
       const tid  = setTimeout(() => ctrl.abort(), 5000);
-      const res  = await fetch(`http://${ip}:${resolvedPort}/reconnect`, {
+      const res  = await fetch(`${this.getBaseUrl(ip, resolvedPort)}/reconnect`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ deviceId }),
@@ -549,15 +569,20 @@ class ServerConnectionService {
         const ht = res.headers.get('X-New-Token');
         if (ht && ht !== this._token) { this._token = ht; await this._save(); }
         if (data.newToken && data.newToken !== this._token) { this._token = data.newToken; await this._save(); }
+        if (!this._token) {
+          this._ok = false;
+          this._notify();
+          return { success: false, connected: false, error: 'Reconnect response did not include a session token', errorType: 'AUTH' };
+        }
       } else if (res.status === 403) {
         // Try /pair — server may auto-unlock after 5min stale
         const pc  = new AbortController();
         setTimeout(() => pc.abort(), 8000);
         try {
-          const pr  = await fetch(`http://${ip}:${resolvedPort}/pair`, {
+          const pr  = await fetch(`${this.getBaseUrl(ip, resolvedPort)}/pair`, {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ deviceId }),
+            body:  JSON.stringify({ deviceId, ...(pairingCode.trim() ? { pairingCode: pairingCode.trim() } : {}) }),
             signal:  pc.signal,
           });
           if (pr.ok) {
@@ -585,9 +610,9 @@ class ServerConnectionService {
     // ── Try /pair directly (BOTER server first-connect, or server without /reconnect) ──
     try {
       const pc = new AbortController(); setTimeout(() => pc.abort(), 5000);
-      const pr = await fetch(`http://${ip}:${resolvedPort}/pair`, {
+      const pr = await fetch(`${this.getBaseUrl(ip, resolvedPort)}/pair`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId }), signal: pc.signal,
+        body: JSON.stringify({ deviceId, ...(pairingCode.trim() ? { pairingCode: pairingCode.trim() } : {}) }), signal: pc.signal,
       });
       if (pr.ok) {
         const pd = await pr.json().catch(() => ({}));
@@ -596,11 +621,20 @@ class ServerConnectionService {
         const ht = pr.headers.get('X-New-Token');
         if (ht) { this._token = ht; await this._save(); }
         if (pd.newToken) { this._token = pd.newToken; await this._save(); }
+        if (!this._token) {
+          this._ok = false;
+          this._notify();
+          return { success: false, connected: false, error: 'Pair response did not include a session token', errorType: 'AUTH' };
+        }
       } else if (pr.status === 403) {
         this._ok = false; this._notify();
         return { success: false, connected: false, error: 'Server locked to a different device', errorType: 'ALIEN' };
       }
-    } catch { /* no /pair endpoint — open server, token-less connection is fine */ }
+    } catch {
+      this._ok = false;
+      this._notify();
+      return { success: false, connected: false, error: 'Authenticated pairing endpoint is unavailable', errorType: 'AUTH' };
+    }
 
     this._ok = true;
     await this.saveKnownGood(ip, resolvedPort);
@@ -615,7 +649,7 @@ class ServerConnectionService {
     try {
       const ctrl = new AbortController();
       setTimeout(() => ctrl.abort(), 5000);
-      const res = await fetch(`http://${ip}:${port}/api/status`, { signal: ctrl.signal });
+      const res = await fetch(`${this.getBaseUrl(ip, port)}/api/status`, { signal: ctrl.signal });
       if (res.ok) {
         const j = await res.json().catch(() => ({}));
         features.setFromStatus(j);
@@ -661,7 +695,14 @@ class ServerConnectionService {
     }
 
     if (res.status === 401 && this._ip && this._port) {
-      await this.connectManual(this._ip, this._port).catch(() => {});
+      // A single expired token can be observed by several focused panels at
+      // once. Reconnect once rather than creating a burst of pair requests.
+      if (!this._reconnectFlight) {
+        this._reconnectFlight = this.connectManual(this._ip, this._port)
+          .catch(() => ({ success: false, connected: false }))
+          .finally(() => { this._reconnectFlight = null; });
+      }
+      await this._reconnectFlight;
       const refreshed = {
         ...headers,
         Authorization: `Bearer ${this._token}`,
@@ -670,6 +711,27 @@ class ServerConnectionService {
       res = await fetch(url, { ...options, headers: refreshed });
     }
     return res;
+  }
+
+
+  /** Authenticated request using the paired endpoint, persisted transport scheme,
+   * device identity, app signature, token refresh, and bounded caller timeout. */
+  async request(path: string, options: RequestInit = {}): Promise<Response> {
+    await this._ensureLoaded();
+    // Every ordinary API request receives an 8-second ceiling. Callers can
+    // still pass a shorter abort signal; its cancellation is forwarded below.
+    const controller = new AbortController();
+    const callerSignal = options.signal as AbortSignal | undefined;
+    const abortFromCaller = () => controller.abort();
+    if (callerSignal?.aborted) controller.abort();
+    else callerSignal?.addEventListener?.('abort', abortFromCaller, { once: true });
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      return await this.fetchWithAuth(this.buildUrl(path), { ...options, signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+      callerSignal?.removeEventListener?.('abort', abortFromCaller);
+    }
   }
 
   // ── Disconnect ───────────────────────────────────────────────
@@ -703,6 +765,31 @@ class ServerConnectionService {
   onStateChange(cb: (s: ConnState) => void): () => void {
     this._listeners.add(cb);
     return () => this._listeners.delete(cb);
+  }
+
+  // ── URL helpers ──────────────────────────────────────────────────────────
+  /** Constructs a full http URL for the given API path. */
+  buildUrl(path: string): string {
+    const ip   = this._ip;
+    const port = this._port;
+    if (!ip || !port) throw new Error('Not connected — pair PC first');
+    const clean = path.startsWith('/') ? path : `/${path}`;
+    return `${this.getBaseUrl(ip, port)}${clean}`;
+  }
+
+  /** Returns the saved remote-access URL (e.g. ngrok / Cloudflare tunnel). */
+  getRemoteUrl(): string | undefined {
+    return this._remoteUrl || undefined;
+  }
+
+  /** Persists a remote-access URL for the current session. */
+  setRemoteUrl(url: string): void {
+    this._remoteUrl = url;
+  }
+
+  /** Clears the saved remote-access URL. */
+  clearRemoteUrl(): void {
+    this._remoteUrl = '';
   }
 }
 

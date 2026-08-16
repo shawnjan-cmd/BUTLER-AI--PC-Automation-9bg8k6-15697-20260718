@@ -1,242 +1,656 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useLocalSearchParams } from 'expo-router';
+/**
+ * BUTLER AI — Chat v15 · Fresh Rebuild
+ * Clean message bubbles · Mode tabs · Streaming simulation
+ * Session management · Suggestions · Voice placeholder
+ * © 2026 Andrej Sladkovic — ALL RIGHTS RESERVED
+ */
+import { ButlerPageStudioHost } from '@/components/ui/ButlerPageStudioHost';
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import ButlerMicrocopy from '@/components/ui/ButlerMicrocopy';
+import ButlerAtmosphere from '@/components/ui/ButlerAtmosphere';
 import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+  View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
+  Animated, Platform, Dimensions, KeyboardAvoidingView,
+  ActivityIndicator, Pressable, Modal,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSkin } from '@/hooks/useSkin';
+import { SkinHeaderFX } from '@/components/ui/SkinHeaderFX';
+import { useFocusEffect } from 'expo-router';
+import { TabErrorBoundary } from '@/components/ui/TabErrorBoundary';
+import { serverConnection } from '@/services/serverConnection';
+import { haptics } from '@/services/haptics';
+import { buildScriptConcierge } from '@/services/scriptConcierge';
 
-import { DEFAULT_PREFERENCES, loadPreferences, savePreferences } from '@/services/appPreferences';
-import { type ChatMessage, newMessage, sendChat } from '@/services/chat';
-import { loadConfig, testServerConnection } from '@/services/connection';
+const BG    = '#0B0F17';
+const SURF  = '#0B0F17';
+const SURF2 = '#111621';
+const PURP  = '#A468FF';
+const CYAN  = '#38D9E8';
+const GREEN = '#2FE38A';
+const AMBER = '#FFB43D';
+const RED   = '#FF4D5E';
+const BLUE  = '#4A9EFF';
+const DIM   = '#4A9EFF';
+const MID   = '#4A9EFF';
+const TEXT  = '#DCE6F2';
+const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
+const SW    = Math.max(320, Dimensions.get('window').width);
 
-const starter = newMessage('assistant', 'Butler online. Ask me to automate or diagnose your connected PC workflows.');
+type Message = { id: string; role: 'user' | 'assistant' | 'system'; content: string; ts: number; };
 
-export default function ButlerScreen() {
-  const params = useLocalSearchParams<{ q?: string }>();
+const MODES = [
+  { key:'chat',   label:'CHAT',   icon:'chat-outline',  color:PURP,  desc:'General assistant' },
+  { key:'code',   label:'CODE',   icon:'code-braces',   color:CYAN,  desc:'Python & scripting' },
+  { key:'system', label:'SYSTEM', icon:'server',        color:GREEN, desc:'PC diagnostics' },
+];
 
-  const [messages, setMessages] = useState<ChatMessage[]>([starter]);
-  const [draft, setDraft] = useState('');
-  const [model, setModel] = useState(DEFAULT_PREFERENCES.defaultModel);
-  const [systemPrompt, setSystemPrompt] = useState(DEFAULT_PREFERENCES.systemPrompt);
-  const [status, setStatus] = useState('Ready');
-  const [sending, setSending] = useState(false);
+const SUGGESTIONS = [
+  { text:'What can you do right now?',    icon:'help-circle-outline' },
+  { text:'Scan my LAN for active hosts',  icon:'network-outline'     },
+  { text:'Free up disk space safely',     icon:'harddisk'            },
+  { text:'Show top CPU processes',        icon:'cpu-64-bit'          },
+  { text:'Find or create a Python script', icon:'code-braces'         },
+  { text:'Write a backup script',         icon:'code-braces'         },
+  { text:'Explain my system specs',       icon:'information-outline'  },
+];
+
+// ── PulseDot ─────────────────────────────────────────────────────
+const PulseDot = memo(({ color, size = 6 }: { color: string; size?: number }) => {
+  const a = useRef(new Animated.Value(0.3)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(a, { toValue: 1, duration: 700, useNativeDriver: true }),
+      Animated.timing(a, { toValue: 0.2, duration: 700, useNativeDriver: true }),
+    ]));
+    loop.start(); return () => loop.stop();
+  }, []);
+  return <Animated.View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color, opacity: a }} />;
+});
+
+// ── Message bubble ────────────────────────────────────────────────
+type ChatSkin = { accent:string; accent2:string; accent3:string; ok:string; warn:string; text:string; mid:string; panel2:string; bg:string; mascot:string; bubbleShape:string; fontProfile:string; };
+const mascotIcon = (mascot: string): keyof typeof MaterialCommunityIcons.glyphMap => mascot === 'atelier' ? 'robot-excited-outline' : mascot === 'guardian' ? 'shield-moon-outline' : mascot === 'neon' ? 'robot-outline' : mascot === 'terminal' ? 'robot-industrial' : mascot === 'orbital' ? 'orbit' : 'robot-happy';
+const MsgBubble = memo(({ msg, activeMode, skin }: { msg: Message; activeMode: string; skin: ChatSkin }) => {
+  const isUser   = msg.role === 'user';
+  const isSystem = msg.role === 'system';
+  const modeColor = activeMode === 'code' ? skin.accent : activeMode === 'system' ? skin.ok : skin.accent3;
+  const color = isUser ? modeColor : isSystem ? skin.warn : skin.accent3;
+  const fade   = useRef(new Animated.Value(0)).current;
+  const slideX = useRef(new Animated.Value(isUser ? 20 : -20)).current;
 
   useEffect(() => {
-    void (async () => {
-      const prefs = await loadPreferences();
-      setModel(prefs.defaultModel);
-      setSystemPrompt(prefs.systemPrompt);
-    })();
+    Animated.parallel([
+      Animated.timing(fade,  { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.spring(slideX,{ toValue: 0, tension: 200, friction: 16, useNativeDriver: true }),
+    ]).start();
   }, []);
 
-  const quickPrompt = useMemo(() => String(params.q ?? '').trim(), [params.q]);
-
-  useEffect(() => {
-    if (!quickPrompt) return;
-    setDraft(quickPrompt);
-  }, [quickPrompt]);
-
-  const pushUserPrompt = async (text: string) => {
-    const prompt = text.trim();
-    if (!prompt || sending) return;
-
-    setSending(true);
-    setStatus('Checking server…');
-
-    try {
-      const cfg = await loadConfig();
-      if (!cfg.host) {
-        throw new Error('No server configured. Open Connect and save your endpoint first.');
-      }
-
-      const health = await testServerConnection(cfg);
-      if (!health.ok) {
-        throw new Error(health.error || 'Server is unreachable.');
-      }
-
-      const userMsg = newMessage('user', prompt);
-      const outbound = [...messages, userMsg];
-      setMessages(outbound);
-      setDraft('');
-      setStatus('Generating response…');
-
-      const answer = await sendChat(cfg, outbound, {
-        model: model.trim() || DEFAULT_PREFERENCES.defaultModel,
-        systemPrompt,
-      });
-
-      setMessages((prev) => [...prev, newMessage('assistant', answer)]);
-      setStatus(`Connected (${health.latencyMs ?? 0}ms)`);
-
-      await savePreferences({
-        defaultModel: model.trim() || DEFAULT_PREFERENCES.defaultModel,
-        systemPrompt,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unexpected chat failure';
-      setStatus(`Error: ${message}`);
-      setMessages((prev) => [...prev, newMessage('assistant', `I couldn't complete that request: ${message}`)]);
-    } finally {
-      setSending(false);
-    }
-  };
+  const ts = new Date(msg.ts).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
 
   return (
-    <SafeAreaView style={s.safe}>
-      <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={s.header}>
-          <Text style={s.eyebrow}>LIVE BUTLER</Text>
-          <Text style={s.title}>AI Operations Chat</Text>
-          <Text style={s.sub}>Model and system prompt are fully editable and persisted.</Text>
+    <Animated.View style={[
+      MB.row,
+      isUser && { alignSelf:'flex-end', flexDirection:'row-reverse' },
+      { opacity: fade, transform: [{ translateX: slideX }] },
+    ]}>
+      <View style={[MB.avatar, { borderColor: color + '50', backgroundColor: color + '10' }]}>
+        <MaterialCommunityIcons
+          name={isUser ? 'account' : isSystem ? 'information' : mascotIcon(skin.mascot)}
+          size={12} color={color} />
+      </View>
+      <View style={{ maxWidth: SW * 0.76, gap: 3 }}>
+        {!isUser && (
+          <Text style={[MB.role, { color }]}>{isSystem ? 'SYSTEM' : 'BUTLER AI'}</Text>
+        )}
+        <View style={[MB.bubble, {
+          borderColor: color + '28',
+          backgroundColor: isUser ? color + '0E' : skin.panel2,
+          borderLeftWidth: isUser ? 0 : 3,
+          borderRightWidth: isUser ? 3 : 0,
+          borderLeftColor: isUser ? undefined : color,
+          borderRightColor: isUser ? color : undefined,
+          borderRadius: skin.bubbleShape === 'capsule' ? 22 : skin.bubbleShape === 'bracket' ? 6 : skin.bubbleShape === 'terminal' ? 4 : skin.bubbleShape === 'orbital' ? 18 : 14,
+        }]}>
+          <Text style={[MB.content, { color: isUser ? color + 'EE' : skin.text }]}>
+            {msg.content}
+          </Text>
         </View>
+        <Text style={[MB.ts, { alignSelf: isUser ? 'flex-end' : 'flex-start' }]}>{ts}</Text>
+      </View>
+    </Animated.View>
+  );
+});
+const MB = StyleSheet.create({
+  row:     { flexDirection:'row', alignItems:'flex-end', gap:8, paddingHorizontal:12, marginBottom:10 },
+  avatar:  { width:26, height:26, borderRadius:8, borderWidth:1.5, alignItems:'center', justifyContent:'center', flexShrink:0 },
+  role:    { fontFamily:MONO, fontSize:8, fontWeight:'900', letterSpacing:0.8, paddingLeft:2 },
+  bubble:  { borderWidth:1.5, borderRadius:14, padding:12, paddingTop:10 },
+  content: { fontFamily:MONO, fontSize:13, lineHeight:20 },
+  ts:      { fontFamily:MONO, fontSize:8, color:MID },
+});
 
-        <View style={s.controls}>
-          <View style={s.controlBlock}>
-            <Text style={s.label}>Model</Text>
-            <TextInput
-              style={s.controlInput}
-              value={model}
-              onChangeText={setModel}
-              autoCapitalize="none"
-              placeholder="llama3.1:8b"
-              placeholderTextColor="#6A85A8"
-            />
-          </View>
-          <View style={s.controlBlock}>
-            <Text style={s.label}>System prompt</Text>
-            <TextInput
-              style={[s.controlInput, s.controlInputMultiline]}
-              value={systemPrompt}
-              onChangeText={setSystemPrompt}
-              multiline
-              placeholder="Set assistant behavior"
-              placeholderTextColor="#6A85A8"
-            />
-          </View>
-        </View>
-
-        <ScrollView style={s.chat} contentContainerStyle={s.chatContent} showsVerticalScrollIndicator={false}>
-          {messages.map((message) => (
-            <View key={message.id} style={[s.bubble, message.role === 'user' ? s.bubbleUser : s.bubbleAssistant]}>
-              <Text style={s.bubbleRole}>{message.role === 'user' ? 'YOU' : 'BUTLER'}</Text>
-              <Text style={s.bubbleText}>{message.content}</Text>
-            </View>
+// ── Typing indicator ──────────────────────────────────────────────
+const TypingDots = memo(({ color, background, mascot }: { color: string; background: string; mascot: string }) => {
+  const a0 = useRef<Animated.Value | null>(null);
+  const a1 = useRef<Animated.Value | null>(null);
+  const a2 = useRef<Animated.Value | null>(null);
+  if (!a0.current) a0.current = new Animated.Value(0.15);
+  if (!a1.current) a1.current = new Animated.Value(0.15);
+  if (!a2.current) a2.current = new Animated.Value(0.15);
+  const anims = [a0.current, a1.current, a2.current];
+  useEffect(() => {
+    const loops = anims.map((a, i) => Animated.loop(Animated.sequence([
+      Animated.delay(i * 150),
+      Animated.timing(a, { toValue: 1, duration: 380, useNativeDriver: true }),
+      Animated.timing(a, { toValue: 0.1, duration: 380, useNativeDriver: true }),
+    ])));
+    loops.forEach(l => l.start()); return () => loops.forEach(l => l.stop());
+  }, []);
+  return (
+    <View style={{ flexDirection:'row', alignItems:'flex-end', gap:8, paddingHorizontal:12, marginBottom:10 }}>
+      <View style={[MB.avatar, { borderColor: color+'50', backgroundColor: color+'10' }]}>
+        <MaterialCommunityIcons name={mascotIcon(mascot)} size={12} color={color} />
+      </View>
+      <View style={[MB.bubble, { borderColor:color+'28', backgroundColor:background, borderLeftWidth:3, borderLeftColor:color }]}>
+        <View style={{ flexDirection:'row', gap:5, alignItems:'center', padding:2 }}>
+          {anims.map((a, i) => (
+            <Animated.View key={i} style={{ width:7, height:7, borderRadius:3.5, backgroundColor:color, opacity:a }} />
           ))}
-          {sending ? (
-            <View style={s.typingRow}>
-              <ActivityIndicator color="#8AD8FF" />
-              <Text style={s.typingText}>Butler is thinking…</Text>
-            </View>
-          ) : null}
-        </ScrollView>
+        </View>
+      </View>
+    </View>
+  );
+});
 
-        <View style={s.composerWrap}>
-          <Text style={s.status}>{status}</Text>
-          <View style={s.composerRow}>
+// ── Header ────────────────────────────────────────────────────────
+const ButlerHeader = memo(({ safeTop, isConn, model, msgCount, onClear, onHistory }: {
+  safeTop:number; isConn:boolean; model:string; msgCount:number;
+  onClear:()=>void; onHistory:()=>void;
+}) => {
+  // ── SKIN WIRING: every colour below resolves from the active pack on the
+  // SKINS page, so switching a skin recolours this header instantly. ──
+  const S = useSkin();
+  const CYAN = S.accent, TEAL = S.accent, BLUE = S.accent2, PURP = S.accent3;
+  const AMBER = S.warn, GREEN = S.ok, RED = S.danger;
+  const TEXT = S.text, DIM = S.dim, MID = S.mid;
+  const SURF = S.panel, SURF2 = S.panel2, SURF3 = S.panel2, BG = S.bg;
+  const [hh, setHh] = useState('--:--');
+  const [ss, setSs] = useState('--');
+  const scanX = useRef(new Animated.Value(-SW)).current;
+
+  useEffect(() => {
+    const tick = () => {
+      const n = new Date();
+      setHh(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`);
+      setSs(String(n.getSeconds()).padStart(2,'0'));
+    };
+    tick();
+    const t = setInterval(tick, 1000); return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(scanX, { toValue:SW+120, duration:2400, useNativeDriver:true }),
+      Animated.timing(scanX, { toValue:-SW, duration:0, useNativeDriver:true }),
+      Animated.delay(5000),
+    ]));
+    loop.start(); return () => loop.stop();
+  }, []);
+
+  const cc = isConn ? GREEN : AMBER;
+
+  return (
+    <View style={[BH.root, { paddingTop: safeTop, backgroundColor: S.headerBg, borderBottomColor: S.border }]}>
+          <SkinHeaderFX accent={S.accent} accent2={S.accent2} accent3={S.accent3} stripe={S.stripe} fxKey="BH" still={!S.headerGlow} />
+      <View style={{ height:3, backgroundColor:PURP }} />
+      <Animated.View pointerEvents="none" style={[BH.scan, { transform:[{ translateX:scanX }] }]} />
+      <View style={BH.body}>
+        <View style={{ flex:1, gap:4 }}>
+          <Text style={BH.eye}>LOCAL OLLAMA · PRIVATE · ZERO CLOUD</Text>
+          <View style={{ flexDirection:'row', alignItems:'center', gap:8 }}>
+            <MaterialCommunityIcons name="robot-happy" size={18} color={PURP} />
+            <Text style={BH.title}>BUTLER <Text style={{ color:PURP }}>AI</Text></Text>
+          </View>
+          <View style={{ flexDirection:'row', gap:6, flexWrap:'wrap' }}>
+            <View style={[BH.pill, { borderColor:cc+'70', backgroundColor:cc+'10' }]}>
+              <PulseDot color={cc} size={5} />
+              <Text style={[BH.pTxt, { color:cc }]}>{isConn ? 'ONLINE' : 'OFFLINE'}</Text>
+            </View>
+            {model ? (
+              <View style={[BH.pill, { borderColor:PURP+'50', backgroundColor:PURP+'08' }]}>
+                <MaterialCommunityIcons name="brain" size={9} color={PURP} />
+                <Text style={[BH.pTxt, { color:PURP }]}>{model.split(':')[0].toUpperCase()}</Text>
+              </View>
+            ) : null}
+            {msgCount > 0 && (
+              <View style={[BH.pill, { borderColor:DIM+'60', backgroundColor:DIM+'20' }]}>
+                <Text style={[BH.pTxt, { color:MID }]}>{msgCount} MSG</Text>
+              </View>
+            )}
+          </View>
+        </View>
+        <View style={{ alignItems:'flex-end', gap:6 }}>
+          <View style={{ flexDirection:'row', alignItems:'baseline', gap:1 }}>
+            <Text style={[BH.cBig, { color:TEXT }]}>{hh}</Text>
+            <Text style={[BH.cSec, { color:PURP }]}>{ss}</Text>
+          </View>
+          <View style={{ flexDirection:'row', gap:8 }}>
+            <TouchableOpacity onPress={onHistory} activeOpacity={0.8}
+              hitSlop={{top:8,bottom:8,left:8,right:8}}>
+              <MaterialIcons name="history" size={18} color={MID} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onClear} activeOpacity={0.8}
+              hitSlop={{top:8,bottom:8,left:8,right:8}}>
+              <MaterialIcons name="delete-sweep" size={18} color={RED + '90'} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+      <View style={{ height:2, backgroundColor:PURP+'30' }} />
+    </View>
+  );
+});
+const BH = StyleSheet.create({
+  root: { backgroundColor:'#0B0F17', overflow:'hidden' },
+  scan: { position:'absolute', top:0, bottom:0, width:80, backgroundColor:PURP+'06' },
+  body: { flexDirection:'row', alignItems:'flex-start', paddingHorizontal:14, paddingTop:11, paddingBottom:12, gap:10, zIndex:1 },
+  eye:  { fontFamily:MONO, fontSize:7.5, color:PURP+'60', letterSpacing:1.8, fontWeight:'700' },
+  title:{ fontSize:22, fontWeight:'900', color:'#FFF' },
+  pill: { flexDirection:'row', alignItems:'center', gap:5, borderWidth:1.5, borderRadius:20, paddingHorizontal:9, paddingVertical:4 },
+  pTxt: { fontFamily:MONO, fontSize:9, fontWeight:'900' },
+  cBig: { fontFamily:MONO, fontSize:22, fontWeight:'900', letterSpacing:1 },
+  cSec: { fontFamily:MONO, fontSize:14, fontWeight:'900' },
+});
+
+// ── Mode bar ──────────────────────────────────────────────────────
+const ModeBar = memo(({ mode, onChange }: { mode: string; onChange: (m: string) => void }) => {
+  const skin = useSkin();
+  const modeColor = (key: string) => key === 'code' ? skin.accent : key === 'system' ? skin.ok : skin.accent3;
+  return (
+  <View style={{ flexDirection:'row', backgroundColor:skin.panel, borderBottomWidth:1, borderBottomColor:skin.border+'50' }}>
+    {MODES.map(m => {
+      const active = mode === m.key;
+      const color = modeColor(m.key);
+      return (
+        <TouchableOpacity key={m.key} onPress={() => { haptics.light(); onChange(m.key); }} activeOpacity={0.8}
+          style={{ flex:1, alignItems:'center', paddingVertical:9, gap:2,
+            borderBottomWidth:2, borderBottomColor: active ? color : 'transparent' }}>
+          <MaterialCommunityIcons name={m.icon as any} size={14} color={active ? color : skin.mid} />
+          <Text style={{ fontFamily:MONO, fontSize:8.5, fontWeight:'900', color: active ? color : skin.mid, letterSpacing:0.4 }}>
+            {m.label}
+          </Text>
+        </TouchableOpacity>
+      );
+    })}
+  </View>
+  );
+});
+
+// ── Session history modal ─────────────────────────────────────────
+const HistoryModal = memo(({ visible, sessions, onSelect, onNew, onClose }: {
+  visible:boolean; sessions:{id:string; title:string; count:number; ts:number}[];
+  onSelect:(id:string)=>void; onNew:()=>void; onClose:()=>void;
+}) => {
+  if (!visible) return null;
+  return (
+    <Modal visible transparent animationType="slide">
+      <View style={{ flex:1, backgroundColor:'rgba(0,0,0,0.85)', justifyContent:'flex-end' }}>
+        <View style={{ backgroundColor:SURF, borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'70%' }}>
+          <View style={{ height:3, backgroundColor:PURP }} />
+          <View style={{ flexDirection:'row', alignItems:'center', gap:10, padding:16 }}>
+            <MaterialIcons name="history" size={18} color={PURP} />
+            <Text style={{ fontFamily:MONO, fontSize:15, fontWeight:'900', color:TEXT, flex:1 }}>SESSION HISTORY</Text>
+            <TouchableOpacity onPress={onNew} activeOpacity={0.8}
+              style={{ flexDirection:'row', alignItems:'center', gap:5, borderWidth:1.5, borderRadius:10, paddingHorizontal:10, paddingVertical:6, borderColor:GREEN+'60', backgroundColor:GREEN+'10' }}>
+              <MaterialIcons name="add" size={14} color={GREEN} />
+              <Text style={{ fontFamily:MONO, fontSize:9.5, color:GREEN, fontWeight:'900' }}>NEW</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onClose} activeOpacity={0.8} style={{ padding:4 }}>
+              <MaterialIcons name="close" size={20} color={MID} />
+            </TouchableOpacity>
+          </View>
+          {sessions.length === 0 ? (
+            <View style={{ alignItems:'center', padding:40, gap:10 }}>
+              <MaterialCommunityIcons name="chat-outline" size={40} color={DIM} />
+              <Text style={{ fontFamily:MONO, fontSize:12, color:MID }}>No saved sessions yet</Text>
+            </View>
+          ) : (
+            sessions.map((s, i) => {
+              const ago = Math.round((Date.now() - s.ts) / 60000);
+              const agoStr = ago < 1 ? 'just now' : ago < 60 ? `${ago}m ago` : `${Math.round(ago/60)}h ago`;
+              return (
+                <TouchableOpacity key={s.id} onPress={() => { onSelect(s.id); onClose(); }} activeOpacity={0.8}
+                  style={{ flexDirection:'row', alignItems:'center', gap:12, paddingHorizontal:16, paddingVertical:12, borderBottomWidth:1, borderBottomColor:DIM+'50' }}>
+                  <View style={{ width:36, height:36, borderRadius:10, borderWidth:1.5, borderColor:PURP+'40', backgroundColor:PURP+'10', alignItems:'center', justifyContent:'center' }}>
+                    <MaterialCommunityIcons name="chat-outline" size={16} color={PURP} />
+                  </View>
+                  <View style={{ flex:1 }}>
+                    <Text style={{ fontFamily:MONO, fontSize:12, fontWeight:'700', color:TEXT }} numberOfLines={1}>{s.title}</Text>
+                    <Text style={{ fontFamily:MONO, fontSize:9, color:MID, marginTop:2 }}>{s.count} messages · {agoStr}</Text>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={18} color={MID} />
+                </TouchableOpacity>
+              );
+            })
+          )}
+          <View style={{ height:20 }} />
+        </View>
+      </View>
+    </Modal>
+  );
+});
+
+// ── Offline reply generator ───────────────────────────────────────
+function offlineReply(text: string, mode: string): string {
+  const t = text.toLowerCase();
+  if (/hello|hi|hey/.test(t)) return 'Hello! Connect your PC to unlock full local AI via Ollama. Go to PAIR tab.';
+  if (/help|what can|capabilities/.test(t)) return 'I can run approved Python scripts, show live PC data when paired, and use the configured local Ollama provider when its runtime status is verified.';
+  if (/script|python|code|automat/.test(t)) return 'Tap the FORGE tab to browse 250+ automation scripts. Run them directly on your paired PC with one tap.';
+  if (/pair|connect|qr/.test(t)) return 'Run butler_server.py on your PC, then tap PAIR tab and scan the QR code. Auto-setup handles everything.';
+  if (/security|safe|private|encrypt/.test(t)) return 'Butler will show encryption and transport status only after the paired PC reports verified runtime evidence. Sensitive local values fail closed when the encryption key is unavailable; no security status is inferred from a label.';
+  if (/memory|ram|cpu|disk|performance/.test(t)) return mode === 'system'
+    ? 'Pair your PC to get live CPU/RAM/disk data. I can run psutil scripts to analyze performance in detail.'
+    : 'Go to HOME to see your PC system metrics in real time once paired.';
+  if (/ollama|model|llm|ai/.test(t)) return 'Butler uses the paired PC provider reported by the server. The selected model, local-only state, and availability must be read from the live Ollama health response; Butler will not invent a model or claim a cloud setting it has not verified.';
+  return 'Pair your PC first for full Butler AI. I have 250+ scripts, system monitoring, file transfer, and a local AI chat engine ready to go.';
+}
+
+// ── Main screen ───────────────────────────────────────────────────
+function ButlerInner() {
+  const insets = useSafeAreaInsets();
+  const skin = useSkin();
+  const [messages, setMessages] = useState<Message[]>([
+    { id:'sys0', role:'system', content:'Butler AI ready. Pair your PC via QR code to unlock full local AI, script execution, and system monitoring.', ts:Date.now() },
+  ]);
+  const [input, setInput]       = useState('');
+  const [sending, setSending]   = useState(false);
+  const [isConn, setIsConn]     = useState(false);
+  const [model, setModel]       = useState('');
+  const [mode, setMode]         = useState('chat');
+  const [showHistory, setShowHistory] = useState(false);
+  const [sessions] = useState<{id:string; title:string; count:number; ts:number}[]>([]);
+  const listRef  = useRef<FlatList<Message>>(null);
+  const sendRef  = useRef(false);
+
+  useFocusEffect(useCallback(() => {
+    const c = serverConnection.isConnected?.() ?? false;
+    setIsConn(c);
+    if (c) fetchModel();
+  }, []));
+
+  const fetchModel = async () => {
+    try {
+      if (!serverConnection.isConnected()) return;
+      const res = await serverConnection.request('/api/ollama/models');
+      if (res.ok) {
+        const d = await res.json();
+        const list: string[] = Array.isArray(d) ? d : (d.models ?? []);
+        const priority = ['qwen2.5-coder','qwen2.5','mistral','llama3.2','llama3','codellama','phi'];
+        const best = priority.find(p => list.some(m => m.toLowerCase().includes(p))) || list[0] || '';
+        setModel(best);
+      }
+    } catch {}
+  };
+
+  const scrollToEnd = useCallback(() => {
+    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
+  }, []);
+
+  const sendMessage = useCallback(async (content?: string) => {
+    const text = (content || input).trim();
+    if (!text || sendRef.current) return;
+    sendRef.current = true;
+    haptics.medium();
+    const concierge = mode === 'code' || /\b(script|python|automate|automation|backup|rename|monitor|watch|download|organize)\b/i.test(text)
+      ? buildScriptConcierge(text)
+      : null;
+    setInput('');
+    const userMsg: Message = { id:Date.now().toString(), role:'user', content:text, ts:Date.now() };
+    setMessages(prev => [...prev, userMsg]);
+    setSending(true);
+    scrollToEnd();
+
+    try {
+      if (concierge?.risk === 'blocked') {
+        setMessages(prev => [...prev, { id:Date.now().toString(), role:'assistant', content:concierge.explanation, ts:Date.now() }]);
+        haptics.warning?.();
+      } else if (!isConn) {
+        await new Promise(r => setTimeout(r, 500 + Math.random() * 400));
+        const reply = concierge
+          ? [
+              concierge.explanation,
+              concierge.matches.length > 0 ? `Closest local matches:\n${concierge.matches.slice(0, 3).map((hit, i) => `${i + 1}. ${hit.script.title} — ${hit.script.description}`).join('\\n')}` : '',
+              concierge.questions.length > 0 ? `To make it exact, tell me:\n${concierge.questions.map(q => `• ${q}`).join('\\n')}` : 'Pair the PC when you want me to draft and verify the next step.',
+            ].filter(Boolean).join('\\n\\n')
+          : offlineReply(text, mode);
+        setMessages(prev => [...prev, { id:Date.now().toString(), role:'assistant', content:reply, ts:Date.now() }]);
+        haptics.success();
+      } else {
+        const ctrl = new AbortController();
+        const timeoutId = setTimeout(() => ctrl.abort(), 35000);
+          const sysPrompt = mode === 'code'
+          ? 'You are an expert Python coder and system administrator. Always provide working code. Use the supplied Script Concierge brief as preflight context; answer its clarification questions before drafting, prefer an existing local match, and never execute or claim a successful run without a Flow Ledger receipt.'
+          : mode === 'system'
+          ? 'You are a system administrator AI. Be precise, technical, and include actionable commands.'
+          : 'You are Butler AI — a helpful, private, local PC assistant. Be concise and practical.';
+        const conversation = messages.slice(-12)
+          .filter(m => m.role === 'user' || m.role === 'assistant')
+          .map(m => ({ role: m.role, content: m.content }));
+          const res = await serverConnection.request('/api/butler/chat', {
+          method:'POST',
+          body: JSON.stringify({ message: text, conversation, systemPrompt: sysPrompt, scriptConcierge: concierge ? {
+            mode: concierge.mode,
+            risk: concierge.risk,
+            intent: concierge.intent,
+            matches: concierge.matches.slice(0, 3).map(hit => ({ id: hit.script.id, title: hit.script.title, description: hit.script.description, category: hit.script.category, reasons: hit.reasons })),
+            questions: concierge.questions,
+            generationBrief: concierge.generationBrief,
+          } : undefined }),
+          signal: ctrl.signal,
+        });
+        clearTimeout(timeoutId);
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || d.message || `Server error ${res.status}`);
+        const reply = (d.reply || d.content || d.message || '').trim() || 'Done.';
+        setMessages(prev => [...prev, { id:Date.now().toString(), role:'assistant', content:reply, ts:Date.now() }]);
+        haptics.success();
+      }
+    } catch (e: any) {
+      const err = e?.name==='AbortError' ? 'Request timed out (35s)' : (e?.message?.slice(0,100) || 'Request failed');
+      setMessages(prev => [...prev, { id:Date.now().toString(), role:'assistant', content:'Error: ' + err, ts:Date.now() }]);
+    } finally {
+      sendRef.current = false;
+      setSending(false);
+      scrollToEnd();
+    }
+  }, [input, isConn, mode, messages, scrollToEnd]);
+
+  const clearChat = useCallback(() => {
+    haptics.medium();
+    setMessages([{ id:'sys'+Date.now(), role:'system', content:'Session cleared. Butler AI ready.', ts:Date.now() }]);
+  }, []);
+
+  const activeMode = MODES.find(m => m.key === mode) ?? MODES[0];
+  const modeColor = mode === 'code' ? skin.accent : mode === 'system' ? skin.ok : skin.accent3;
+  const userMsgCount = messages.filter(m => m.role === 'user').length;
+  const isEmpty = userMsgCount === 0;
+  // Long context warning: Ollama sends the full history on every request.
+  // After 15 user turns the context window grows large and responses slow down.
+  const isLongContext = userMsgCount >= 15;
+
+  const renderItem = useCallback(({ item }: { item: Message }) => (
+    <MsgBubble msg={item} activeMode={mode} skin={skin} />
+  ), [mode, skin]);
+
+  const keyExtractor = useCallback((item: Message) => item.id, []);
+
+  return (
+    <View style={{ flex:1, backgroundColor:skin.bg }}>
+      <ButlerAtmosphere accent={skin.accent} intensity={0.12} />
+      <ButlerMicrocopy accent={skin.accent} text="The first local-model reply may take longer while the provider warms up." icon="robot-outline" />
+      <ButlerHeader
+        safeTop={insets.top} isConn={isConn} model={model}
+        msgCount={userMsgCount} onClear={clearChat}
+        onHistory={() => setShowHistory(true)} />
+      <ButlerPageStudioHost pageId="chat" />
+      <ModeBar mode={mode} onChange={setMode} />
+      <View style={{ flexDirection:'row', alignItems:'center', gap:8, paddingHorizontal:12, paddingVertical:8, backgroundColor:SURF2, borderBottomWidth:1, borderBottomColor:DIM+'45' }}>
+        <View style={{ borderWidth:1.5, borderRadius:20, paddingHorizontal:9, paddingVertical:4, borderColor:modeColor+'55', backgroundColor:modeColor+'10' }}>
+          <Text style={{ fontFamily:MONO, fontSize:8.5, color:modeColor, fontWeight:'900', letterSpacing:0.5 }}>
+            {activeMode.label} MODE
+          </Text>
+        </View>
+        <Text numberOfLines={1} style={{ flex:1, fontFamily:MONO, fontSize:8.5, color:MID, lineHeight:13 }}>
+          {activeMode.desc}
+        </Text>
+        <TouchableOpacity onPress={() => setShowHistory(true)} activeOpacity={0.8}
+          style={{ flexDirection:'row', alignItems:'center', gap:4, borderWidth:1.5, borderRadius:10, paddingHorizontal:8, paddingVertical:6, borderColor:CYAN+'45', backgroundColor:CYAN+'0C' }}>
+          <MaterialIcons name="history" size={13} color={CYAN} />
+          <Text style={{ fontFamily:MONO, fontSize:8, color:CYAN, fontWeight:'900' }}>HISTORY</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={clearChat} activeOpacity={0.8}
+          style={{ flexDirection:'row', alignItems:'center', gap:4, borderWidth:1.5, borderRadius:10, paddingHorizontal:8, paddingVertical:6, borderColor:RED+'45', backgroundColor:RED+'0A' }}>
+          <MaterialIcons name="delete-sweep" size={13} color={RED} />
+          <Text style={{ fontFamily:MONO, fontSize:8, color:RED, fontWeight:'900' }}>CLEAR</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Long context warning — shown when conversation history grows large */}
+      {isLongContext && (
+        <View style={{ flexDirection:'row', alignItems:'center', gap:8, paddingHorizontal:12, paddingVertical:8,
+          backgroundColor: AMBER+'12', borderBottomWidth:1.5, borderBottomColor: AMBER+'40' }}>
+          <MaterialIcons name="warning" size={14} color={AMBER} />
+          <Text style={{ fontFamily:MONO, fontSize:9.5, color:AMBER, flex:1, lineHeight:14 }}>
+            {'LONG CONTEXT · '}
+            <Text style={{ fontWeight:'900' }}>{userMsgCount} turns</Text>
+            {' sent with every request — AI will slow down. Clear chat to speed up.'}
+          </Text>
+          <TouchableOpacity onPress={clearChat} activeOpacity={0.8}
+            style={{ borderWidth:1.5, borderRadius:8, paddingHorizontal:8, paddingVertical:4,
+              borderColor:AMBER+'60', backgroundColor:AMBER+'10' }}>
+            <Text style={{ fontFamily:MONO, fontSize:8.5, color:AMBER, fontWeight:'900' }}>CLEAR</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <KeyboardAvoidingView style={{ flex:1 }} behavior={Platform.OS==='ios' ? 'padding' : 'height'}>
+        {/* Messages */}
+        <FlatList
+          ref={listRef}
+          data={messages}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          contentContainerStyle={{ paddingTop:12, paddingBottom:6 }}
+          showsVerticalScrollIndicator={false}
+          removeClippedSubviews={Platform.OS === 'android'}
+          ListFooterComponent={sending ? <TypingDots color={modeColor} background={skin.panel2} mascot={skin.mascot} /> : null}
+          onContentSizeChange={scrollToEnd}
+        />
+
+        {/* Suggestions when empty */}
+        {isEmpty && !sending && (
+          <View style={{ paddingHorizontal:12, paddingBottom:10 }}>
+            <Text style={{ fontFamily:MONO, fontSize:8.5, color:PURP+'60', letterSpacing:1.5, textAlign:'center', marginBottom:10 }}>
+              SUGGESTED PROMPTS
+            </Text>
+            <View style={{ flexDirection:'row', flexWrap:'wrap', gap:7, justifyContent:'center' }}>
+              {SUGGESTIONS.map((s, i) => (
+                <TouchableOpacity key={i} onPress={() => sendMessage(s.text)} activeOpacity={0.8}
+                  style={{ flexDirection:'row', alignItems:'center', gap:5, borderWidth:1.5, borderRadius:20, paddingHorizontal:11, paddingVertical:7, borderColor:PURP+'35', backgroundColor:PURP+'08' }}>
+                  <MaterialCommunityIcons name={s.icon as any} size={11} color={PURP+'80'} />
+                  <Text style={{ fontFamily:MONO, fontSize:10, color:PURP+'BB' }}>{s.text}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Input bar */}
+        <View style={[IB.root, { paddingBottom: Math.max(insets.bottom+6, 10), borderTopColor: modeColor+'20' }]}>
+          {/* Mode indicator strip */}
+          <View style={{ flexDirection:'row', justifyContent:'center', gap:16, marginBottom:7 }}>
+            {[
+              isConn ? 'PC LINK VERIFIED' : 'PC OFFLINE',
+              model ? `OLLAMA · ${model.split(':')[0].toUpperCase()}` : 'OLLAMA UNVERIFIED',
+              'LOCAL DATA STATUS IN SETTINGS',
+            ].map((label, i) => (
+              <Text key={i} numberOfLines={1} style={{ fontFamily:MONO, fontSize:8, color:[isConn ? GREEN : AMBER, model ? PURP : AMBER, CYAN][i]+'70', fontWeight:'900', flexShrink:1 }}>
+                {label}
+              </Text>
+            ))}
+          </View>
+
+          <View style={[IB.row, { borderColor: input.trim() ? modeColor+'60' : DIM+'50' }]}>
+            {/* Mode icon */}
+            <MaterialCommunityIcons name={MODES.find(m => m.key === mode)?.icon as any ?? 'chat'} size={16} color={modeColor+'80'} />
+
+            {/* Input field */}
             <TextInput
-              style={s.composerInput}
-              value={draft}
-              onChangeText={setDraft}
-              placeholder="Ask Butler to do something practical…"
-              placeholderTextColor="#6F87A8"
+              value={input}
+              onChangeText={setInput}
+              placeholder={isConn
+                ? `[${mode.toUpperCase()}] Ask Butler anything…`
+                : 'Pair PC or ask Butler offline…'}
+              placeholderTextColor={MID}
+              style={IB.input}
+              returnKeyType="send"
+              onSubmitEditing={() => sendMessage()}
+              blurOnSubmit={false}
+              editable={!sending}
               multiline
+              maxLength={1200}
             />
-            <Pressable style={[s.sendButton, sending && s.sendButtonDisabled]} onPress={() => void pushUserPrompt(draft)} disabled={sending}>
-              <Text style={s.sendButtonText}>{sending ? '...' : 'Send'}</Text>
-            </Pressable>
+
+            {/* Char counter (shows when typing) */}
+            {input.length > 100 && (
+              <Text style={{ fontFamily:MONO, fontSize:8, color:MID, alignSelf:'flex-end', paddingBottom:2 }}>
+                {input.length}
+              </Text>
+            )}
+
+            {/* Voice button (placeholder) */}
+            <TouchableOpacity onPress={() => haptics.light()} activeOpacity={0.8}
+              style={{ padding:2 }} disabled={sending}>
+              <MaterialIcons name="mic-none" size={18} color={sending ? DIM : modeColor + '60'} />
+            </TouchableOpacity>
+
+            {/* Send */}
+            <TouchableOpacity
+              onPress={() => sendMessage()}
+              disabled={!input.trim() || sending}
+              activeOpacity={0.85}
+              style={[IB.send, {
+                backgroundColor: input.trim() && !sending ? modeColor : DIM + '50',
+                borderColor: input.trim() && !sending ? modeColor : DIM,
+              }]}>
+              {sending
+                ? <ActivityIndicator size="small" color={modeColor} style={{ transform:[{ scale:0.75 }] }} />
+                : <MaterialIcons name="send" size={16} color={input.trim() ? '#000' : MID} />}
+            </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+
+      {/* Session history modal */}
+      <HistoryModal
+        visible={showHistory}
+        sessions={sessions}
+        onSelect={() => {}}
+        onNew={clearChat}
+        onClose={() => setShowHistory(false)}
+      />
+    </View>
   );
 }
-
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#03060C' },
-  flex: { flex: 1 },
-  header: {
-    marginHorizontal: 16,
-    marginTop: 10,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(103,205,255,0.42)',
-    backgroundColor: '#081425',
-    padding: 14,
-    gap: 6,
-  },
-  eyebrow: { color: '#84D4FF', fontSize: 10, fontWeight: '900', letterSpacing: 1.1 },
-  title: { color: '#fff', fontSize: 24, fontWeight: '900' },
-  sub: { color: '#B8CCE6', fontSize: 12 },
-  controls: { marginHorizontal: 16, marginTop: 10, gap: 8 },
-  controlBlock: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: '#101B30',
-    padding: 10,
-    gap: 6,
-  },
-  label: { color: '#D2E6FD', fontSize: 11, fontWeight: '800' },
-  controlInput: {
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: '#13213A',
-    color: '#ECF6FF',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 13,
-  },
-  controlInputMultiline: { minHeight: 58, textAlignVertical: 'top' },
-  chat: { flex: 1, marginTop: 10 },
-  chatContent: { paddingHorizontal: 16, paddingBottom: 10, gap: 9 },
-  bubble: { borderRadius: 12, borderWidth: 1, padding: 10, gap: 4 },
-  bubbleAssistant: { borderColor: 'rgba(130,207,255,0.32)', backgroundColor: '#10243A' },
-  bubbleUser: { borderColor: 'rgba(53,220,186,0.38)', backgroundColor: '#11342E', marginLeft: 34 },
-  bubbleRole: { color: '#90B8DC', fontSize: 10, fontWeight: '900', letterSpacing: 0.7 },
-  bubbleText: { color: '#EAF5FF', fontSize: 13, lineHeight: 19 },
-  typingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
-  typingText: { color: '#9FC0E0', fontSize: 12 },
-  composerWrap: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    marginTop: 8,
-    gap: 7,
-  },
-  status: { color: '#98B8D8', fontSize: 11 },
-  composerRow: {
-    borderRadius: 13,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-    backgroundColor: '#101C31',
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    padding: 8,
-    gap: 8,
-  },
-  composerInput: {
-    flex: 1,
-    color: '#EAF5FF',
-    maxHeight: 110,
-    fontSize: 14,
-    textAlignVertical: 'top',
-    paddingHorizontal: 2,
-    paddingVertical: 4,
-  },
-  sendButton: {
-    borderRadius: 9,
-    backgroundColor: '#79D7FF',
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-  },
-  sendButtonDisabled: { opacity: 0.5 },
-  sendButtonText: { color: '#07111E', fontWeight: '900', fontSize: 12 },
+const IB = StyleSheet.create({
+  root:  { backgroundColor:SURF, borderTopWidth:1.5, paddingTop:8, paddingHorizontal:12 },
+  row:   { flexDirection:'row', alignItems:'flex-end', gap:8, borderWidth:1.5, borderRadius:16, paddingHorizontal:12, paddingVertical:9, backgroundColor:BG },
+  input: { flex:1, fontFamily:MONO, fontSize:13, color:TEXT, padding:0, maxHeight:110, includeFontPadding:false },
+  send:  { width:40, height:40, borderRadius:13, borderWidth:1.5, alignItems:'center', justifyContent:'center', flexShrink:0 },
 });
+
+export default function ButlerScreen() {
+  return <TabErrorBoundary name="Butler"><ButlerInner /></TabErrorBoundary>;
+}

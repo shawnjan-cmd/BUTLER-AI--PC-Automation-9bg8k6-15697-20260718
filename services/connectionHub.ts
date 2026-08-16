@@ -40,6 +40,8 @@ import { autoConnectEngine, EngineEvent, EngineStatus } from './autoConnectEngin
 import { features, ServerFeature } from './serverFeatures';
 import { quickScan, ScanProgress } from './lanScanner';
 import { pcClipboard } from './pcClipboard';
+import { everyMs, clearKey } from './timerBus';
+import { performanceGovernor } from './performanceGovernor';
 
 // ─────────────────────────────────────────────────────────────────
 //  PUBLIC STATE SHAPE — returned from getState() and subscribe()
@@ -113,9 +115,7 @@ class ConnectionHub {
   private _schema        = 1;
   private _engineStatus: EngineStatus = 'idle';
   private _engineUnsub: (() => void) | null = null;
-  private _ollamaTimer:   ReturnType<typeof setInterval> | null = null;
   private _startupTimer:  ReturnType<typeof setTimeout>  | null = null;
-  private _fastPingTimer: ReturnType<typeof setInterval> | null = null;
   private _started = false;
 
   static getInstance(): ConnectionHub {
@@ -173,15 +173,15 @@ class ConnectionHub {
     }, 1_500);
 
     // Poll Ollama status every 20s when connected (was 30s — faster detection)
-    this._ollamaTimer = setInterval(() => {
-      if (serverConnection.isConnected()) {
-        this._probeOllama().catch(() => {});
-      }
-    }, 20_000);
+    everyMs('hub:ollama', 20_000, () => {
+      performanceGovernor.runOptional('status-poll', async () => {
+        if (serverConnection.isConnected()) await this._probeOllama();
+      }).catch(() => {});
+    });
 
     // Fast ping every 8s — lightweight isAlive check, not a full capabilities probe
     // Emits 'connected' immediately when server comes back after a gap
-    this._fastPingTimer = setInterval(async () => {
+    everyMs('hub:fastping', 8_000, () => { void performanceGovernor.runOptional('status-poll', async () => {
       const ip   = serverConnection.getIP();
       const port = serverConnection.getPort();
       if (!ip || !port) return;
@@ -189,10 +189,7 @@ class ConnectionHub {
       try {
         const ctrl = new AbortController();
         const tid  = setTimeout(() => ctrl.abort(), 3_000);
-        const token = serverConnection.getToken();
-        const h: Record<string, string> = {};
-        if (token) h['Authorization'] = `Bearer ${token}`;
-        const res = await globalThis.fetch(`http://${ip}:${port}/api/status`, { headers: h, signal: ctrl.signal });
+        const res = await serverConnection.request('/api/status', { signal: ctrl.signal });
         clearTimeout(tid);
         if (res.ok) {
           const j = await res.json().catch(() => ({}));
@@ -202,14 +199,14 @@ class ConnectionHub {
           this._notify();
         }
       } catch {}
-    }, 8_000);
+    }); });
   }
 
   stop(): void {
     this._engineUnsub?.();
     this._engineUnsub = null;
-    if (this._ollamaTimer)   { clearInterval(this._ollamaTimer);   this._ollamaTimer   = null; }
-    if (this._fastPingTimer) { clearInterval(this._fastPingTimer); this._fastPingTimer = null; }
+    clearKey('hub:ollama');
+    clearKey('hub:fastping');
     if (this._startupTimer)  { clearTimeout(this._startupTimer);   this._startupTimer  = null; }
     this._started = false;
   }
@@ -220,7 +217,7 @@ class ConnectionHub {
     this._latencyMs  = latencyMs;
     this._lastPingTs = Date.now();
     this._engineStatus = 'connected';
-    if (this._fastPingTimer) { clearInterval(this._fastPingTimer); this._fastPingTimer = null; }
+    clearKey('hub:fastping');
     this._probeCapabilities().catch(() => {});
     this._notify();
   }
@@ -317,12 +314,12 @@ class ConnectionHub {
     }
   }
 
-  /** Manual IP connect (no QR, no pairingCode required) */
-  async connect(ip: string, port: string): Promise<HubConnectResult> {
+  /** Manual IP connect; pairingCode is required when the server is first-locked. */
+  async connect(ip: string, port: string, pairingCode = ''): Promise<HubConnectResult> {
     this._engineStatus = 'connecting';
     this._notify();
     try {
-      const result = await serverConnection.connectManual(ip, port);
+      const result = await serverConnection.connectManual(ip, port, pairingCode);
       if (result.connected) {
         this._latencyMs  = result.latency ?? 0;
         this._lastPingTs = Date.now();
@@ -443,67 +440,20 @@ class ConnectionHub {
    * Streams output via onChunk if the server supports it.
    */
   async execute(
-    script: string,
-    onChunk?: (line: string) => void,
-    timeoutMs = 60_000
+    _script: string,
+    _onChunk?: (line: string) => void,
+    _timeoutMs = 60_000
   ): Promise<{ output: string; error: string; success: boolean; ms: number }> {
-    const ip    = serverConnection.getIP();
-    const port  = serverConnection.getPort();
-    const token = serverConnection.getToken();
-    if (!ip || !port) return { output: '', error: 'Not connected — pair PC first', success: false, ms: 0 };
-
-    const start = Date.now();
-    try {
-      const ctrl = new AbortController();
-      const tid  = setTimeout(() => ctrl.abort(), timeoutMs);
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const deviceId = serverConnection.getDeviceId();
-      if (deviceId) headers['X-Device-Id'] = deviceId;
-
-      const res = await globalThis.fetch(`http://${ip}:${port}/api/execute`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ script }),
-        signal: ctrl.signal,
-      });
-      clearTimeout(tid);
-
-      if (!res.ok) {
-        if (res.status === 401) {
-          await this.reconnect().catch(() => {});
-          return { output: '', error: 'Session expired — retap RUN to retry', success: false, ms: Date.now() - start };
-        }
-        return { output: '', error: `Server error ${res.status}`, success: false, ms: Date.now() - start };
-      }
-
-      let fullText = '';
-      const reader = res.body?.getReader();
-      if (reader) {
-        const dec = new TextDecoder();
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = dec.decode(value, { stream: true });
-          fullText += chunk;
-          chunk.split('\n').forEach(l => { if (l.trim()) onChunk?.(l); });
-        }
-      } else {
-        fullText = await res.text();
-        fullText.split('\n').forEach(l => { if (l.trim()) onChunk?.(l); });
-      }
-
-      let data: any = {};
-      try { data = JSON.parse(fullText); } catch { data = { output: fullText }; }
-      const raw     = (data.output || '').trim();
-      const hasErr  = raw.toLowerCase().includes('traceback') || raw.toLowerCase().includes('error:');
-      const success = !hasErr && !data.error;
-      return { output: success ? raw : '', error: hasErr ? raw : (data.error || ''), success, ms: Date.now() - start };
-    } catch (e: any) {
-      const ms = Date.now() - start;
-      if (e?.name === 'AbortError') return { output: '', error: `Timeout after ${Math.round(timeoutMs / 1000)}s`, success: false, ms };
-      return { output: '', error: e?.message || 'Request failed', success: false, ms };
-    }
+    // Deliberately fail closed. Arbitrary mutable code must not be sent from a
+    // generic transport helper. Use ScriptExecutor.executeSavedScript(), which
+    // performs intent, safety, capability, approval, digest revalidation, and a
+    // terminal receipt through the Flow Ledger.
+    return {
+      output: '',
+      error: 'Direct script text execution is disabled; select a saved script and approve its Flow Ledger intent.',
+      success: false,
+      ms: 0,
+    };
   }
 
   // ─────────────────────────────────────────────────────────────

@@ -24,19 +24,19 @@ import { errorAutoFix, AutoFixResult } from '@/services/errorAutoFix';
 
 // ─── Theme ───────────────────────────────────────────────────────
 const C = {
-  bg:      '#0A0E14',
-  bgDark:  '#060D12',
+  bg:      '#0B0F17',
+  bgDark:  '#070A10',
   bgCard:  'rgba(13,27,42,0.95)',
-  green:   '#00FF88',
-  cyan:    '#00D4FF',
-  gold:    '#FFD700',
-  amber:   '#FF8C00',
-  red:     '#FF4444',
-  orange:  '#FF8C00',
-  purple:  '#C084FF',
-  text:    '#E0E8F0',
-  textDim: '#7A8AA8',
-  border:  '#1a2333',
+  green:   '#2FE38A',
+  cyan:    '#38D9E8',
+  gold:    '#FFC94A',
+  amber:   '#FFB43D',
+  red:     '#FF4D5E',
+  orange:  '#FFB43D',
+  purple:  '#A468FF',
+  text:    '#DCE6F2',
+  textDim: '#4A9EFF',
+  border:  '#4A9EFF',
 };
 const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
 
@@ -74,7 +74,7 @@ function CopyCodeBtn({ code, color }: { code: string; color?: string }) {
   );
 }
 const ccb = StyleSheet.create({
-  btn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 5, borderWidth: 1, borderColor: '#2A4A60', backgroundColor: '#1A2D3E' },
+  btn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 5, borderWidth: 1, borderColor: '#4A9EFF', backgroundColor: '#4A9EFF' },
   txt: { fontSize: 8, fontWeight: '700', fontFamily: MONO, letterSpacing: 0.8 },
 });
 
@@ -102,7 +102,7 @@ function FixBanner({ pattern }: { pattern: ErrorPattern }) {
         </View>
         <Text style={[fb.errorType, { color: accentColor }]}>{pattern.type}</Text>
         <View style={[fb.severityBadge, { backgroundColor: pattern.severity === 'critical' ? '#FF3C5A20' : '#FFB30020', borderColor: pattern.severity === 'critical' ? '#FF3C5A60' : '#FFB30060' }]}>
-          <Text style={[fb.severityTxt, { color: pattern.severity === 'critical' ? '#FF3C5A' : '#FFB300' }]}>{pattern.severity.toUpperCase()}</Text>
+          <Text style={[fb.severityTxt, { color: pattern.severity === 'critical' ? '#FF4D5E' : '#FFC94A' }]}>{pattern.severity.toUpperCase()}</Text>
         </View>
         <MaterialIcons name={expanded ? 'expand-less' : 'expand-more'} size={16} color={accentColor} />
       </TouchableOpacity>
@@ -149,7 +149,7 @@ function FixBanner({ pattern }: { pattern: ErrorPattern }) {
   );
 }
 const fb = StyleSheet.create({
-  card: { backgroundColor: '#0A1B2C', borderRadius: 10, borderWidth: 1, borderLeftWidth: 3, marginBottom: 10, overflow: 'hidden' },
+  card: { backgroundColor: '#4A9EFF', borderRadius: 10, borderWidth: 1, borderLeftWidth: 3, marginBottom: 10, overflow: 'hidden' },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 7, padding: 10, paddingBottom: 8 },
   pulseOrb: { width: 8, height: 8, borderRadius: 4 },
   typeBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
@@ -158,21 +158,21 @@ const fb = StyleSheet.create({
   severityBadge: { borderWidth: 1, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 },
   severityTxt: { fontSize: 6, fontWeight: '700', fontFamily: MONO, letterSpacing: 0.8 },
   title: { fontSize: 12, fontWeight: '700', fontFamily: MONO, paddingHorizontal: 12, marginBottom: 8 },
-  explanationBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: '#0E1E2E', borderRadius: 7, padding: 10, marginHorizontal: 10, marginBottom: 10 },
-  explanationTxt: { fontSize: 10, color: '#C8E0EE', lineHeight: 15, flex: 1 },
+  explanationBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: '#4A9EFF', borderRadius: 7, padding: 10, marginHorizontal: 10, marginBottom: 10 },
+  explanationTxt: { fontSize: 10, color: '#C3CFDF', lineHeight: 15, flex: 1 },
   fixList: { paddingHorizontal: 10, paddingBottom: 4 },
-  fixListLabel: { fontSize: 7, fontWeight: '700', color: '#7AAEC4', fontFamily: MONO, letterSpacing: 1.5, marginBottom: 6 },
-  fixRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#0D1B28', borderWidth: 1, borderRadius: 8, padding: 9, marginBottom: 6 },
+  fixListLabel: { fontSize: 7, fontWeight: '700', color: '#38D9E8', fontFamily: MONO, letterSpacing: 1.5, marginBottom: 6 },
+  fixRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#4A9EFF', borderWidth: 1, borderRadius: 8, padding: 9, marginBottom: 6 },
   fixLabel: { fontSize: 9, fontWeight: '600', marginBottom: 2 },
   fixCmd: { fontSize: 9, fontFamily: MONO, lineHeight: 13 },
   copyBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 1, borderRadius: 5, paddingHorizontal: 7, paddingVertical: 4 },
   copyTxt: { fontSize: 7, fontWeight: '700', fontFamily: MONO, letterSpacing: 0.8 },
   docsRow: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingBottom: 10 },
-  docsTxt: { fontSize: 8, color: '#7AAEC4', fontFamily: MONO, flex: 1 },
+  docsTxt: { fontSize: 8, color: '#38D9E8', fontFamily: MONO, flex: 1 },
 });
 
 // ─── KB Suggestion Banner ─────────────────────────────────────────
-function KBSuggestionBanner({ suggestions }: { suggestions: Array<{ topic: string; summary: string; confidence: number }> }) {
+function KBSuggestionBanner({ suggestions }: { suggestions: { topic: string; summary: string; confidence: number }[] }) {
   if (!suggestions.length) return null;
   return (
     <View style={ksb.wrap}>
@@ -197,7 +197,7 @@ function KBSuggestionBanner({ suggestions }: { suggestions: Array<{ topic: strin
   );
 }
 const ksb = StyleSheet.create({
-  wrap: { backgroundColor: '#100A1C', borderRadius: 10, borderWidth: 1, borderColor: C.purple + '50', marginBottom: 10, overflow: 'hidden', padding: 12 },
+  wrap: { backgroundColor: '#0B0F17', borderRadius: 10, borderWidth: 1, borderColor: C.purple + '50', marginBottom: 10, overflow: 'hidden', padding: 12 },
   hdr: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 8 },
   hdrTxt: { flex: 1, fontSize: 8, fontWeight: '700', color: C.purple, fontFamily: MONO, letterSpacing: 1 },
   badge: { backgroundColor: C.purple + '20', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
@@ -206,7 +206,7 @@ const ksb = StyleSheet.create({
   dot: { width: 5, height: 5, borderRadius: 3, marginTop: 4 },
   topic: { fontSize: 9, fontWeight: '700', color: C.text, fontFamily: MONO },
   summary: { fontSize: 9, color: C.textDim, lineHeight: 13, marginTop: 1 },
-  confBadge: { backgroundColor: '#1A1030', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2, borderWidth: 1, borderColor: C.purple + '40' },
+  confBadge: { backgroundColor: '#A468FF', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2, borderWidth: 1, borderColor: C.purple + '40' },
   confTxt: { fontSize: 8, color: C.purple, fontFamily: MONO, fontWeight: '700' },
 });
 
@@ -281,7 +281,7 @@ function ExecutionModal({
     const t0 = Date.now();
     aiLogger.info(`[Exec] RUN: ${script.name}`);
 
-    const result = await scriptExecutor.execute(script.code, 'python', { timeout: 45000 });
+    const result = await scriptExecutor.executeSavedScript(script.id, { timeout: 45000 });
     const ms = Date.now() - t0;
     setElapsed(ms);
     setRunning(false);
@@ -382,7 +382,7 @@ function ExecutionModal({
               ) : null}
             </View>
             <ScrollView ref={scrollRef} style={{ maxHeight: 140 }} contentContainerStyle={{ padding: 12 }} showsVerticalScrollIndicator={false}>
-              <Text style={[em.outTxt, { color: status === 'error' ? '#FF7070' : C.green }]} selectable>
+              <Text style={[em.outTxt, { color: status === 'error' ? '#FF4D5E' : C.green }]} selectable>
                 {output}
               </Text>
             </ScrollView>
@@ -415,7 +415,7 @@ function ExecutionModal({
         {/* Run button */}
         <View style={[em.footer, { paddingBottom: Math.max(insets.bottom + 10, 20) }]}>
           <TouchableOpacity
-            style={[em.runBtn, { backgroundColor: running ? '#0D1B28' : catColor, borderColor: catColor, opacity: running ? 0.75 : 1 }]}
+            style={[em.runBtn, { backgroundColor: running ? '#4A9EFF' : catColor, borderColor: catColor, opacity: running ? 0.75 : 1 }]}
             onPress={run} disabled={running} activeOpacity={0.85}>
             {running
               ? <><ActivityIndicator color={catColor} size="small" /><Text style={[em.runTxt, { color: catColor }]}>EXECUTING ON PC...</Text></>
@@ -428,7 +428,7 @@ function ExecutionModal({
   );
 }
 
-const C_bgDark = '#060D12';
+const C_bgDark = '#070A10';
 const em = StyleSheet.create({
   root:       { flex: 1, backgroundColor: C_bgDark },
   hdr:        { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderBottomWidth: 2 },
@@ -442,7 +442,7 @@ const em = StyleSheet.create({
   metaTxt:    { fontSize: 9, color: C.textDim, fontFamily: MONO },
   tag:        { backgroundColor: C.border, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   tagTxt:     { fontSize: 8, color: C.cyan, fontFamily: MONO },
-  codeSect:   { flex: 1, backgroundColor: '#060A0F', borderTopWidth: 1, borderTopColor: C.border },
+  codeSect:   { flex: 1, backgroundColor: '#050810', borderTopWidth: 1, borderTopColor: C.border },
   codeLblRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: C.border },
   codeLbl:    { flex: 1, fontSize: 8, color: C.cyan, fontFamily: MONO, letterSpacing: 1.5 },
   code:       { fontSize: 11, color: C.green, fontFamily: MONO, lineHeight: 18 },
@@ -454,8 +454,8 @@ const em = StyleSheet.create({
   fixSection: { paddingHorizontal: 12, paddingBottom: 8, paddingTop: 4 },
   fixLoading: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
   fixLoadingTxt: { fontSize: 9, color: C.amber, fontFamily: MONO, flex: 1 },
-  genericHint:{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#1A1200', borderWidth: 1, borderColor: C.amber + '60', borderRadius: 8, padding: 10, marginBottom: 8 },
-  genericHintTxt: { fontSize: 10, color: '#FFA040', fontFamily: MONO, flex: 1, lineHeight: 15 },
+  genericHint:{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#070A10', borderWidth: 1, borderColor: C.amber + '60', borderRadius: 8, padding: 10, marginBottom: 8 },
+  genericHintTxt: { fontSize: 10, color: '#FF7A1F', fontFamily: MONO, flex: 1, lineHeight: 15 },
   footer:     { padding: 14, borderTopWidth: 1, borderTopColor: C.border },
   runBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

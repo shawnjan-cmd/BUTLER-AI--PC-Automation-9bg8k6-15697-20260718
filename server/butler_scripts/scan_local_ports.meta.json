@@ -1,0 +1,13 @@
+{
+  "name": "Scan Localhost Ports",
+  "description": "Check which common ports are open on this machine.",
+  "category": "Network",
+  "tags": [
+    "ports",
+    "security",
+    "scan"
+  ],
+  "icon": "wifi",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

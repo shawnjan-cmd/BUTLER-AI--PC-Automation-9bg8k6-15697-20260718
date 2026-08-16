@@ -1,0 +1,14 @@
+{
+  "name": "Focus Mode: Block Sites",
+  "description": "Append distracting sites to the hosts file pointing to 127.0.0.1 (admin required).",
+  "category": "Productivity",
+  "tags": [
+    "focus",
+    "productivity",
+    "block",
+    "hosts"
+  ],
+  "icon": "shield-off",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

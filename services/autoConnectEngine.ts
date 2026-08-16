@@ -66,7 +66,7 @@ class AutoConnectEngine {
     return () => { this._listeners = this._listeners.filter(l => l !== cb); };
   }
 
-  /** Convenience alias for onEvent() — nexushome.tsx calls autoConnectEngine.on() */
+  /** Convenience alias for onEvent() — home.tsx calls autoConnectEngine.on() */
   on(cb: Listener): () => void { return this.onEvent(cb); }
 
   private _emit(event: EngineEvent) {

@@ -1,0 +1,14 @@
+{
+  "name": "List Running Services",
+  "description": "Show all running services (Windows: sc/wmic, Linux/Mac: systemctl/launchctl).",
+  "category": "System",
+  "tags": [
+    "services",
+    "systemd",
+    "windows",
+    "monitoring"
+  ],
+  "icon": "server",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

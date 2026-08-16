@@ -12,10 +12,11 @@
  */
 import React, { useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, Platform, Animated, TouchableOpacity, useWindowDimensions,
+  View, Text, StyleSheet, Platform, Animated, TouchableOpacity, Dimensions,
 } from 'react-native';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 
+const SW   = Math.max(1, Dimensions.get('window').width || 375);
 const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
 
 // Five-colour accent palette shared across all headers
@@ -57,13 +58,9 @@ export function CompactPageHeader({
   leftAction, rightAction, rightAction2, rightAction3,
   extraRow,
 }: CompactPageHeaderProps) {
-  const { width } = useWindowDimensions();
 
   const bCol    = badgeColor ?? accent;
   const connCol = isConnected ? '#00FF88' : '#FF4455';
-  const sideWidth = Math.max(62, Math.min(90, Math.round(width * 0.22)));
-  const titleSize = width < 360 ? 12 : 14;
-  const titleSpacing = width < 360 ? 1.1 : 1.8;
 
   // JS-driver: glow for icon border + conn dot  (single value, one loop)
   const glowA = useRef(new Animated.Value(0.35)).current;
@@ -121,7 +118,7 @@ export function CompactPageHeader({
       <View style={st.row}>
 
         {/* LEFT */}
-        <View style={[st.side, { width: sideWidth }]}>
+        <View style={st.side}>
           {leftAction ? mkBtn(leftAction, 'l') : (
             <Animated.View style={[st.iconOrb, {
               borderColor: iconBorder,
@@ -144,7 +141,7 @@ export function CompactPageHeader({
               <Icon name={icon as any} size={12} color={accent} />
             </Animated.View>
           ) : null}
-          <Text style={[st.title, { color:'#FFFFFF', fontSize: titleSize, letterSpacing: titleSpacing }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+          <Text style={[st.title, { color:'#FFFFFF' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.65}>
             {title}
           </Text>
           {badge ? (
@@ -155,7 +152,7 @@ export function CompactPageHeader({
         </View>
 
         {/* RIGHT */}
-        <View style={[st.side, { width: sideWidth, justifyContent:'flex-end', gap:5 }]}>
+        <View style={[st.side, { justifyContent:'flex-end', gap:5 }]}>
           {rightAction3 ? mkBtn(rightAction3,'r3') : null}
           {rightAction2 ? mkBtn(rightAction2,'r2') : null}
           {rightAction  ? mkBtn(rightAction, 'r1') : null}

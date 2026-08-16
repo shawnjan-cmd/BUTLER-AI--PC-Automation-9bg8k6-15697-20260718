@@ -1,0 +1,14 @@
+{
+  "name": "Kill Chrome Helper Processes",
+  "description": "Free RAM by killing idle Chrome/Edge renderer/helper processes (keeps main window).",
+  "category": "Cleaning",
+  "tags": [
+    "chrome",
+    "ram",
+    "memory",
+    "browser"
+  ],
+  "icon": "x-circle",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

@@ -4,6 +4,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { encryptedStorage } from './encryptedStorage';
 import { uiConfig } from './uiConfig';
 
 export const PH_TOKEN_KEY     = '@ph_token_overrides_v1';
@@ -56,19 +57,19 @@ const SAMPLE_SCRIPT_LINES = [
 
 // ─── Step definitions ─────────────────────────────────────────────────────────
 const STEPS = [
-  { key: 'tokens',     label: 'TOKENS',      icon: 'palette',         color: '#00FFCC', detail: 'Applying color & typography tokens' },
+  { key: 'tokens',     label: 'TOKENS',      icon: 'palette',         color: '#38D9E8', detail: 'Applying color & typography tokens' },
   { key: 'navigation', label: 'NAVIGATION',  icon: 'tab',             color: '#4A9EFF', detail: 'Updating tab navigation config' },
-  { key: 'features',   label: 'FEATURES',    icon: 'toggle-on',       color: '#00FF88', detail: 'Saving feature flags & toggles' },
-  { key: 'server',     label: 'SERVER',      icon: 'dns',             color: '#F5A623', detail: 'Saving server IP & port' },
-  { key: 'ai',         label: 'AI SETTINGS', icon: 'psychology',      color: '#CC44FF', detail: 'Applying AI model & system prompt' },
+  { key: 'features',   label: 'FEATURES',    icon: 'toggle-on',       color: '#2FE38A', detail: 'Saving feature flags & toggles' },
+  { key: 'server',     label: 'SERVER',      icon: 'dns',             color: '#FFB43D', detail: 'Saving server IP & port' },
+  { key: 'ai',         label: 'AI SETTINGS', icon: 'psychology',      color: '#A468FF', detail: 'Applying AI model & system prompt' },
   { key: 'scripts',    label: 'SCRIPTS',     icon: 'code',            color: '#4A9EFF', detail: 'Saving scripts to library' },
-  { key: 'knowledge',  label: 'KNOWLEDGE',   icon: 'library-books',   color: '#FF8C00', detail: 'Adding KB entries' },
-  { key: 'automations',label: 'AUTOMATIONS', icon: 'auto-fix-high',   color: '#00FF88', detail: 'Storing automation rules' },
-  { key: 'ui',         label: 'UI CONFIG',   icon: 'dashboard-customize', color: '#00FFCC', detail: 'Applying card layout & UI config' },
-  { key: 'assets',     label: 'ASSETS',      icon: 'image',           color: '#F5A623', detail: 'Saving asset overrides' },
-  { key: 'patches',    label: 'PATCHES',     icon: 'build',           color: '#FF3131', detail: 'Generating patch script for PC' },
-  { key: 'cache',      label: 'CACHE CLEAR', icon: 'cleaning-services', color: '#00FFCC', detail: 'Clearing stale caches' },
-  { key: 'reload',     label: 'RELOAD UI',   icon: 'refresh',         color: '#00FF88', detail: 'Reloading UI config into memory' },
+  { key: 'knowledge',  label: 'KNOWLEDGE',   icon: 'library-books',   color: '#FFB43D', detail: 'Adding KB entries' },
+  { key: 'automations',label: 'AUTOMATIONS', icon: 'auto-fix-high',   color: '#2FE38A', detail: 'Storing automation rules' },
+  { key: 'ui',         label: 'UI CONFIG',   icon: 'dashboard-customize', color: '#38D9E8', detail: 'Applying card layout & UI config' },
+  { key: 'assets',     label: 'ASSETS',      icon: 'image',           color: '#FFB43D', detail: 'Saving asset overrides' },
+  { key: 'patches',    label: 'PATCHES',     icon: 'build',           color: '#FF4D5E', detail: 'Generating patch script for PC' },
+  { key: 'cache',      label: 'CACHE CLEAR', icon: 'cleaning-services', color: '#38D9E8', detail: 'Clearing stale caches' },
+  { key: 'reload',     label: 'RELOAD UI',   icon: 'refresh',         color: '#2FE38A', detail: 'Reloading UI config into memory' },
 ];
 
 function stepIdx(key: string) {
@@ -191,7 +192,7 @@ export async function processPowerhouseJson(
   if (json.ai && typeof json.ai === 'object') {
     emit('ai', false);
     try {
-      const existing = await AsyncStorage.getItem('@nexus_bridge_settings_v1').catch(() => null);
+      const existing = await AsyncStorage.getItem('@butler_bridge_settings_v1').catch(() => null);
       const current  = existing ? JSON.parse(existing) : {};
       const merged   = { ...current };
       if ('localOnly'       in json.ai) merged.localOnlyMode   = json.ai.localOnly;
@@ -199,7 +200,7 @@ export async function processPowerhouseJson(
       if ('growthEnabled'   in json.ai) merged.growthEnabled   = json.ai.growthEnabled;
       if ('cacheTTLMinutes' in json.ai) merged.cacheTTLMinutes = json.ai.cacheTTLMinutes;
       if ('maxRelayResults' in json.ai) merged.maxRelayResults = json.ai.maxRelayResults;
-      await AsyncStorage.setItem('@nexus_bridge_settings_v1', JSON.stringify(merged));
+      await AsyncStorage.setItem('@butler_bridge_settings_v1', JSON.stringify(merged));
       if (json.ai.model)        await AsyncStorage.setItem('@ph_preferred_model', json.ai.model);
       if (json.ai.systemPrompt) await AsyncStorage.setItem('@ph_system_prompt_override', json.ai.systemPrompt);
       pushOk('AI settings: model=' + (json.ai.model || 'unchanged'), applied);
@@ -243,7 +244,7 @@ export async function processPowerhouseJson(
         const compressed = knowledgeAccumulator.compressResearch(
           text, entry.domain || 'Custom', entry.topic || 'entry', 'powerhouse'
         );
-        if (knowledgeAccumulator.addFindingDeduped(compressed)) added++;
+        if (await knowledgeAccumulator.addFindingDeduped(compressed)) added++;
       }
       if (added > 0) await knowledgeAccumulator.saveNow();
       pushOk('Knowledge: added ' + added + ' entries to KB', applied);
@@ -276,7 +277,7 @@ export async function processPowerhouseJson(
       const strChanges  = Object.keys(json.ui?.strings || {}).length;
       const colChanges  = Object.keys(json.ui?.colors  || {}).length;
       pushOk(`UI Config: ${cardChanges} cards, ${strChanges} strings, ${colChanges} colors applied`, applied);
-      (global as any).__nexusHomeUIConfigChanged?.();
+      (global as any).__butlerHomeUIConfigChanged?.();
       emit('ui', true);
     } catch (e: any) {
       pushWrn('UI Config: ' + (e?.message || 'error'), warnings);
@@ -423,8 +424,8 @@ function buildPatchScript(files: any[], patches: any[]): string {
 
 // ── TEMPLATE GENERATOR ────────────────────────────────────────────────────
 export async function generateCurrentStateJson(): Promise<Record<string, any>> {
-  const ip   = await AsyncStorage.getItem('commandcube_server_ip').catch(() => null)   || '';
-  const port = await AsyncStorage.getItem('commandcube_server_port').catch(() => null) || '8766';
+  const ip   = await encryptedStorage.getItem('commandcube_server_ip').catch(() => null)   || '';
+  const port = await encryptedStorage.getItem('commandcube_server_port').catch(() => null) || '8766';
 
   const featureKeys: [string, string][] = [
     ['scriptOnlyMode',  'commandcube_script_only_mode'],
@@ -450,7 +451,7 @@ export async function generateCurrentStateJson(): Promise<Record<string, any>> {
     growthEnabled: true, cacheTTLMinutes: 5, maxRelayResults: 4, temperature: 0.7, systemPrompt: '',
   };
   try {
-    const raw = await AsyncStorage.getItem('@nexus_bridge_settings_v1').catch(() => null);
+    const raw = await AsyncStorage.getItem('@butler_bridge_settings_v1').catch(() => null);
     if (raw) {
       const s = JSON.parse(raw);
       aiSettings = {
@@ -468,9 +469,9 @@ export async function generateCurrentStateJson(): Promise<Record<string, any>> {
 
   let tokens: Record<string, any> = {
     colors: {
-      primary: '#00FFFF', secondary: '#00FF88', tertiary: '#FFD700',
-      background: '#020407', surface: '#070D16', purple: '#BF00FF',
-      amber: '#F5A623', red: '#FF3131', text: '#D8E8F4', textMid: '#7A9AB8', textDim: '#3A5068',
+      primary: '#38D9E8', secondary: '#2FE38A', tertiary: '#FFC94A',
+      background: '#050810', surface: '#0B0F17', purple: '#A468FF',
+      amber: '#FFB43D', red: '#FF4D5E', text: '#DCE6F2', textMid: '#4A9EFF', textDim: '#4A9EFF',
     },
     typography: { baseFontSize: 16, monoFont: 'monospace', fontScale: 1.0 },
     motion:     { reducedMotion: false, animationSpeed: 1.0 },
@@ -512,12 +513,12 @@ export async function generateCurrentStateJson(): Promise<Record<string, any>> {
       { domain: 'Custom', topic: 'example', summary: 'Example KB entry — replace with your own', keywords: ['example'] },
     ],
     automations: [{ trigger: 'on_connect', action: 'run_health_check', enabled: false }],
-    assets: { splashColor: '#020810', appName: 'Butler AI: PC Automation' },
+    assets: { splashColor: '#050810', appName: 'Butler AI: PC Automation' },
     files: [
       { __EXAMPLE_ONLY__: true, path: 'constants/theme.ts', content: '// Replace this with the full file content you want to apply' },
     ],
     patches: [
-      { __EXAMPLE_ONLY__: true, op: 'file.replace', file: 'constants/theme.ts', find: "primary: '#5B9CF6'", replace: "primary: '#00FFFF'", count: 1 },
+      { __EXAMPLE_ONLY__: true, op: 'file.replace', file: 'constants/theme.ts', find: "primary: '#4A9EFF'", replace: "primary: '#38D9E8'", count: 1 },
     ],
   };
 }

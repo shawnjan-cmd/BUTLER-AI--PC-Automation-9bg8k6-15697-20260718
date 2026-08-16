@@ -1,0 +1,12 @@
+{
+  "name": "Toggle Bluetooth",
+  "description": "Turn Bluetooth radio on or off (Windows 10/11).",
+  "category": "System",
+  "tags": [
+    "bluetooth",
+    "wireless"
+  ],
+  "icon": "bluetooth",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

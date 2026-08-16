@@ -1,0 +1,14 @@
+{
+  "name": "List Open Local Ports",
+  "description": "Show listening TCP/UDP ports and the process holding each (netstat).",
+  "category": "Network",
+  "tags": [
+    "ports",
+    "netstat",
+    "listening",
+    "monitoring"
+  ],
+  "icon": "network",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

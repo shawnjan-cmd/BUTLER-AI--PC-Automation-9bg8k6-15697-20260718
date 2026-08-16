@@ -1,0 +1,13 @@
+{
+  "name": "Install Any Winget App",
+  "description": "Prompt for a winget package id and install it silently.",
+  "category": "Install",
+  "tags": [
+    "install",
+    "winget",
+    "custom"
+  ],
+  "icon": "download",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

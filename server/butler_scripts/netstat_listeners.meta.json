@@ -1,0 +1,13 @@
+{
+  "name": "Listening Ports & Programs",
+  "description": "Show every TCP/UDP listener with the owning process name and PID.",
+  "category": "Network",
+  "tags": [
+    "netstat",
+    "ports",
+    "listen"
+  ],
+  "icon": "network",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

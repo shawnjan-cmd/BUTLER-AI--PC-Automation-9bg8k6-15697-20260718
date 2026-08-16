@@ -1,0 +1,16 @@
+{
+  "name": "Clean Browser Cache",
+  "description": "Delete cache for Chrome, Edge, Firefox, Brave to reclaim disk space.",
+  "category": "Cleaning",
+  "tags": [
+    "browser",
+    "cache",
+    "chrome",
+    "edge",
+    "firefox",
+    "cleanup"
+  ],
+  "icon": "broom",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

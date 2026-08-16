@@ -28,6 +28,8 @@ export class TabErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: any) {
+    // Sentinel first — it owns loop-breaking and permanent quarantine.
+    try { require('@/services/sentinel').sentinel.reportCrash(`tab:${this.props.name}`, error); } catch {}
     // Route to autoErrorLogger — never crash if it isn't available
     try {
       require('@/services/autoErrorLogger').autoErrorLogger.log(
@@ -144,7 +146,7 @@ export class TabErrorBoundary extends Component<Props, State> {
 const s = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000509',
+    backgroundColor: '#050810',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
@@ -167,29 +169,29 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 20,
     ...Platform.select({
-      ios: { shadowColor: '#FF4444', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 12 },
+      ios: { shadowColor: '#FF4D5E', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 12 },
       android: { elevation: 8 },
     }),
   },
   iconTxt: {
     fontSize: 28,
-    color: '#FF4444',
+    color: '#FF4D5E',
   },
   tabName: {
     fontSize: 16,
     fontWeight: '900',
-    color: '#e0f0e8',
+    color: '#DCE6F2',
     fontFamily: MONO,
     letterSpacing: 2,
     marginBottom: 12,
     textAlign: 'center',
   },
   tabNameAccent: {
-    color: '#FF4444',
+    color: '#FF4D5E',
   },
   errMsg: {
     fontSize: 11,
-    color: '#7a9b88',
+    color: '#6B7A92',
     fontFamily: MONO,
     textAlign: 'center',
     lineHeight: 18,
@@ -205,20 +207,20 @@ const s = StyleSheet.create({
     marginBottom: 16,
     backgroundColor: 'rgba(0,255,136,0.06)',
     ...Platform.select({
-      ios: { shadowColor: '#00FF88', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 8 },
+      ios: { shadowColor: '#2FE38A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 8 },
       android: { elevation: 4 },
     }),
   },
   reloadTxt: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#00FF88',
+    color: '#2FE38A',
     fontFamily: MONO,
     letterSpacing: 2,
   },
   hint: {
     fontSize: 9,
-    color: '#3a5a4a',
+    color: '#2FE38A',
     fontFamily: MONO,
     textAlign: 'center',
     letterSpacing: 0.5,

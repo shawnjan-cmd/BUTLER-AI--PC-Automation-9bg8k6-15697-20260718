@@ -1,0 +1,14 @@
+{
+  "name": "Backup SSH Keys",
+  "description": "Zip ~/.ssh into a password-protected archive on the Desktop (no password support without 7z \u2014 just zip here).",
+  "category": "Backup",
+  "tags": [
+    "ssh",
+    "keys",
+    "backup",
+    "security"
+  ],
+  "icon": "key",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

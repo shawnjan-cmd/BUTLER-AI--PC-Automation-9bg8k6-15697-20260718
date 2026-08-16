@@ -1,0 +1,12 @@
+{
+  "name": "Screenshot to Clipboard",
+  "description": "Take a full-screen screenshot and copy it directly to the clipboard.",
+  "category": "Productivity",
+  "tags": [
+    "screenshot",
+    "clipboard"
+  ],
+  "icon": "photo_camera",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

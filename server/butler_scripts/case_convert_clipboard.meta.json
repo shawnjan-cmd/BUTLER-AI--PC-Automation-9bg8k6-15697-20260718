@@ -1,0 +1,13 @@
+{
+  "name": "Cycle Case of Clipboard",
+  "description": "Cycle clipboard text through: lower \u2192 UPPER \u2192 Title \u2192 snake_case.",
+  "category": "Productivity",
+  "tags": [
+    "text",
+    "case",
+    "clipboard"
+  ],
+  "icon": "text-cursor",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

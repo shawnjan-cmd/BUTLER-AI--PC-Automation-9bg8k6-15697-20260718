@@ -14,6 +14,8 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { encryptedStorage } from './encryptedStorage';
+import { everyMs, clearKey } from './timerBus';
 
 const MAX_ENTRIES = 150;
 const STORAGE_KEY = '@butler_runtime_monitor_v1';
@@ -83,7 +85,6 @@ class RuntimeErrorMonitorService {
   private _health:    HealthSnapshot | null = null;
   private _listeners: Set<Listener>   = new Set();
   private _started:   boolean         = false;
-  private _timer:     ReturnType<typeof setInterval> | null = null;
   private _origFetch: typeof fetch | null = null;
   private _origConsoleError: typeof console.error | null = null;
   private _origConsoleWarn:  typeof console.warn  | null = null;
@@ -338,7 +339,7 @@ class RuntimeErrorMonitorService {
   // ── 5. Health loop ────────────────────────────────────────────────
   private _startHealthLoop() {
     setTimeout(() => { this._runHealthCheck().catch(() => {}); }, 15_000);
-    this._timer = setInterval(() => { this._runHealthCheck().catch(() => {}); }, HEALTH_INTERVAL_MS);
+    everyMs('monitor:health', HEALTH_INTERVAL_MS, () => { this._runHealthCheck().catch(() => {}); });
   }
 
   private async _runHealthCheck() {
@@ -479,7 +480,7 @@ class RuntimeErrorMonitorService {
         try { (global as any).__butlerStopAllAnimations?.(); } catch {}
         // Trigger the error boundary to auto-reset (1s timer in TabErrorBoundary)
         try { (global as any).__butlerResetTabBoundary?.('Core'); } catch {}
-        try { (global as any).__butlerResetTabBoundary?.('nexushome'); } catch {}
+        try { (global as any).__butlerResetTabBoundary?.('home'); } catch {}
         // Bump reset counter so affected components see a change
         try {
           (global as any).__butlerAnimReset = ((global as any).__butlerAnimReset ?? 0) + 1;
@@ -532,7 +533,7 @@ class RuntimeErrorMonitorService {
         e.message.includes('Too many re-renders') ||
         e.message.includes('Infinite loop'),
       fix: async () => {
-        try { require('expo-router').router.replace('/(tabs)/nexushome'); } catch {}
+        try { require('expo-router').router.replace('/(tabs)/home'); } catch {}
         return 'Navigated home to break infinite render loop';
       },
     },
@@ -545,7 +546,7 @@ class RuntimeErrorMonitorService {
         (e.message.includes('Context') && e.category === 'js_crash') ||
         (e.message.includes('Provider') && e.category === 'js_crash'),
       fix: async () => {
-        try { require('expo-router').router.replace('/(tabs)/nexushome'); } catch {}
+        try { require('expo-router').router.replace('/(tabs)/home'); } catch {}
         return 'Context error — navigated to root to reinitialise providers';
       },
     },
@@ -563,7 +564,7 @@ class RuntimeErrorMonitorService {
         ),
       fix: async () => {
         setTimeout(() => {
-          try { require('expo-router').router.replace('/(tabs)/nexushome'); } catch {}
+          try { require('expo-router').router.replace('/(tabs)/home'); } catch {}
         }, 300);
         return 'Null ref detected — navigating to home to break render loop';
       },
@@ -580,7 +581,7 @@ class RuntimeErrorMonitorService {
           '@butler_last_crash_v2',
         ]).catch(() => {});
         setTimeout(() => {
-          try { require('expo-router').router.replace('/(tabs)/nexushome'); } catch {}
+          try { require('expo-router').router.replace('/(tabs)/home'); } catch {}
         }, 400);
         return 'Crash cache cleared — auto-navigating to safe screen';
       },
@@ -596,7 +597,7 @@ class RuntimeErrorMonitorService {
           e.message.includes("can't perform")
         ),
       fix: async () => {
-        try { require('expo-router').router.replace('/(tabs)/nexushome'); } catch {}
+        try { require('expo-router').router.replace('/(tabs)/home'); } catch {}
         return 'Unmounted state mutation — navigated to home';
       },
     },
@@ -641,7 +642,7 @@ class RuntimeErrorMonitorService {
           const { encryptedStorage } = require('./encryptedStorage');
           await encryptedStorage.removeItem?.('@sc_session_token_v1').catch(() => {});
         } catch {}
-        await AsyncStorage.removeItem('@butler_server_token').catch(() => {});
+        await encryptedStorage.removeItem('@butler_server_token').catch(() => {});
         return '403: Token cleared — scan QR on HOME to re-pair';
       },
     },
@@ -840,7 +841,7 @@ class RuntimeErrorMonitorService {
         (e.category === 'console_error' || e.category === 'console_warn') &&
         (e.message.includes('Maximum update depth') || e.message.includes('Too many re-renders')),
       fix: async () => {
-        try { require('expo-router').router.replace('/(tabs)/nexushome'); } catch {}
+        try { require('expo-router').router.replace('/(tabs)/home'); } catch {}
         return 'Infinite re-render loop — navigated to home to break cycle';
       },
     },

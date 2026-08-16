@@ -18,7 +18,7 @@
       "android": {
         "buildType": "apk",
         "gradleCommand": ":app:assembleDebug",
-        "prebuildCommand": "npx expo prebuild --clean && npx react-native start --reset-cache &"
+        "prebuildCommand": "npx expo prebuild --clean"
       },
       "ios": {
         "simulator": true
@@ -76,29 +76,6 @@
         "buildType": "app-bundle",
         "gradleCommand": ":app:bundleRelease --no-daemon --stacktrace",
         "prebuildCommand": "npx expo prebuild --clean"
-      }
-    }
-  },
-  "submit": {
-    "internal": {
-      "android": {
-        "serviceAccountKeyPath": "./google-play-service-account.json",
-        "track": "internal",
-        "releaseStatus": "draft",
-        "changesNotSentForReview": false
-      }
-    },
-    "production": {
-      "android": {
-        "serviceAccountKeyPath": "./google-play-service-account.json",
-        "track": "production",
-        "releaseStatus": "completed",
-        "changesNotSentForReview": false
-      },
-      "ios": {
-        "appleId": "contact@onspace.ai",
-        "ascAppId": "com.butlerai.pc.automation",
-        "appleTeamId": "YOUR_APPLE_TEAM_ID"
       }
     }
   }

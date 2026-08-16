@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
-import { logger }          from '@/utils/logger';
+import { logger }          from '@/logger';
 import { autoErrorLogger } from '@/services/autoErrorLogger';
 import { executionHistory } from '@/services/executionHistory';
 import { knowledgeAccumulator } from '@/services/knowledgeAccumulator';

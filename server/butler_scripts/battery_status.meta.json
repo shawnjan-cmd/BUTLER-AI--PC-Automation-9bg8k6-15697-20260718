@@ -1,0 +1,13 @@
+{
+  "name": "Battery Status",
+  "description": "Show battery percentage, charging state and remaining time.",
+  "category": "System",
+  "tags": [
+    "battery",
+    "laptop",
+    "power"
+  ],
+  "icon": "battery",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

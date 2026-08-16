@@ -1,3 +1,4 @@
+import { everyMs, clearKey } from './timerBus';
 /**
  * 💓 HEARTBEAT ENGINE - Connection Metrics Monitor
  *
@@ -50,13 +51,14 @@ class HeartbeatEngine {
     }
     console.log('[Heartbeat] 💓 Starting heartbeat metrics engine');
     this.missedPings = 0;
-    this.intervalId = setInterval(() => { this.sendPing(); }, this.PING_INTERVAL);
+    this.intervalId = 1 as unknown as ReturnType<typeof setInterval>;
+    everyMs('heartbeat:ping', this.PING_INTERVAL, () => { this.sendPing(); });
     this.sendPing(); // immediate first ping
   }
 
   stop() {
     if (this.intervalId) {
-      clearInterval(this.intervalId);
+      clearKey('heartbeat:ping');
       this.intervalId = null;
       console.log('[Heartbeat] 🛑 Stopped');
     }

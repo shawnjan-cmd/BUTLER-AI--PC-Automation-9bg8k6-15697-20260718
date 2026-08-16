@@ -1,0 +1,14 @@
+{
+  "name": "List Installed Programs (Win)",
+  "description": "Enumerate installed software from the Windows registry (Uninstall keys).",
+  "category": "System",
+  "tags": [
+    "windows",
+    "installed",
+    "programs",
+    "registry"
+  ],
+  "icon": "box",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

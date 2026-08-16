@@ -1,0 +1,15 @@
+{
+  "name": "Credential Guard Status",
+  "description": "Check if Windows Credential Guard and LSA protection are enabled to prevent credential theft.",
+  "category": "Security",
+  "tags": [
+    "security",
+    "credential",
+    "lsass",
+    "protection",
+    "hardening"
+  ],
+  "icon": "lock_person",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

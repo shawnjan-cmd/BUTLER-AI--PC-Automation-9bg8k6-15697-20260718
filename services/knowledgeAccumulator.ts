@@ -13,6 +13,9 @@ type KnowledgeDomain = {
 };
 import { kbGrowthTracker } from './kbGrowthTracker';
 import { serverConnection } from './serverConnection';
+import { encryptedStorage } from './encryptedStorage';
+import { admitMemory, memoryFingerprint } from './memoryAdmission';
+import { buildPrivacyMetadata, sanitizeCrawlerExcerpt } from './privateDataPolicy';
 
 const AUTO_SAVE_KEY    = '@botler_auto_saved_research';
 const SEED_DONE_KEY    = '@botler_seed_done_v1';          // prevents duplicate seeding
@@ -49,6 +52,7 @@ export interface CompressedKnowledge {
     source: string;
     timestamp: string;
     confidence: number; // 0-1
+    privacy?: ReturnType<typeof buildPrivacyMetadata>;
   };
 }
 
@@ -101,20 +105,23 @@ class KnowledgeAccumulator {
     topic: string,
     source: string
   ): CompressedKnowledge {
+    const safe = sanitizeCrawlerExcerpt(rawText);
+    const cleanText = safe.text;
+
     // Step 1: Extract key sentences (recursive character splitting)
-    const sentences = this.extractKeySentences(rawText, 5);
+    const sentences = this.extractKeySentences(cleanText, 5);
     
     // Step 2: Generate semantic summary (max 128 chars)
     const summary = this.generateSummary(sentences, 128);
     
     // Step 3: Extract keywords using frequency + position weighting
-    const keywords = this.extractKeywords(rawText, 10);
+    const keywords = this.extractKeywords(cleanText, 10);
     
     // Step 4: Create concise examples (max 64 chars each)
     const examples = sentences.map(s => this.truncateExample(s, 64));
     
     // Step 5: Calculate compression ratio
-    const originalSize = rawText.length;
+    const originalSize = cleanText.length;
     const compressedSize = JSON.stringify({ summary, keywords, examples }).length;
     const compressionRatio = (1 - compressedSize / originalSize);
     
@@ -130,6 +137,11 @@ class KnowledgeAccumulator {
         source,
         timestamp: new Date().toISOString(),
         confidence: Math.min(0.95, sentences.length / 10), // More sentences = higher confidence
+        privacy: buildPrivacyMetadata({
+          text: cleanText,
+          scope: 'private',
+          confidence: Math.min(0.95, sentences.length / 10),
+        }),
       },
     };
   }
@@ -257,15 +269,30 @@ class KnowledgeAccumulator {
 
   /**
    * Add a finding ONLY if a finding with the same fingerprint does not already exist.
+   * Checks both the pending queue and persisted findings.
    * Returns true if the finding was added, false if it was a duplicate.
    */
-  addFindingDeduped(finding: CompressedKnowledge): boolean {
+  async addFindingDeduped(finding: CompressedKnowledge): Promise<boolean> {
+    // Canonical admission gate: durable research must carry source provenance.
+    const admission = admitMemory({
+      text: `${finding.summary} ${finding.examples?.join(' ') || ''}`,
+      source: finding.metadata?.source || '',
+      confidence: finding.metadata?.confidence ?? 0,
+      sensitivity: 'personal',
+      userApproved: true,
+      provenanceId: memoryFingerprint(`${finding.metadata?.source || ''}:${finding.topic}`),
+      durable: true,
+    });
+    if (!admission.admitted) return false;
     // Safety net: confidence filter
     if ((finding.metadata?.confidence ?? 1) < MIN_CONFIDENCE_FILTER) return false;
     const fp = this._fingerprint(finding);
     // Check pending queue
     const alreadyPending = this.pendingFindings.some(f => this._fingerprint(f) === fp);
     if (alreadyPending) return false;
+    const persistedFingerprints = await this.loadPersistedFingerprints();
+    const addedWhileChecking = this.pendingFindings.some(f => this._fingerprint(f) === fp);
+    if (persistedFingerprints.has(fp) || addedWhileChecking) return false;
     this.pendingFindings.push(finding);
     if (this.pendingFindings.length >= 5) { this.saveNow(); }
     else { this.scheduleAutoSave(); }
@@ -402,7 +429,7 @@ class KnowledgeAccumulator {
       }
 
       // Save to persistent storage
-      await AsyncStorage.setItem(AUTO_SAVE_KEY, JSON.stringify({
+      await encryptedStorage.setItem(AUTO_SAVE_KEY, JSON.stringify({
         version: COMPRESSION_VERSION,
         sessions: updated,
         totalFindings,
@@ -437,28 +464,13 @@ class KnowledgeAccumulator {
    */
   async loadResearch(): Promise<ResearchSession[]> {
     try {
-      const data = await AsyncStorage.getItem(AUTO_SAVE_KEY);
+      const data = await encryptedStorage.getItem(AUTO_SAVE_KEY);
       if (!data) return [];
-
-      // Guard: if the stored value is encrypted by encryptedStorage (starts with
-      // '__ENC__'), it cannot be JSON.parsed here — clear the corrupted entry and
-      // start fresh rather than crashing every time.
-      if (data.startsWith('__ENC__') || data.startsWith('{"__ENC')) {
-        await AsyncStorage.removeItem(AUTO_SAVE_KEY);
-        return [];
-      }
-
-      // Guard: must start with '{' to be valid JSON
-      if (!data.trim().startsWith('{')) {
-        await AsyncStorage.removeItem(AUTO_SAVE_KEY);
-        return [];
-      }
-
       const parsed = JSON.parse(data);
       return parsed.sessions || [];
     } catch (error) {
       // Corrupted data — wipe and start fresh
-      try { await AsyncStorage.removeItem(AUTO_SAVE_KEY); } catch {}
+      try { await encryptedStorage.removeItem(AUTO_SAVE_KEY); } catch {}
       return [];
     }
   }
@@ -518,8 +530,8 @@ class KnowledgeAccumulator {
     const totalFindings = sessions.reduce((sum, s) => sum + s.findings.length, 0);
     const totalCompression = sessions.reduce((sum, s) => sum + s.totalCompression, 0);
     
-    const data = await AsyncStorage.getItem(AUTO_SAVE_KEY);
-    const storageUsed = data ? data.length * 2 : 0; // UTF-16 byte estimate (Blob not available in Hermes)
+    const data = await this.loadResearch();
+    const storageUsed = data.length ? JSON.stringify(data).length * 2 : 0; // estimate; ciphertext is larger
     
     return {
       totalSessions: sessions.length,
@@ -561,7 +573,7 @@ class KnowledgeAccumulator {
    * Clear all accumulated research
    */
   async clearAll(): Promise<void> {
-    await AsyncStorage.removeItem(AUTO_SAVE_KEY);
+    await encryptedStorage.removeItem(AUTO_SAVE_KEY);
     await this.resetSeedFlag();
     this.pendingFindings = [];
 
@@ -571,7 +583,7 @@ class KnowledgeAccumulator {
    * Export research as JSON
    */
   async exportResearch(): Promise<string> {
-    const data = await AsyncStorage.getItem(AUTO_SAVE_KEY);
+    const data = await encryptedStorage.getItem(AUTO_SAVE_KEY);
     return data || '{}';
   }
 
@@ -587,10 +599,8 @@ class KnowledgeAccumulator {
    */
   async buildContext(_query?: string, _maxItems = 3): Promise<string> {
     try {
-      const data = await AsyncStorage.getItem(AUTO_SAVE_KEY);
-      if (!data) return '';
-      const parsed = JSON.parse(data || '{}');
-      const items = Array.isArray(parsed?.recent) ? parsed.recent.slice(0, _maxItems) : [];
+      const sessions = await this.loadResearch();
+      const items = sessions.flatMap(session => session.findings).slice(0, _maxItems);
       if (!items.length) return '';
       return items.map((i: any) => `• ${String(i?.topic || i?.title || '').slice(0, 80)}`).join('\n');
     } catch { return ''; }

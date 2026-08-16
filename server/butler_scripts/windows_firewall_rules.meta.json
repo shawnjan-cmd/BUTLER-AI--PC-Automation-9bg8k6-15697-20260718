@@ -1,0 +1,14 @@
+{
+  "name": "Firewall Rules Audit",
+  "description": "List all enabled inbound Windows Firewall rules \u2014 spot suspicious or bloated rules.",
+  "category": "Security",
+  "tags": [
+    "security",
+    "firewall",
+    "audit",
+    "windows"
+  ],
+  "icon": "security",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

@@ -28,19 +28,19 @@ import { router } from 'expo-router';
 import { haptics } from '@/services/haptics';
 import { getBootErrors, clearBootErrors, type BootErrorEntry } from '@/services/bootErrorLog';
 
-// ── Design tokens (match settings.tsx / global Nexus palette) ──────
+// ── Design tokens (match settings.tsx / global Butler palette) ──────
 const T = {
-  bg:        '#010508',
-  surface:   '#070D18',
-  surfHi:    '#0C1728',
-  cyan:      '#00E5FF',
-  green:     '#00FF88',
-  amber:     '#FFB020',
-  danger:    '#FF3333',
-  purple:    '#CC44FF',
-  text:      '#C8E4F0',
-  textMid:   '#5A7A96',
-  textDim:   '#243040',
+  bg:        '#050810',
+  surface:   '#0B0F17',
+  surfHi:    '#4A9EFF',
+  cyan:      '#38D9E8',
+  green:     '#2FE38A',
+  amber:     '#FFB43D',
+  danger:    '#FF4D5E',
+  purple:    '#A468FF',
+  text:      '#DCE6F2',
+  textMid:   '#4A9EFF',
+  textDim:   '#4A9EFF',
   border:    'rgba(0,229,255,0.12)',
 };
 const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
@@ -174,7 +174,7 @@ const cc = StyleSheet.create({
   msgTxt:     { fontFamily: MONO, fontSize: 11, lineHeight: 17 },
   stackToggle:{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingBottom: 8 },
   stackToggleTxt: { fontFamily: MONO, fontSize: 9, fontWeight: '700', letterSpacing: 0.8 },
-  stackBox:   { marginHorizontal: 14, marginBottom: 12, borderWidth: 1, borderRadius: 8, padding: 10, backgroundColor: '#020810' },
+  stackBox:   { marginHorizontal: 14, marginBottom: 12, borderWidth: 1, borderRadius: 8, padding: 10, backgroundColor: '#050810' },
   stackTxt:   { fontFamily: MONO, fontSize: 9.5, color: T.amber, lineHeight: 16 },
 });
 
@@ -485,53 +485,35 @@ export default function CrashReportScreen() {
           </>
         ) : null}
 
-        {/* ── Action buttons ─────────────────────────────────────── */}
-        {/* ── AUTO-REPORT TOGGLE ───────────────────────────────── */}
+        {/* ── Local diagnostics privacy notice ───────────────────── */}
         {!loading ? (
           <>
             <View style={s.sectionHdr}>
               <View style={[s.sectionBar, { backgroundColor: T.purple }]} />
-              <MaterialCommunityIcons name="robot" size={11} color={T.purple} />
-              <Text style={[s.sectionTxt, { color: T.purple }]}>AUTONOMOUS CRASH REPORTING</Text>
+              <MaterialCommunityIcons name="shield-check" size={11} color={T.purple} />
+              <Text style={[s.sectionTxt, { color: T.purple }]}>LOCAL DIAGNOSTIC PRIVACY</Text>
               <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: T.purple + '30' }} />
             </View>
-            <View style={[autoTog.card, { borderColor: autoReport ? T.purple + '60' : T.border, backgroundColor: autoReport ? T.purple + '06' : T.surface }]}>
-              <HudCorners color={autoReport ? T.purple + '40' : T.border} size={8} t={1} />
+            <View style={[autoTog.card, { borderColor: T.purple + '60', backgroundColor: T.purple + '06' }]}>
+              <HudCorners color={T.purple + '40'} size={8} t={1} />
               <View style={[autoTog.topBar, { backgroundColor: T.purple }]} />
               <View style={autoTog.row}>
                 <View style={[autoTog.iconBox, { borderColor: T.purple + '60', backgroundColor: T.purple + '14' }]}>
-                  <MaterialCommunityIcons name="clipboard-text-clock" size={20} color={T.purple} />
+                  <MaterialCommunityIcons name="shield-lock-outline" size={20} color={T.purple} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[autoTog.label, { color: autoReport ? T.text : T.textMid }]}>AUTO-REPORT ON NEXT CRASH</Text>
+                  <Text style={[autoTog.label, { color: T.text }]}>REDACTED, ON-DEVICE ONLY</Text>
                   <Text style={autoTog.sub}>
-                    {autoReport
-                      ? 'ON · Next crash → instant clipboard copy'
-                      : 'OFF · Crashes stored silently in log'}
+                    {'No automatic clipboard copying or external crash reporting'}
                   </Text>
                 </View>
-                <Switch
-                  value={autoReport}
-                  onValueChange={handleToggleAutoReport}
-                  trackColor={{ false: 'rgba(255,255,255,0.08)', true: T.purple + '60' }}
-                  thumbColor={autoReport ? T.purple : T.textDim}
-                  ios_backgroundColor="rgba(255,255,255,0.08)"
-                />
               </View>
-              {autoReport ? (
-                <View style={autoTog.descBox}>
-                  <MaterialIcons name="info" size={12} color={T.purple + '80'} />
-                  <Text style={autoTog.desc}>
-                    {'When a startup crash occurs, the full error message + stack trace will be\nautomatically copied to your clipboard so you can paste it instantly — no need to open this screen.'}
-                  </Text>
-                </View>
-              ) : null}
-              {autoSaved ? (
-                <View style={autoTog.savedBadge}>
-                  <MaterialIcons name="check" size={10} color={T.green} />
-                  <Text style={[autoTog.savedTxt, { color: T.green }]}>SAVED</Text>
-                </View>
-              ) : null}
+              <View style={autoTog.descBox}>
+                <MaterialIcons name="info" size={12} color={T.purple + '80'} />
+                <Text style={autoTog.desc}>
+                  {'Butler retains only a short, redacted local error record for recovery. Clear this screen at any time to remove retained crash notes.'}
+                </Text>
+              </View>
             </View>
           </>
         ) : null}

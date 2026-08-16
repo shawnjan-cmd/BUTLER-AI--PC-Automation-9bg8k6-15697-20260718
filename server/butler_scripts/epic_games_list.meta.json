@@ -1,0 +1,14 @@
+{
+  "name": "List Epic Games Installs",
+  "description": "Read Epic Games launcher manifests to list installed games (Windows).",
+  "category": "Gaming",
+  "tags": [
+    "epic",
+    "games",
+    "installed",
+    "windows"
+  ],
+  "icon": "gamepad-2",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

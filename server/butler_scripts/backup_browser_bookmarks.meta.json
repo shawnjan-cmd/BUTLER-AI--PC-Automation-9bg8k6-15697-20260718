@@ -1,0 +1,15 @@
+{
+  "name": "Backup Browser Bookmarks",
+  "description": "Copy Chrome/Edge/Firefox bookmark files into a dated folder on Desktop.",
+  "category": "Backup",
+  "tags": [
+    "backup",
+    "bookmarks",
+    "browser",
+    "chrome",
+    "firefox"
+  ],
+  "icon": "bookmark",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

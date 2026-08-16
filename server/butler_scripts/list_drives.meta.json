@@ -1,0 +1,13 @@
+{
+  "name": "List Disk Drives",
+  "description": "Show every mounted drive with total/used/free space.",
+  "category": "System",
+  "tags": [
+    "disk",
+    "drives",
+    "storage"
+  ],
+  "icon": "disk",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}

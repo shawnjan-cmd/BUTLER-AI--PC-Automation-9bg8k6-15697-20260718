@@ -1,0 +1,15 @@
+{
+  "name": "HID Injection Detector",
+  "description": "Check for suspicious HID devices (potential rubber ducky / bad USB keyboards).",
+  "category": "Security",
+  "tags": [
+    "security",
+    "usb",
+    "hid",
+    "badusb",
+    "detection"
+  ],
+  "icon": "usb",
+  "created_at": "2026-08-13T07:58:52Z",
+  "builtin": true
+}
