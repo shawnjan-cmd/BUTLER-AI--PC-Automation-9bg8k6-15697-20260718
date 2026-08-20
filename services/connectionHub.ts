@@ -42,6 +42,8 @@ import { quickScan, ScanProgress } from './lanScanner';
 import { pcClipboard } from './pcClipboard';
 import { everyMs, clearKey } from './timerBus';
 import { performanceGovernor } from './performanceGovernor';
+import { autoErrorLogger } from './autoErrorLogger';
+import { runtimeErrorMonitor } from './runtimeErrorMonitor';
 
 // ─────────────────────────────────────────────────────────────────
 //  PUBLIC STATE SHAPE — returned from getState() and subscribe()
@@ -304,6 +306,8 @@ class ConnectionHub {
         this._notify();
         return { ok: true, addr: `${ip}:${serverConnection.getPort() || port}`, latency: this._latencyMs };
       }
+      autoErrorLogger.error('connectionHub', `Pair failed: ${result.error || 'Unknown'}`);
+      runtimeErrorMonitor._add({ category: 'network', severity: 'error', message: `Pair failed: ${result.error || 'Unknown'}`, source: 'connectionHub' });
       this._engineStatus = 'idle';
       this._notify();
       return { ok: false, error: result.error || 'Pair failed' };
@@ -329,6 +333,8 @@ class ConnectionHub {
         this._notify();
         return { ok: true, addr: `${ip}:${serverConnection.getPort() || port}`, latency: this._latencyMs };
       }
+      autoErrorLogger.error('connectionHub', `Connect failed: ${result.error || 'Unknown'}`);
+      runtimeErrorMonitor._add({ category: 'network', severity: 'error', message: `Connect failed: ${result.error || 'Unknown'}`, source: 'connectionHub' });
       this._engineStatus = 'idle';
       this._notify();
       return { ok: false, error: result.error || 'Connect failed' };

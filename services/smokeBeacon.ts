@@ -13,8 +13,8 @@
  *   BUTLER_SMOKE:ERROR     — any runtime error / unhandled rejection
  *   BUTLER_SMOKE:READY     — everything above succeeded; safe to pass the run
  *
- * It is development-only. Production builds install no console interception or
- * smoke timer so runtime details never reach device diagnostic logs by default.
+ * Zero cost in production: nothing renders, nothing is stored, no timers stay
+ * alive. It is only console output plus two idempotent global hooks.
  */
 
 const PREFIX = 'BUTLER_SMOKE';
@@ -26,7 +26,6 @@ let errorCount = 0;
 let hooksInstalled = false;
 
 function emit(kind: string, payload?: Record<string, unknown>) {
-  if (!__DEV__) return;
   // One line, always parseable by `grep` on the CI side.
   try {
     const body = { ms: Date.now() - t0, ...(payload ?? {}) };
@@ -48,7 +47,6 @@ function describe(err: unknown): string {
 
 /** Report a runtime error to the smoke channel. Never throws. */
 export function smokeError(err: unknown, source = 'runtime') {
-  if (!__DEV__) return;
   errorCount += 1;
   emit('ERROR', { source, detail: describe(err), count: errorCount });
 }
@@ -59,7 +57,6 @@ export function smokeError(err: unknown, source = 'runtime') {
  * and crash logger keep working exactly as before.
  */
 export function installSmokeBeacon() {
-  if (!__DEV__) return;
   if (hooksInstalled) return;
   hooksInstalled = true;
 
@@ -97,7 +94,6 @@ export function installSmokeBeacon() {
 
 /** Call once from the root layout's first effect. */
 export function smokeMounted() {
-  if (!__DEV__) return;
   if (mounted) return;
   mounted = true;
   emit('MOUNT');
@@ -108,7 +104,6 @@ export function smokeMounted() {
  * when the frame settled with no errors recorded — that pair is what CI greps.
  */
 export function smokeFirstRoute(route: string) {
-  if (!__DEV__) return;
   if (routeReported) return;
   routeReported = true;
   emit('ROUTE_OK', { route });

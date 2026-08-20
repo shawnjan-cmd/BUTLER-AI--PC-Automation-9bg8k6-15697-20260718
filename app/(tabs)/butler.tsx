@@ -22,6 +22,12 @@ import { TabErrorBoundary } from '@/components/ui/TabErrorBoundary';
 import { serverConnection } from '@/services/serverConnection';
 import { haptics } from '@/services/haptics';
 import { buildScriptConcierge } from '@/services/scriptConcierge';
+import { createAutomationPlanPreview, formatAutomationPlan, isAutomationRequest, type AutomationPlan } from '@/services/automationCommandContract';
+import { requestServerAutomationPlan } from '@/services/automationRequestService';
+import { automationMemoryVault } from '@/services/automationMemoryVault';
+import { syncAutomationMemoryManifest } from '@/services/automationMemorySync';
+import { automationWorkflowMonitor, type WorkflowSnapshot } from '@/services/automationWorkflowMonitor';
+import { navigateButler } from '@/services/safeNavigation';
 
 const BG    = '#0B0F17';
 const SURF  = '#0B0F17';
@@ -38,7 +44,13 @@ const TEXT  = '#DCE6F2';
 const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
 const SW    = Math.max(320, Dimensions.get('window').width);
 
-type Message = { id: string; role: 'user' | 'assistant' | 'system'; content: string; ts: number; };
+type Message = {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  ts: number;
+  automationPlan?: AutomationPlan;
+};
 
 const MODES = [
   { key:'chat',   label:'CHAT',   icon:'chat-outline',  color:PURP,  desc:'General assistant' },
@@ -71,6 +83,39 @@ const PulseDot = memo(({ color, size = 6 }: { color: string; size?: number }) =>
 
 // ── Message bubble ────────────────────────────────────────────────
 type ChatSkin = { accent:string; accent2:string; accent3:string; ok:string; warn:string; text:string; mid:string; panel2:string; bg:string; mascot:string; bubbleShape:string; fontProfile:string; };
+
+const AutomationPlanCard = memo(({ plan, accent, panel, text }: { plan: AutomationPlan; accent: string; panel: string; text: string }) => {
+  const blocked = plan.state === 'blocked';
+  const sideEffect = plan.risk === 'external_side_effect';
+  const signal = blocked ? RED : sideEffect ? AMBER : accent;
+  return (
+    <View style={{ marginTop:10, borderWidth:1.5, borderColor:signal+'65', backgroundColor:panel, borderRadius:12, padding:10, gap:8 }}>
+      <View style={{ flexDirection:'row', alignItems:'center', gap:7 }}>
+        <MaterialCommunityIcons name={blocked ? 'shield-alert-outline' : sideEffect ? 'shield-account-outline' : 'shield-check-outline'} size={15} color={signal} />
+        <Text style={{ fontFamily:MONO, fontSize:9, letterSpacing:0.7, color:signal, fontWeight:'900', flex:1 }}>
+          {blocked ? 'AUTOMATION BLOCKED' : 'FLOW LEDGER PLAN'}
+        </Text>
+        <Text style={{ fontFamily:MONO, fontSize:8, color:signal+'C0', fontWeight:'900' }}>{plan.risk.replace(/_/g, ' ').toUpperCase()}</Text>
+      </View>
+      <Text style={{ fontFamily:MONO, color:text, fontSize:10.5, lineHeight:16 }}>{plan.summary}</Text>
+      {!blocked && <>
+        <View style={{ borderTopWidth:1, borderTopColor:signal+'25', paddingTop:7, gap:3 }}>
+          {plan.prerequisites.slice(0, 3).map(item => (
+            <Text key={item.id} style={{ fontFamily:MONO, fontSize:8.5, color:TEXT+'CC', lineHeight:13 }}>• {item.label}</Text>
+          ))}
+        </View>
+        <TouchableOpacity
+          onPress={() => { haptics.medium(); navigateButler('scripts'); }}
+          activeOpacity={0.82}
+          style={{ minHeight:42, borderRadius:10, borderWidth:1.5, borderColor:signal+'95', backgroundColor:signal+'13', flexDirection:'row', alignItems:'center', justifyContent:'center', gap:7 }}>
+          <MaterialCommunityIcons name="script-text-outline" size={15} color={signal} />
+          <Text style={{ fontFamily:MONO, color:signal, fontWeight:'900', fontSize:9.5, letterSpacing:0.5 }}>REVIEW IN SCRIPT LIBRARY</Text>
+        </TouchableOpacity>
+        <Text style={{ fontFamily:MONO, color:MID, fontSize:7.5, lineHeight:11, textAlign:'center' }}>CHAT NEVER EXECUTES A WORKFLOW · LINT → DRY-RUN → EXPLICIT APPROVAL</Text>
+      </>}
+    </View>
+  );
+});
 const mascotIcon = (mascot: string): keyof typeof MaterialCommunityIcons.glyphMap => mascot === 'atelier' ? 'robot-excited-outline' : mascot === 'guardian' ? 'shield-moon-outline' : mascot === 'neon' ? 'robot-outline' : mascot === 'terminal' ? 'robot-industrial' : mascot === 'orbital' ? 'orbit' : 'robot-happy';
 const MsgBubble = memo(({ msg, activeMode, skin }: { msg: Message; activeMode: string; skin: ChatSkin }) => {
   const isUser   = msg.role === 'user';
@@ -116,6 +161,9 @@ const MsgBubble = memo(({ msg, activeMode, skin }: { msg: Message; activeMode: s
           <Text style={[MB.content, { color: isUser ? color + 'EE' : skin.text }]}>
             {msg.content}
           </Text>
+          {msg.automationPlan && !isUser && (
+            <AutomationPlanCard plan={msg.automationPlan} accent={color} panel={skin.panel2} text={skin.text} />
+          )}
         </View>
         <Text style={[MB.ts, { alignSelf: isUser ? 'flex-end' : 'flex-start' }]}>{ts}</Text>
       </View>
@@ -159,6 +207,90 @@ const TypingDots = memo(({ color, background, mascot }: { color: string; backgro
             <Animated.View key={i} style={{ width:7, height:7, borderRadius:3.5, backgroundColor:color, opacity:a }} />
           ))}
         </View>
+      </View>
+    </View>
+  );
+});
+
+// ── Live draft pipeline ───────────────────────────────────────────
+const DraftingPipeline = memo(({ stage, snapshot, accent, panel }: { stage: string; snapshot: WorkflowSnapshot | null; accent: string; panel: string }) => {
+  const pulse = useRef(new Animated.Value(0.35)).current;
+  const bridge = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loops = [
+      Animated.loop(Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 620, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.3, duration: 620, useNativeDriver: true }),
+      ])),
+      Animated.loop(Animated.sequence([
+        Animated.timing(bridge, { toValue: 1, duration: 1050, useNativeDriver: true }),
+        Animated.timing(bridge, { toValue: 0, duration: 0, useNativeDriver: true }),
+        Animated.delay(340),
+      ])),
+    ];
+    loops.forEach(loop => loop.start());
+    return () => loops.forEach(loop => loop.stop());
+  }, [bridge, pulse]);
+
+  const stageIndex: Record<string, number> = {
+    android_intent: 0, pattern_match: 1, pc_preflight: 2, memory_manifest: 2,
+    draft_ready: 3, script_library_handoff: 3, dry_run: 3, approval_required: 3, receipt: 3,
+  };
+  const stages = [
+    { label:'INTENT', icon:'cellphone-link', owner:'ANDROID' },
+    { label:'MEMORY', icon:'brain', owner:'VAULT' },
+    { label:'PC CHECK', icon:'desktop-tower-monitor', owner:'PAIRED PC' },
+    { label:'DRAFT', icon:'script-text-outline', owner:'LIBRARY' },
+  ];
+  const activeIndex = snapshot ? stageIndex[snapshot.stage] ?? 0 : Math.max(0, stages.findIndex(item => stage.includes(item.label)));
+  const blocked = snapshot?.state === 'blocked' || snapshot?.state === 'failed';
+  const signal = blocked ? RED : accent;
+  const latest = snapshot?.events[snapshot.events.length - 1];
+  const compactCorrelation = snapshot?.correlationId ? snapshot.correlationId.slice(-8).toUpperCase() : 'LOCAL';
+
+  return (
+    <View style={{ marginHorizontal:12, marginBottom:10, borderWidth:1.5, borderColor:signal+'70', backgroundColor:panel, borderRadius:14, padding:11, gap:9 }}>
+      <View style={{ flexDirection:'row', alignItems:'center', gap:7 }}>
+        <Animated.View style={{ opacity:pulse }}><MaterialCommunityIcons name="robot-industrial" size={17} color={signal} /></Animated.View>
+        <View style={{ flex:1 }}>
+          <Text style={{ fontFamily:MONO, fontSize:9.5, fontWeight:'900', letterSpacing:0.9, color:signal }}>BUTLER CRAFT LINK</Text>
+          <Text style={{ fontFamily:MONO, fontSize:7.5, color:MID, letterSpacing:0.4 }}>TRACE {compactCorrelation} · RECEIPT-GUARDED</Text>
+        </View>
+        <View style={{ borderWidth:1, borderColor:signal+'55', borderRadius:7, paddingHorizontal:6, paddingVertical:4, backgroundColor:signal+'10' }}>
+          <Text style={{ fontFamily:MONO, fontSize:7.5, fontWeight:'900', color:signal }}>{blocked ? 'HELD' : 'DRAFT ONLY'}</Text>
+        </View>
+      </View>
+
+      <View style={{ flexDirection:'row', alignItems:'center', gap:7 }}>
+        <View style={{ alignItems:'center', gap:2 }}>
+          <MaterialCommunityIcons name="cellphone-link" size={15} color={signal} />
+          <Text style={{ fontFamily:MONO, fontSize:6.5, color:signal }}>ANDROID</Text>
+        </View>
+        <View style={{ height:2, flex:1, backgroundColor:signal+'24', overflow:'hidden', borderRadius:1 }}>
+          <Animated.View style={{ width:'35%', height:2, backgroundColor:signal, opacity:pulse, transform:[{ translateX: bridge.interpolate({ inputRange:[0,1], outputRange:[-70, 210] }) }] }} />
+        </View>
+        <View style={{ alignItems:'center', gap:2 }}>
+          <MaterialCommunityIcons name="desktop-tower-monitor" size={15} color={signal} />
+          <Text style={{ fontFamily:MONO, fontSize:6.5, color:signal }}>PAIRED PC</Text>
+        </View>
+      </View>
+
+      <View style={{ flexDirection:'row', gap:4 }}>
+        {stages.map((item, index) => {
+          const active = index <= activeIndex;
+          const current = index === activeIndex;
+          return <View key={item.label} style={{ flex:1, minHeight:45, borderWidth:1, borderRadius:7, borderColor:(current ? signal : active ? signal+'65' : MID+'45'), backgroundColor:current ? signal+'14' : active ? signal+'08' : 'transparent', alignItems:'center', justifyContent:'center', gap:2 }}>
+            <MaterialCommunityIcons name={item.icon as any} size={12} color={active ? signal : MID} />
+            <Text style={{ fontFamily:MONO, fontSize:6.5, color:active ? signal : MID, fontWeight:'900' }}>{item.label}</Text>
+            <Text style={{ fontFamily:MONO, fontSize:5.5, color:active ? signal+'AA' : MID+'AA' }}>{item.owner}</Text>
+          </View>;
+        })}
+      </View>
+
+      <View style={{ borderTopWidth:1, borderTopColor:signal+'25', paddingTop:7, flexDirection:'row', alignItems:'center', gap:7 }}>
+        <MaterialCommunityIcons name={latest?.source === 'paired_pc' ? 'shield-check-outline' : 'shield-sync-outline'} size={13} color={signal} />
+        <Text style={{ fontFamily:MONO, fontSize:8.8, lineHeight:13, color:TEXT+'D0', flex:1 }} numberOfLines={2}>{latest?.detail || stage}</Text>
+        <Text style={{ fontFamily:MONO, fontSize:6.5, color:signal }}>{latest?.source === 'paired_pc' ? 'PC' : 'APP'}</Text>
       </View>
     </View>
   );
@@ -370,6 +502,8 @@ function ButlerInner() {
   const [model, setModel]       = useState('');
   const [mode, setMode]         = useState('chat');
   const [showHistory, setShowHistory] = useState(false);
+  const [draftStage, setDraftStage] = useState('');
+  const [workflowSnapshot, setWorkflowSnapshot] = useState<WorkflowSnapshot | null>(null);
   const [sessions] = useState<{id:string; title:string; count:number; ts:number}[]>([]);
   const listRef  = useRef<FlatList<Message>>(null);
   const sendRef  = useRef(false);
@@ -406,7 +540,11 @@ function ButlerInner() {
     const concierge = mode === 'code' || /\b(script|python|automate|automation|backup|rename|monitor|watch|download|organize)\b/i.test(text)
       ? buildScriptConcierge(text)
       : null;
+    const automationRequested = isAutomationRequest(text);
+    let automationPlan: AutomationPlan | undefined;
+    let workflowId = '';
     setInput('');
+    if (automationRequested) setDraftStage('INTENT · parsing the requested automation into a bounded local workflow…');
     const userMsg: Message = { id:Date.now().toString(), role:'user', content:text, ts:Date.now() };
     setMessages(prev => [...prev, userMsg]);
     setSending(true);
@@ -416,7 +554,64 @@ function ButlerInner() {
       if (concierge?.risk === 'blocked') {
         setMessages(prev => [...prev, { id:Date.now().toString(), role:'assistant', content:concierge.explanation, ts:Date.now() }]);
         haptics.warning?.();
-      } else if (!isConn) {
+      } else {
+        if (automationRequested) {
+          const started = await automationWorkflowMonitor.begin('Android accepted an automation request; no script has run.');
+          workflowId = started.correlationId;
+          setWorkflowSnapshot(started);
+          automationPlan = createAutomationPlanPreview(text);
+          setDraftStage('PATTERN · matching reviewed local automation patterns and Script Library candidates…');
+          const patternMatches = await automationMemoryVault.findPatterns(text, 5);
+          setWorkflowSnapshot(await automationWorkflowMonitor.advance(workflowId, 'pattern_match', `Matched ${patternMatches.length} reviewed local pattern${patternMatches.length === 1 ? '' : 's'}; executable source remains on the PC.`, 'android'));
+
+          if (isConn && automationPlan.state !== 'blocked') {
+            try {
+              setDraftStage('SAFETY · requesting paired-PC preflight; no script is being executed…');
+              setWorkflowSnapshot(await automationWorkflowMonitor.advance(workflowId, 'pc_preflight', 'Paired PC is validating the automation request and its capability boundary.', 'paired_pc'));
+              automationPlan = await requestServerAutomationPlan(text);
+              const sync = await syncAutomationMemoryManifest();
+              if (sync.ok) {
+                setWorkflowSnapshot(await automationWorkflowMonitor.advance(workflowId, 'memory_manifest', `Redacted Android memory manifest synced to the paired PC (${sync.acceptedPatterns || 0} patterns).`, 'paired_pc'));
+              } else {
+                const detail = `Redacted manifest sync deferred: ${String(sync.error || 'unknown error').slice(0, 120)}. No source code, chat text, secret, or approval data was sent.`;
+                automationPlan = { ...automationPlan, warnings: [...automationPlan.warnings, detail] };
+                setWorkflowSnapshot(await automationWorkflowMonitor.advance(workflowId, 'memory_manifest', detail, 'android'));
+              }
+            } catch (planError: any) {
+              automationPlan = {
+                ...automationPlan,
+                state: 'failed',
+                warnings: [...automationPlan.warnings, `Server plan unavailable: ${String(planError?.message || 'request failed').slice(0, 120)}`],
+                nextStep: 'Check the paired server, then retry the request. No script has been created or executed.',
+              };
+              setWorkflowSnapshot(await automationWorkflowMonitor.fail(workflowId, `Paired-PC preflight failed: ${String(planError?.message || 'request failed').slice(0, 120)}`));
+            }
+          } else if (!isConn) {
+            setWorkflowSnapshot(await automationWorkflowMonitor.fail(workflowId, 'PC is not paired; Butler can discuss a draft but cannot create a server-verified workflow.', true));
+          }
+
+          await automationMemoryVault.rememberPlan(automationPlan!, patternMatches.map(pattern => pattern.id));
+          if (automationPlan.state !== 'blocked' && automationPlan.state !== 'failed' && isConn) {
+            setWorkflowSnapshot(await automationWorkflowMonitor.advance(workflowId, 'draft_ready', 'Server plan is ready for a reviewed draft; no execution authority was created.', 'paired_pc'));
+          }
+          setDraftStage('DRAFT · plan stored in encrypted automation memory; Script Library review is next…');
+          setMessages(prev => [...prev, {
+            id: `plan-${Date.now()}`,
+            role: 'assistant',
+            content: formatAutomationPlan(automationPlan!),
+            ts: Date.now(),
+            automationPlan,
+          }]);
+          scrollToEnd();
+          if (automationPlan.state === 'blocked' || automationPlan.state === 'failed') {
+            haptics.warning?.();
+            return;
+          }
+          if (isConn) {
+            setWorkflowSnapshot(await automationWorkflowMonitor.advance(workflowId, 'script_library_handoff', 'Automation plan is ready for Script Library review, AST lint, and dry-run.', 'android', 'completed'));
+          }
+        }
+        if (!isConn) {
         await new Promise(r => setTimeout(r, 500 + Math.random() * 400));
         const reply = concierge
           ? [
@@ -428,10 +623,11 @@ function ButlerInner() {
         setMessages(prev => [...prev, { id:Date.now().toString(), role:'assistant', content:reply, ts:Date.now() }]);
         haptics.success();
       } else {
+        if (automationRequested) setDraftStage('DRAFT · sending the reviewed plan to local Butler for a draft only…');
         const ctrl = new AbortController();
         const timeoutId = setTimeout(() => ctrl.abort(), 35000);
           const sysPrompt = mode === 'code'
-          ? 'You are an expert Python coder and system administrator. Always provide working code. Use the supplied Script Concierge brief as preflight context; answer its clarification questions before drafting, prefer an existing local match, and never execute or claim a successful run without a Flow Ledger receipt.'
+          ? 'You are an expert Python coder and system administrator. Always provide working code. Use the supplied Script Concierge brief as preflight context; answer its clarification questions before drafting, prefer an existing local match, and never execute or claim a successful run without a Flow Ledger receipt. For automation requests, produce only a reviewable draft and state prerequisites; never claim installation, download, account, social, or external actions were performed.'
           : mode === 'system'
           ? 'You are a system administrator AI. Be precise, technical, and include actionable commands.'
           : 'You are Butler AI — a helpful, private, local PC assistant. Be concise and practical.';
@@ -440,7 +636,14 @@ function ButlerInner() {
           .map(m => ({ role: m.role, content: m.content }));
           const res = await serverConnection.request('/api/butler/chat', {
           method:'POST',
-          body: JSON.stringify({ message: text, conversation, systemPrompt: sysPrompt, scriptConcierge: concierge ? {
+          body: JSON.stringify({ message: text, conversation, systemPrompt: sysPrompt, automationPlan: automationPlan ? {
+            planId: automationPlan.planId,
+            risk: automationPlan.risk,
+            state: automationPlan.state,
+            prerequisites: automationPlan.prerequisites.map(item => item.label),
+            warnings: automationPlan.warnings,
+            requiresExplicitApproval: automationPlan.requiresExplicitApproval,
+          } : undefined, scriptConcierge: concierge ? {
             mode: concierge.mode,
             risk: concierge.risk,
             intent: concierge.intent,
@@ -457,10 +660,12 @@ function ButlerInner() {
         setMessages(prev => [...prev, { id:Date.now().toString(), role:'assistant', content:reply, ts:Date.now() }]);
         haptics.success();
       }
+      }
     } catch (e: any) {
       const err = e?.name==='AbortError' ? 'Request timed out (35s)' : (e?.message?.slice(0,100) || 'Request failed');
       setMessages(prev => [...prev, { id:Date.now().toString(), role:'assistant', content:'Error: ' + err, ts:Date.now() }]);
     } finally {
+      setDraftStage('');
       sendRef.current = false;
       setSending(false);
       scrollToEnd();
@@ -545,7 +750,9 @@ function ButlerInner() {
           contentContainerStyle={{ paddingTop:12, paddingBottom:6 }}
           showsVerticalScrollIndicator={false}
           removeClippedSubviews={Platform.OS === 'android'}
-          ListFooterComponent={sending ? <TypingDots color={modeColor} background={skin.panel2} mascot={skin.mascot} /> : null}
+          ListFooterComponent={draftStage
+            ? <DraftingPipeline stage={draftStage} snapshot={workflowSnapshot} accent={modeColor} panel={skin.panel2} />
+            : sending ? <TypingDots color={modeColor} background={skin.panel2} mascot={skin.mascot} /> : null}
           onContentSizeChange={scrollToEnd}
         />
 

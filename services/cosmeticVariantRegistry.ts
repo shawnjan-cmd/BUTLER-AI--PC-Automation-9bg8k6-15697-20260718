@@ -114,7 +114,7 @@ export function entitlementAllows(required: CosmeticEntitlement, verified: Reado
 }
 
 export const INVENTORY_LICENSE_NOTES = {
-  adaptedLibraries: ['react-native-reanimated', 'react-native-svg-charts', 'react-native-chart-kit', 'react-native-gifted-charts'],
+  adaptedLibraries: ['react-native-reanimated', 'react-native-svg-charts', 'react-native-gifted-charts'],
   license: 'MIT references only; retain notices when code is copied. Registry records are Butler-original metadata and do not include third-party source code.',
   sourceManifest: 'GRAPH_AND_ANIMATION_RESEARCH.md',
 } as const;

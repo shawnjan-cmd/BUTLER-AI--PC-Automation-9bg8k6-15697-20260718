@@ -250,7 +250,7 @@ The URL must be publicly accessible (no login required) and must not be a PDF.
 
 Use this text in the "Data Safety" short description shown to users on the Play Store:
 
-> **BUTLER does not collect personal data.** The app connects directly to your own PC over your home Wi-Fi. No data is stored in the cloud. Camera permission is used only for QR code scanning. Optional AI chat uses local Ollama on the user's paired PC (your messages only — no personal identity data). All data is deleted when you uninstall the app.
+> **BOTER does not collect personal data.** The app connects directly to your own PC over your home Wi-Fi. No data is stored in the cloud. Camera permission is used only for QR code scanning. Optional AI chat uses local Ollama on the user's paired PC (your messages only — no personal identity data). All data is deleted when you uninstall the app.
 
 ---
 

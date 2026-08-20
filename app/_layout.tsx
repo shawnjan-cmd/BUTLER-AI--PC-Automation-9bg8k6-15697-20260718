@@ -12,6 +12,7 @@ import { CosmeticProvider } from '@/contexts/CosmeticContext';
 import { primeFxRotation } from '@/constants/fxRotation';
 import { installSmokeBeacon, smokeMounted } from '@/services/smokeBeacon';
 import { installSentinel } from '@/services/sentinel';
+import { otaUpdates } from '@/services/otaUpdates';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { TabBarProvider } from '@/contexts/TabBarContext';
 import { PurchaseProvider } from '@/contexts/PurchaseContext';
@@ -19,7 +20,6 @@ import { runtimeErrorMonitor } from '@/services/runtimeErrorMonitor';
 import { autoErrorLogger } from '@/services/autoErrorLogger';
 import { performanceGovernor } from '@/services/performanceGovernor';
 import { frameBudgetMonitor } from '@/services/frameBudgetMonitor';
-import { redactDiagnosticText } from '@/services/privateDataPolicy';
 
 // NOTE: Crash log helpers live in services/bootErrorLog.ts.
 // Import them directly from there — re-exporting from _layout.tsx risks
@@ -106,12 +106,11 @@ function markShellMounted(): void { _shellMounted = true; }
 
       try {
         const AS = require('@react-native-async-storage/async-storage').default;
-        // Persist only a redacted local crash summary; raw stacks can contain
-        // local IPs, request URLs, and authorization material.
+        // The crash record is always useful — write it for any error.
         AS.setItem('@butler_last_crash_v2', JSON.stringify({
           at: Date.now(),
-          message: redactDiagnosticText(String(err?.message ?? err ?? 'startup crash'), 360),
-          stack: typeof err?.stack === 'string' ? redactDiagnosticText(err.stack, 900) : undefined,
+          message: String(err?.message ?? err ?? 'startup crash'),
+          stack: typeof err?.stack === 'string' ? err.stack.slice(0, 2000) : undefined,
         })).catch(() => {});
 
         if (preMountFatal) {
@@ -120,6 +119,25 @@ function markShellMounted(): void { _shellMounted = true; }
           AS.setItem('butler_welcome_complete', '1').catch(() => {});
         }
 
+        // ── AUTO-REPORT: copy a SAFE summary to clipboard (no full stack trace) ──
+        // Clipboard can be read by any foreground app — only copy a non-sensitive
+        // one-liner (timestamp + first 120 chars of message, no stack, no IPs).
+        AS.getItem('@butler_auto_report_crash_v1').then((flag: string | null) => {
+          if (flag !== '1') return;
+          try {
+            const ts  = new Date().toISOString();
+            const msg = String(err?.message ?? err ?? 'startup crash').slice(0, 120);
+            // Sanitise: strip anything that looks like an IP address or token
+            const safeMsg = msg.replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, '[IP]')
+                               .replace(/Bearer\s+\S+/gi, '[TOKEN]');
+            const summary = `Butler AI crash at ${ts}: ${safeMsg}`;
+            // Use expo-clipboard (always available in Expo) — never require
+            // @react-native-clipboard/clipboard which needs manual native linking.
+            import('expo-clipboard').then(m => {
+              m.setStringAsync(summary).catch(() => {});
+            }).catch(() => {});
+          } catch (_) {}
+        }).catch(() => {});
       } catch {}
 
       if (preMountFatal) {
@@ -182,7 +200,9 @@ if (typeof global !== 'undefined') {
 
 export default function RootLayout() {
   useEffect(() => { markShellMounted(); smokeMounted(); }, []);
+  // Optional OTA checks are isolated from startup and core user actions.
   useEffect(() => {
+    performanceGovernor.scheduleOptional('update-check', async () => { void otaUpdates.start(); }, 1_500);
     const syncFrameMonitor = (state: string) => {
       if (state === 'active') frameBudgetMonitor.start();
       else frameBudgetMonitor.stop();

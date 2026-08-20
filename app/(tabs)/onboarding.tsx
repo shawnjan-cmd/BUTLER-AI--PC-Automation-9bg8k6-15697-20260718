@@ -24,7 +24,6 @@ import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated,
   Platform, Dimensions, ScrollView, TextInput, Alert, BackHandler, PanResponder,
-  AccessibilityInfo, useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -721,34 +720,78 @@ const ci = StyleSheet.create({
 // ─── WELCOME CIRCUIT ACCENT ──────────────────────────────────────
 // Reuses AnimatedWire (flowing dot traces) + TechGrid (HUD background grid)
 // Shown only on the WELCOME step (idx === 0). No new dependencies.
-function WelcomeCircuitAccent({ accent, compact = false }: { accent: string; compact?: boolean }) {
+function WelcomeCircuitAccent({ accent }: { accent: string }) {
   const mountAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.timing(mountAnim, { toValue: 1, duration: 420, useNativeDriver: ND }).start();
+    Animated.timing(mountAnim, { toValue: 1, duration: 600, useNativeDriver: false }).start();
   }, []);
   return (
-    <Animated.View style={{ opacity: mountAnim }}>
+    <Animated.View style={{ opacity: mountAnim, marginBottom: 10 }}>
       <View style={[
         wca.panel,
-        { borderColor: accent + '35', backgroundColor: accent + '06', minHeight: compact ? 44 : 52 },
+        { borderColor: accent + '35', backgroundColor: accent + '06' },
       ]}>
-        <TechGrid rows={2} cols={10} color={accent + '14'} animated />
-        <WireCorner size={14} color={accent + 'AA'} corner="tl" />
-        <WireCorner size={14} color={accent + 'AA'} corner="tr" />
-        <View style={wca.signalRow}>
-          <View style={[wca.signalOrb, { borderColor:accent + '70', backgroundColor:accent + '10' }]}>
-            <MaterialCommunityIcons name="cpu-64-bit" size={compact ? 15 : 17} color={accent} />
-          </View>
-          <View style={{ flex:1 }}>
-            <TypewriterLine
-              text="BUTLER_OS :: LOCAL COMMAND LINK"
-              color={accent + 'CC'}
-              speed={22}
-              style={{ fontSize:compact ? 8 : 9, letterSpacing:0.9, fontFamily:MONO }}
+        {/* Subtle HUD grid background */}
+        <TechGrid rows={6} cols={10} color={accent + '18'} animated />
+        {/* Corner brackets (HUD aesthetic) */}
+        <WireCorner size={22} color={accent + 'AA'} corner="tl" />
+        <WireCorner size={22} color={accent + 'AA'} corner="tr" />
+        <WireCorner size={22} color={accent + '60'} corner="bl" />
+        <WireCorner size={22} color={accent + '60'} corner="br" />
+        {/* Horizontal wire trace — top of panel */}
+        <View style={{ alignItems: 'center', paddingTop: 14 }}>
+          <HorizontalWire width={SW * 0.55} color={accent} speed={2200} dotCount={3} />
+        </View>
+        {/* Central icon + label */}
+        <View style={wca.center}>
+          <View style={[
+            wca.iconRing,
+            { borderColor: accent + '70', backgroundColor: accent + '10' },
+          ]}>
+            {/* Left vertical wire */}
+            <AnimatedWireDefault
+              direction="vertical"
+              length={38}
+              color={accent}
+              thickness={1.5}
+              dotCount={2}
+              speed={1800}
+              caps={false}
+              opacity={0.8}
+              absolute
+              style={{ left: -24, top: 4 }}
             />
-            <Text style={[wca.signalSub, { color:accent + '80' }]}>PRIVATE CONSOLE · BUILDER READY</Text>
+            {/* Right vertical wire */}
+            <AnimatedWireDefault
+              direction="vertical"
+              length={38}
+              color={accent}
+              thickness={1.5}
+              dotCount={2}
+              speed={2400}
+              caps={false}
+              opacity={0.8}
+              absolute
+              delay={600}
+              style={{ right: -24, top: 4 }}
+            />
+            <MaterialCommunityIcons name="cpu-64-bit" size={32} color={accent} />
           </View>
-          <HorizontalWire width={compact ? 46 : 62} color={accent} speed={2200} dotCount={2} />
+          <TypewriterLine
+            text="BUTLER_OS v7.3 :: CIRCUIT INIT"
+            color={accent + 'CC'}
+            speed={28}
+            style={{ fontSize: 10, letterSpacing: 1.2, marginTop: 10, fontFamily: MONO }}
+          />
+          <View style={{ flexDirection: 'row', gap: 12, marginTop: 8, alignItems: 'center' }}>
+            {[T.cyan, T.green, T.purple, T.amber].map((col, i) => (
+              <View key={i} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: col, opacity: 0.7 }} />
+            ))}
+          </View>
+        </View>
+        {/* Bottom horizontal wire */}
+        <View style={{ alignItems: 'center', paddingBottom: 14 }}>
+          <HorizontalWire width={SW * 0.4} color={accent} speed={2800} dotCount={2} />
         </View>
       </View>
     </Animated.View>
@@ -758,25 +801,28 @@ function WelcomeCircuitAccent({ accent, compact = false }: { accent: string; com
 const wca = StyleSheet.create({
   panel: {
     borderWidth: 1.5,
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: 'hidden',
     position: 'relative',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
+    minHeight: 140,
   },
-  signalRow: { flexDirection:'row', alignItems:'center', gap:9, zIndex:1 },
-  signalOrb: {
-    width:29,
-    height:29,
-    borderRadius:9,
-    borderWidth:1.5,
+  center: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  iconRing: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
   },
-  signalSub: { fontSize:6.8, fontWeight:'900', fontFamily:MONO, letterSpacing:0.7, marginTop:2 },
 });
 
-function LegacyWelcomePage({ accent }: { accent: string }) {
+function WelcomePage({ accent }: { accent: string }) {
   const pulse = useRef(new Animated.Value(0.45)).current;
   useEffect(() => {
     const loop = Animated.loop(Animated.sequence([
@@ -860,159 +906,6 @@ const wp = StyleSheet.create({
   consoleValue: { fontFamily:MONO, fontSize:8.5, fontWeight:'900', textAlign:'right', flex:1, marginLeft:8 },
   bottomStats: { flexDirection:'row', gap:7 },
   stat: { flex:1, alignItems:'center', borderWidth:1.2, borderRadius:10, paddingVertical:8, backgroundColor:'#070A10' },
-});
-
-/**
- * THE BUTLER'S ARRIVAL — page-zero only.
- * Style contract: a fixed command-deck composition, truthful local-first copy, and a mascot
- * that deliberately crosses the service-hatch border. All onboarding motion remains ND=false.
- */
-function WelcomePage({ accent, compact, peek }: { accent: string; compact: boolean; peek: Animated.Value }) {
-  const entryY = useRef(new Animated.Value(compact ? 36 : 46)).current;
-  const breathe = useRef(new Animated.Value(0.98)).current;
-  const signal = useRef(new Animated.Value(0.45)).current;
-  const [reduceMotion, setReduceMotion] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then(value => { if (mounted) setReduceMotion(Boolean(value)); })
-      .catch(() => {});
-    return () => { mounted = false; };
-  }, []);
-
-  useEffect(() => {
-    entryY.stopAnimation(); breathe.stopAnimation(); signal.stopAnimation();
-    if (reduceMotion) {
-      entryY.setValue(0); breathe.setValue(1); signal.setValue(1);
-      return;
-    }
-    entryY.setValue(compact ? 36 : 46);
-    breathe.setValue(0.975); signal.setValue(0.45);
-    const arrival = Animated.spring(entryY, { toValue: 0, tension: 190, friction: 12, useNativeDriver: ND });
-    const breathing = Animated.loop(Animated.sequence([
-      Animated.timing(breathe, { toValue: 1, duration: 1150, useNativeDriver: ND }),
-      Animated.timing(breathe, { toValue: 0.975, duration: 1250, useNativeDriver: ND }),
-    ]));
-    const signalLoop = Animated.loop(Animated.sequence([
-      Animated.timing(signal, { toValue: 1, duration: 1000, useNativeDriver: ND }),
-      Animated.timing(signal, { toValue: 0.35, duration: 1000, useNativeDriver: ND }),
-    ]));
-    arrival.start(); breathing.start(); signalLoop.start();
-    return () => { arrival.stop(); breathing.stop(); signalLoop.stop(); };
-  }, [breathe, compact, entryY, reduceMotion, signal]);
-
-  const features = [
-    { icon:'code-braces-box', color:T.cyan, label:'SCRIPT FORGE', desc:'Draft + review' },
-    { icon:'hammer-screwdriver', color:T.purple, label:'BUILDER', desc:'Snap components' },
-    { icon:'shield-lock', color:T.green, label:'PAIRING', desc:'Local trust gate' },
-    { icon:'desktop-tower-monitor', color:T.amber, label:'PC STATE', desc:'Live after pairing' },
-  ];
-  const mascotScale = breathe.interpolate({ inputRange: [0.975, 1], outputRange: [0.985, 1] });
-  const lowerPeek = peek.interpolate({ inputRange: [0, 1], outputRange: [42, 0] });
-  const peekOpacity = peek.interpolate({ inputRange: [0, 0.25, 1], outputRange: [0, 0.35, 1] });
-
-  return (
-    <View style={[arrival.root, compact && arrival.rootCompact]}>
-      <View style={arrival.brandRow}>
-        <View style={[arrival.brandChip, { borderColor: accent + '66', backgroundColor: accent + '10' }]}>
-          <MaterialCommunityIcons name="robot-happy" size={13} color={accent} />
-          <Text style={[arrival.brandText, { color: accent }]}>BUTLER AI</Text>
-        </View>
-        <Text style={arrival.brandMeta}>LOCAL PC COMMAND CENTRE</Text>
-      </View>
-
-      <WelcomeCircuitAccent accent={accent} compact={compact} />
-
-      <View style={[arrival.hatch, compact && arrival.hatchCompact, { borderColor: accent + '70' }]}>
-        <TechGrid rows={4} cols={10} color={accent + '13'} animated />
-        <HudCorners color={accent + 'A0'} size={14} t={2} />
-        <View style={[arrival.hatchRail, { backgroundColor: accent }]} />
-        <View style={arrival.hatchCopy}>
-          <View style={{ flexDirection:'row', alignItems:'center', gap:6 }}>
-            <Animated.View style={{ width:7, height:7, borderRadius:4, backgroundColor:T.green, opacity:signal }} />
-            <Text style={[arrival.hatchEyebrow, { color:accent }]}>SERVICE HATCH :: OPEN</Text>
-          </View>
-          <Text style={arrival.hatchTitle}>YOUR PC,{"\n"}YOUR COMMANDS.</Text>
-          <Text style={arrival.hatchSub}>Build a guarded workflow, verify it, then run it through your own console.</Text>
-        </View>
-        <Animated.View pointerEvents="none" style={[arrival.mascotFrame, compact && arrival.mascotFrameCompact, {
-          transform:[{ translateY:entryY }, { scale:mascotScale }],
-        }]}>
-          <Image source={require('@/assets/images/butler-robot-tux.jpg')} style={StyleSheet.absoluteFill} contentFit="cover" />
-          <View style={[arrival.mascotTag, { borderColor:accent + '72', backgroundColor:T.bg + 'E8' }]}>
-            <MaterialCommunityIcons name="hand-wave-outline" size={10} color={accent} />
-            <Text style={[arrival.mascotTagText, { color:accent }]}>HERE TO HELP</Text>
-          </View>
-        </Animated.View>
-        <Animated.View pointerEvents="none" style={[arrival.peekMascot, { opacity:peekOpacity, transform:[{ translateY:lowerPeek }] }]}>
-          <MaterialCommunityIcons name="robot-happy-outline" size={18} color={accent} />
-          <Text style={[arrival.peekText, { color:accent }]}>GESTURE DETECTED</Text>
-        </Animated.View>
-      </View>
-
-      <View style={[arrival.mission, compact && arrival.missionCompact, { borderColor:accent + '55' }]}>
-        <View style={[arrival.missionMarker, { backgroundColor:accent }]} />
-        <View style={{ flex:1 }}>
-          <Text style={[arrival.missionTitle, { color:accent }]}>PRIVATE BY DEFAULT</Text>
-          <Text style={arrival.missionCopy}>Links to the Python console you run on your PC; pairing and execution stay explicit.</Text>
-        </View>
-      </View>
-
-      <View style={arrival.featureGrid}>
-        {features.map((item) => (
-          <View key={item.label} style={[arrival.feature, compact && arrival.featureCompact, { borderColor:item.color+'58', backgroundColor:item.color+'0B' }]}>
-            <View style={[arrival.featureIcon, { borderColor:item.color+'70', backgroundColor:item.color+'16' }]}>
-              <MaterialCommunityIcons name={item.icon as any} size={compact ? 15 : 17} color={item.color} />
-            </View>
-            <View style={{ flex:1 }}>
-              <Text style={[arrival.featureLabel, { color:item.color }]} numberOfLines={1}>{item.label}</Text>
-              <Text style={arrival.featureDesc} numberOfLines={1}>{item.desc}</Text>
-            </View>
-          </View>
-        ))}
-      </View>
-
-      <View style={[arrival.protocol, compact && arrival.protocolCompact, { borderColor:T.green + '48' }]}>
-        <View style={[arrival.protocolRail, { backgroundColor:T.green }]} />
-        <View style={{ flex:1 }}>
-          <View style={{ flexDirection:'row', alignItems:'center', gap:6 }}>
-            <MaterialCommunityIcons name="shield-check" size={14} color={T.green} />
-            <Text style={[arrival.protocolTitle, { color:T.green }]}>SCRIPT SAFETY PATH</Text>
-          </View>
-          <View style={arrival.protocolSteps}>
-            {[
-              { l:'BUILD', c:T.cyan }, { l:'VERIFY', c:T.amber }, { l:'GUARD', c:T.purple }, { l:'RUN', c:T.green },
-            ].map((step, index) => (
-              <React.Fragment key={step.l}>
-                <View style={{ alignItems:'center', gap:2 }}>
-                  <View style={[arrival.stepDot, { backgroundColor:step.c }]} />
-                  <Text style={[arrival.stepText, { color:step.c }]}>{step.l}</Text>
-                </View>
-                {index < 3 && <View style={[arrival.stepLine, { backgroundColor:step.c+'88' }]} />}
-              </React.Fragment>
-            ))}
-          </View>
-        </View>
-        <View style={[arrival.protocolBadge, { borderColor:T.green+'66' }]}><Text style={{ fontSize:7, fontFamily:MONO, color:T.green, fontWeight:'900' }}>LOCAL</Text></View>
-      </View>
-    </View>
-  );
-}
-const arrival = StyleSheet.create({
-  root:{ flex:1, gap:8, paddingBottom:2 }, rootCompact:{ gap:6 },
-  brandRow:{ flexDirection:'row', alignItems:'center', justifyContent:'space-between', minHeight:22 },
-  brandChip:{ flexDirection:'row', alignItems:'center', gap:5, borderWidth:1, borderRadius:7, paddingHorizontal:8, paddingVertical:4 },
-  brandText:{ fontSize:8.5, fontWeight:'900', fontFamily:MONO, letterSpacing:1.1 }, brandMeta:{ fontSize:7.2, fontWeight:'900', fontFamily:MONO, color:T.textMid, letterSpacing:0.7 },
-  hatch:{ height:178, borderWidth:1.5, borderRadius:16, overflow:'visible', position:'relative', backgroundColor:'#03060A' }, hatchCompact:{ height:144 },
-  hatchRail:{ position:'absolute', left:14, right:14, top:9, height:2, opacity:0.75 }, hatchCopy:{ position:'absolute', left:14, top:22, width:'55%', zIndex:2 },
-  hatchEyebrow:{ fontSize:7.6, fontWeight:'900', fontFamily:MONO, letterSpacing:1 }, hatchTitle:{ fontSize:19, lineHeight:21, fontWeight:'900', fontFamily:MONO, color:T.text, letterSpacing:0.3, marginTop:8 }, hatchSub:{ fontSize:8.5, lineHeight:12, fontFamily:MONO, color:T.textMid, marginTop:6, maxWidth:158 },
-  mascotFrame:{ position:'absolute', right:7, top:-22, width:145, height:185, zIndex:6, elevation:12, borderRadius:14, overflow:'hidden', borderWidth:1, borderColor:'rgba(56,217,232,0.32)', backgroundColor:'#03060A' }, mascotFrameCompact:{ top:-15, width:118, height:151, right:6, borderRadius:12 },
-  mascotTag:{ position:'absolute', left:7, bottom:7, flexDirection:'row', alignItems:'center', gap:4, borderWidth:1, borderRadius:5, paddingHorizontal:5, paddingVertical:3 }, mascotTagText:{ fontSize:6.3, fontWeight:'900', fontFamily:MONO, letterSpacing:0.35 },
-  peekMascot:{ position:'absolute', left:14, bottom:-19, zIndex:7, elevation:13, flexDirection:'row', alignItems:'center', gap:5, backgroundColor:T.bg, borderWidth:1, borderColor:T.cyan+'60', borderRadius:8, paddingHorizontal:8, paddingVertical:5 }, peekText:{ fontSize:6.7, fontWeight:'900', fontFamily:MONO, letterSpacing:0.8 },
-  mission:{ borderWidth:1.5, borderRadius:12, backgroundColor:'#070A10', paddingVertical:9, paddingHorizontal:11, flexDirection:'row', alignItems:'center', gap:9, minHeight:55 }, missionCompact:{ minHeight:48, paddingVertical:7 }, missionMarker:{ width:3, height:28, borderRadius:2 }, missionTitle:{ fontSize:8.5, fontWeight:'900', fontFamily:MONO, letterSpacing:1 }, missionCopy:{ color:T.textMid, fontFamily:MONO, fontSize:8.3, lineHeight:11.5, marginTop:3 },
-  featureGrid:{ flexDirection:'row', flexWrap:'wrap', gap:6 }, feature:{ width:'48.9%', minHeight:48, borderWidth:1.2, borderRadius:10, padding:7, flexDirection:'row', alignItems:'center', gap:7 }, featureCompact:{ minHeight:43, padding:6, gap:6 }, featureIcon:{ width:29, height:29, borderRadius:8, borderWidth:1.1, alignItems:'center', justifyContent:'center', flexShrink:0 }, featureLabel:{ fontSize:8, fontWeight:'900', fontFamily:MONO, letterSpacing:0.25 }, featureDesc:{ color:T.textMid, fontFamily:MONO, fontSize:7.2, lineHeight:10, marginTop:1 },
-  protocol:{ minHeight:53, borderWidth:1.3, borderRadius:12, backgroundColor:'#060B0F', paddingVertical:7, paddingHorizontal:10, flexDirection:'row', alignItems:'center', gap:8 }, protocolCompact:{ minHeight:47, paddingVertical:6 }, protocolRail:{ width:3, alignSelf:'stretch', borderRadius:2 }, protocolTitle:{ fontSize:8, fontWeight:'900', fontFamily:MONO, letterSpacing:0.9 }, protocolSteps:{ flexDirection:'row', alignItems:'center', marginTop:5 }, stepDot:{ width:5, height:5, borderRadius:3 }, stepText:{ fontSize:6.1, fontWeight:'900', fontFamily:MONO, letterSpacing:0.15 }, stepLine:{ height:1, flex:1, marginHorizontal:4, opacity:0.75 }, protocolBadge:{ borderWidth:1, borderRadius:5, paddingHorizontal:5, paddingVertical:3 },
 });
 
 function AppTourPage({ accent }: { accent: string }) {
@@ -1107,7 +1000,7 @@ function SafetyPledgePage({ accent, checkedState, onToggle, allChecked }: {
     <View style={{ gap: 6 }}>
       <NeonCard color={accent}>
         <Text style={{ fontSize:12, fontWeight:'900', fontFamily:MONO, color:accent, marginBottom:4 }}>SIX BINDING RULES</Text>
-        <Text style={{ fontSize:11, fontFamily:MONO, color:T.textMid, lineHeight:17 }}>Butler AI is a powerful tool. These rules protect you, others, and the product&apos;s integrity.</Text>
+        <Text style={{ fontSize:11, fontFamily:MONO, color:T.textMid, lineHeight:17 }}>Butler AI is a powerful tool. These rules protect you, others, and the product's integrity.</Text>
       </NeonCard>
       {PLEDGE_ITEMS.map((item) => (
         <CheckItem key={item.label} label={item.label} sub={item.desc} checked={!!checkedState[item.label]} color={item.color} onToggle={() => onToggle(item.label)} />
@@ -1709,10 +1602,10 @@ const lp = StyleSheet.create({
 
 // ─── NATIVE DOCUMENT NOTICE ───────────────────────────────────────
 function InlineBrowser({ visible, url, title, accent, onClose }: { visible:boolean; url:string; title:string; accent:string; onClose:()=>void }) {
+  if (!visible) return null;
   const handleOpenExternal = useCallback(() => {
     import('react-native').then(({ Linking }) => Linking.openURL(url).catch(() => {}));
   }, [url]);
-  if (!visible) return null;
   return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor:T.bg, zIndex:9999 }]}> 
       <View style={[ib.header, { borderBottomColor:accent+'30' }]}> 
@@ -1982,10 +1875,7 @@ class OnboardingErrorBoundary extends React.Component<
 // ══════════════════════════════════════════════════════════════
 function OnboardingScreenInner() {
   const insets = useSafeAreaInsets();
-  const { height, fontScale } = useWindowDimensions();
   const [idx, setIdx]     = useState(0);
-  const compactWelcome = height < 720 || fontScale > 1.12;
-  const welcomePeek = useRef(new Animated.Value(0)).current;
 
   // Stable refs so BackHandler + PanResponder never hold stale closures
   const idxRef  = useRef(idx);
@@ -2006,24 +1896,11 @@ function OnboardingScreenInner() {
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, g) =>
-        (Math.abs(g.dx) > 20 && Math.abs(g.dy) < 50) ||
-        (idxRef.current === 0 && Math.abs(g.dy) > 10 && Math.abs(g.dy) > Math.abs(g.dx)),
-      onPanResponderMove: (_, g) => {
-        if (idxRef.current === 0 && Math.abs(g.dy) > Math.abs(g.dx)) {
-          welcomePeek.setValue(Math.min(1, Math.abs(g.dy) / 84));
-        }
-      },
+        Math.abs(g.dx) > 20 && Math.abs(g.dy) < 50,
       onPanResponderRelease: (_, g) => {
         const cur = idxRef.current;
-        if (cur === 0 && Math.abs(g.dy) > Math.abs(g.dx)) {
-          Animated.spring(welcomePeek, { toValue: 0, tension: 240, friction: 16, useNativeDriver: ND }).start();
-          return;
-        }
         if (g.dx < -50 && cur < TOTAL - 1) { try { haptics.light(); } catch {} goToRef.current(cur + 1); }
         else if (g.dx > 50 && cur > 0)    { try { haptics.light(); } catch {} goToRef.current(cur - 1); }
-      },
-      onPanResponderTerminate: () => {
-        Animated.spring(welcomePeek, { toValue: 0, tension: 240, friction: 16, useNativeDriver: ND }).start();
       },
     })
   ).current;
@@ -2073,10 +1950,6 @@ function OnboardingScreenInner() {
       }, 500);
     }
   }, [idx]);
-
-  useEffect(() => {
-    welcomePeek.setValue(0);
-  }, [idx, welcomePeek]);
 
   useEffect(() => {
     _triggerCelebration = () => setCelebrationVisible(true);
@@ -2232,7 +2105,7 @@ function OnboardingScreenInner() {
               <MaterialIcons name="chevron-left" size={26} color={page.accent + '99'} />
             </TouchableOpacity>
           )}
-          {idx > 0 && idx < TOTAL - 1 && (
+          {idx < TOTAL - 1 && (
             <TouchableOpacity
               onPress={() => { if (!nextDisabled) { try { haptics.light(); } catch {} goTo(idx + 1); } }}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 8 }}
@@ -2242,16 +2115,13 @@ function OnboardingScreenInner() {
               <MaterialIcons name="chevron-right" size={26} color={page.accent + '99'} />
             </TouchableOpacity>
           )}
-          <ScrollView ref={scrollRef} style={{ flex:1 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
-            scrollEnabled={idx !== 0} bounces={idx !== 0} overScrollMode={idx === 0 ? "never" : "auto"}
-            contentContainerStyle={idx === 0
-              ? { flexGrow:1, paddingHorizontal:14, paddingTop:10, paddingBottom:8 }
-              : { paddingHorizontal:14, paddingTop:10, paddingBottom:200 }}>
-            <Animated.View style={[idx === 0 && { flex:1 }, { opacity: fadeAnim, transform: [{ translateX: slideAnim }, { scale: scaleAnim }] }]}>
+          <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 200 }}>
+            <Animated.View style={{ opacity: fadeAnim, transform: [{ translateX: slideAnim }, { scale: scaleAnim }] }}>
               <AmbientPageGlow accent={page.accent} />
-              {idx !== 0 && <HoloHeader page={page} idx={idx} />}
-              {idx !== 0 && <PageSignature idx={idx} accent={page.accent} />}
-              {idx === 0 && <WelcomePage accent={page.accent} compact={compactWelcome} peek={welcomePeek} />}
+              <HoloHeader page={page} idx={idx} />
+              <PageSignature idx={idx} accent={page.accent} />
+              {idx === 0 && <WelcomePage accent={page.accent} />}
               {idx === 1 && <AppTourPage accent={page.accent} />}
               {idx === 2 && <SafetyConsentPage accent={page.accent} checkedState={consentChecked} onToggle={toggleConsent} allChecked={allConsents} />}
               {idx === 3 && <SafetyPledgePage accent={page.accent} checkedState={pledgeChecked} onToggle={togglePledge} allChecked={allPledges} />}

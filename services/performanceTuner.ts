@@ -81,14 +81,14 @@ export async function staggeredFetches<T>(
   delayMs: number = perf.fetchStagger,
 ): Promise<Array<T | null>> {
   const results: Array<T | null> = [];
-  for (const fetcher of fetchers) {
+  for (let i = 0; i < fetchers.length; i++) {
     try {
-      const res = await fetcher();
+      const res = await fetchers[i]();
       results.push(res);
     } catch {
       results.push(null);
     }
-    if (delayMs > 0 && fetchers.indexOf(fetcher) < fetchers.length - 1) {
+    if (delayMs > 0 && i < fetchers.length - 1) {
       await new Promise(r => setTimeout(r, delayMs));
     }
   }

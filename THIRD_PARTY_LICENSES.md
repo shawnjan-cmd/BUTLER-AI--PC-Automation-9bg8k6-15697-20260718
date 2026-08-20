@@ -1,4 +1,4 @@
-# Third-Party Licenses - Butler Project
+# Third-Party Licenses - Botler Project
 
 **All dependencies verified GPL-free ✅**  
 **Last Audit**: 2026-03-25

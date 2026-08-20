@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Butler AI — Master Control & Companion Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --panel-bg: #131c2e;
+            --border-color: #1e293b;
+            --accent-green: #10b981;
+            --accent-cyan: #06b6d4;
+            --accent-red: #ef4444;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); padding: 20px; line-height: 1.5; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; }
+        .logo-area { display: flex; align-items: center; gap: 12px; }
+        .logo-badge { background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green)); width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #000; font-size: 20px; }
+        h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+        .subtitle { font-size: 13px; color: var(--text-muted); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+        .card { background-color: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); }
+        .card h2 { font-size: 16px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; color: var(--accent-cyan); border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
+        .stat-label { color: var(--text-muted); }
+        .stat-value { font-weight: 600; color: var(--text-main); }
+        .btn { background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 12px; transition: opacity 0.2s; }
+        .btn:hover { opacity: 0.9; }
+        .btn-danger { background: linear-gradient(135deg, #dc2626, #b91c1c); }
+        .rules-list { font-size: 13px; color: var(--text-muted); padding-left: 16px; }
+        .rules-list li { margin-bottom: 6px; }
+        .status-badge { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: var(--accent-green); margin-right: 6px; }
+        .log-box { background: #05070c; border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; font-family: monospace; font-size: 12px; color: #34d399; height: 120px; overflow-y: auto; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo-area">
+            <div class="logo-badge">B</div>
+            <div>
+                <h1>Butler AI Master Companion</h1>
+                <div class="subtitle">Secure Local-First PC Automation & Intelligence Daemon (v1.5.0)</div>
+            </div>
+        </div>
+        <div>
+            <span class="status-badge"></span><strong>System Online</strong> (Encrypted Egress Guarded)
+        </div>
+    </header>
+
+    <div class="grid">
+        <!-- System Health & Observatory -->
+        <div class="card">
+            <h2>Activity Observatory <span style="font-size:12px; color:var(--accent-green)">LIVE</span></h2>
+            <div class="stat-row"><span class="stat-label">Memory Nodes</span><span class="stat-value" id="memNodes">1,420</span></div>
+            <div class="stat-row"><span class="stat-label">KB Crawler Docs</span><span class="stat-value" id="crawlerDocs">384</span></div>
+            <div class="stat-row"><span class="stat-label">CPU Load</span><span class="stat-value" id="cpuLoad">14.2%</span></div>
+            <div class="stat-row"><span class="stat-label">RAM Allocation</span><span class="stat-value" id="ramAlloc">3.8 GB / 16 GB</span></div>
+            <div class="stat-row"><span class="stat-label">Intelligence Score</span><span class="stat-value" id="intelScore">78.4 / 100</span></div>
+        </div>
+
+        <!-- The 3 Unbreakable Rules -->
+        <div class="card">
+            <h2>The 3 Unbreakable Rules</h2>
+            <ul class="rules-list">
+                <li><strong>Rule I:</strong> Absolute Data Sovereignty (Local-first encryption).</li>
+                <li><strong>Rule II:</strong> Fail-Closed Privacy Circuit (Instant freeze on telemetry breach).</li>
+                <li><strong>Rule III:</strong> Deterministic Resource Guard (Safety & prompt priority).</li>
+            </ul>
+            <button class="btn" onclick="fetchStatus()">Refresh Telemetry</button>
+        </div>
+
+        <!-- Emergency Recovery & Self-Repair -->
+        <div class="card">
+            <h2>Recovery & Self-Repair Governor</h2>
+            <p class="subtitle" style="margin-bottom:12px;">Trigger panic lockdown to terminate all rogue subprocesses and secure local vaults.</p>
+            <div class="stat-row"><span class="stat-label">Active Subprocesses</span><span class="stat-value">0 Monitored</span></div>
+            <div class="stat-row"><span class="stat-label">Circuit Status</span><span class="stat-value" style="color:var(--accent-green)">ARMED & SECURE</span></div>
+            <button class="btn btn-danger" onclick="triggerPanic()">EMERGENCY PANIC LOCKDOWN</button>
+        </div>
+    </div>
+
+    <div class="card" style="margin-top: 20px;">
+        <h2>Live Daemon Event Ledger</h2>
+        <div class="log-box" id="logBox">
+            [15:24:02] Butler Master Server initialized on 127.0.0.1:8000<br>
+            [15:24:02] Hardened Memory Vault loaded with AES-256-GCM encapsulation.<br>
+            [15:24:02] Fail-Closed Privacy Circuit armed. Zero unauthorized egress allowed.<br>
+            [15:24:05] Synapse Weaver synchronized 1420 knowledge vectors.
+        </div>
+    </div>
+
+    <script>
+        function fetchStatus() {
+            fetch('/observatory/snapshot')
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('memNodes').innerText = data.memory_nodes_organized;
+                    document.getElementById('crawlerDocs').innerText = data.crawler_docs_indexed;
+                    document.getElementById('cpuLoad').innerText = data.cpu_load_pct + '%';
+                    document.getElementById('ramAlloc').innerText = data.ram_used_gb + ' GB / ' + data.ram_total_gb + ' GB';
+                    const box = document.getElementById('logBox');
+                    box.innerHTML += '<br>[' + new Date().toLocaleTimeString() + '] Telemetry refreshed successfully.';
+                    box.scrollTop = box.scrollHeight;
+                })
+                .catch(err => alert('Failed to connect to local master daemon: ' + err));
+        }
+
+        function triggerPanic() {
+            if(confirm('Are you sure you want to trigger Emergency Panic Lockdown? All background automation scripts will be terminated instantly.')) {
+                fetch('/recovery/panic', {method: 'POST'})
+                    .then(res => res.json())
+                    .then(data => {
+                        alert('Panic executed: ' + data.status);
+                        const box = document.getElementById('logBox');
+                        box.innerHTML += '<br><span style="color:var(--accent-red)">[' + new Date().toLocaleTimeString() + '] EMERGENCY PANIC EXECUTED. Vault locked.</span>';
+                        box.scrollTop = box.scrollHeight;
+                    });
+            }
+        }
+    </script>
+</body>
+</html>

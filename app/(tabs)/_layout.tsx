@@ -295,6 +295,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="connect"    options={{ href: null }} />
       <Tabs.Screen name="fileshare"  options={{ href: null }} />
       <Tabs.Screen name="logs"       options={{ href: null }} />
+      <Tabs.Screen name="nexushome"  options={{ href: null }} />
       <Tabs.Screen name="serverSetup" options={{ href: null }} />
 
 

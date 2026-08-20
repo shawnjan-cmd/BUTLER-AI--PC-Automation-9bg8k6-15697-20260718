@@ -33,38 +33,6 @@ export function redactSensitiveText(input: string): string {
   return output;
 }
 
-/** Redaction for local diagnostics, which may contain connection details or credentials. */
-export function redactDiagnosticText(input: string, maxLength = 500): string {
-  let output = redactSensitiveText(String(input ?? ''));
-  output = output
-    .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [REDACTED_TOKEN]')
-    .replace(/\bbutler-(?:hw|rnd|install)-[a-z0-9-]{8,}\b/gi, '[REDACTED_INSTALL_ID]')
-    .replace(/\b(?:https?|wss?):\/\/[^\s'"`<>]+/gi, '[REDACTED_URL]')
-    .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '[REDACTED_IP]');
-  return output.slice(0, maxLength);
-}
-
-const DIAGNOSTIC_SECRET_KEYS = /(?:token|secret|password|passwd|auth(?:orization)?|cookie|session|device(?:id)?|ip|host|url|stack)/i;
-
-/**
- * Produces a small, serialisable diagnostic record. Values that could reveal a
- * credential, local topology, or unique identifier are removed before storage.
- */
-export function sanitizeDiagnosticMeta(meta: unknown, depth = 0): Record<string, unknown> | undefined {
-  if (!meta || typeof meta !== 'object' || Array.isArray(meta) || depth > 1) return undefined;
-  const output: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(meta as Record<string, unknown>).slice(0, 12)) {
-    if (DIAGNOSTIC_SECRET_KEYS.test(key)) continue;
-    if (typeof value === 'string') output[key.slice(0, 80)] = redactDiagnosticText(value, 180);
-    else if (typeof value === 'number' || typeof value === 'boolean' || value === null) output[key.slice(0, 80)] = value;
-    else if (typeof value === 'object' && !Array.isArray(value)) {
-      const nested = sanitizeDiagnosticMeta(value, depth + 1);
-      if (nested && Object.keys(nested).length) output[key.slice(0, 80)] = nested;
-    }
-  }
-  return Object.keys(output).length ? output : undefined;
-}
-
 export function classifyText(input: string): Sensitivity {
   const text = String(input ?? '');
   if (SECRET_PATTERNS.some(pattern => { pattern.lastIndex = 0; return pattern.test(text); })) return 'secret';

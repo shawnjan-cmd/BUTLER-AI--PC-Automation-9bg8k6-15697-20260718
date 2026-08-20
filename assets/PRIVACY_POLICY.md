@@ -97,7 +97,7 @@ The only "server" Butler AI communicates with is `butler_server.py` running on y
 
 ## 6. Optional Third-Party Services
 
-### 6.1 Local Ollama AI (Default — Fully Private)
+### 4.1 Local Ollama AI (Default — Fully Private)
 
 By default, Butler AI uses a local Ollama AI model running on your own PC. No data leaves your network.
 
@@ -105,7 +105,7 @@ By default, Butler AI uses a local Ollama AI model running on your own PC. No da
 - **What is NOT sent:** Nothing goes to any external server
 - **Privacy:** Completely private — all processing on your hardware
 
-### 6.2 Local Ollama on the user's paired PC
+### 4.2 Local Ollama on the user's paired PC
 
 The supported AI provider is local Ollama running on the user's paired PC. Chat text and the context selected by the app may be sent to that PC for response generation. No developer-operated cloud AI provider is enabled by the local-only architecture. Users remain responsible for securing their PC, Ollama service, network, firewall, and any remote access configuration.
 
@@ -113,7 +113,7 @@ The supported AI provider is local Ollama running on the user's paired PC. Chat 
 
 ## 7. Security Practices
 
-### 7.1 Network Security
+### 5.1 Network Security
 - All communication between the app and your PC occurs on your **local network only** (LAN — 192.168.x.x, 10.x.x.x)
 - Authentication uses **64-character cryptographic Bearer tokens** generated with `secrets.token_urlsafe(64)`
 - Token comparison uses **constant-time comparison** (`secrets.compare_digest`) to prevent timing attacks
@@ -121,13 +121,13 @@ The supported AI provider is local Ollama running on the user's paired PC. Chat 
 - The PC server implements **rate limiting** (60 requests/IP/minute) to prevent abuse
 - **Single-device lock**: the PC server can restrict pairing to one device at a time; verify the active server configuration before relying on this control
 
-### 7.2 Script Execution Safety
+### 5.2 Script Execution Safety
 - All Python scripts are scanned for dangerous patterns before execution
 - **Banned patterns:** `os.system`, `eval`, `exec`, `shell=True`, reading `/etc` paths
 - Scripts run with a **30-second timeout** and a **64KB size limit**
 - Scripts run as the user who launched `butler_server.py` — with the same permissions they already have
 
-### 7.3 Data Protection
+### 5.3 Data Protection
 - All local data is stored in Android's private `AsyncStorage` — inaccessible to other apps
 - No data is encrypted at rest beyond Android's standard storage encryption
 - No backups of app data are created to external services

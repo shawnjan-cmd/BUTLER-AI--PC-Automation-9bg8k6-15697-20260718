@@ -189,9 +189,9 @@ function ConnectInner() {
         [
           { text: 'Cancel', style: 'cancel' },
           {
-            text: 'OPEN SCANNER',
+            text: 'SERVER SETUP & QR',
             onPress: () => {
-              try { (global as any).__butlerHomeOpenQR?.(); } catch {}
+              router.push('/(tabs)/serverSetup' as any);
             }
           }
         ]

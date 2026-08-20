@@ -12,12 +12,11 @@ import ButlerMicrocopy from '@/components/ui/ButlerMicrocopy';
 import ButlerAtmosphere from '@/components/ui/ButlerAtmosphere';
 import {
   View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity,
-  Animated, Platform, Dimensions, Linking, RefreshControl, TextInput, Alert, AppState, AccessibilityInfo, useWindowDimensions,
+  Animated, Platform, Dimensions, Linking, RefreshControl, TextInput, Alert,
 } from 'react-native';
 import Svg, { Line, Circle } from 'react-native-svg';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
 import { useSkin } from '@/hooks/useSkin';
 import { SkinHeaderFX } from '@/components/ui/SkinHeaderFX';
 import { Guard } from '@/components/ui/Guard';
@@ -25,7 +24,6 @@ import { useFocusEffect } from 'expo-router';
 import { TabErrorBoundary } from '@/components/ui/TabErrorBoundary';
 import ServerConsolePanel from '@/components/ui/ServerConsolePanel';
 import ButlerWordmark from '@/components/ui/ButlerWordmark';
-import ButlerMascotMotion from '@/components/ui/ButlerMascotMotion';
 import { serverConnection } from '@/services/serverConnection';
 import { knowledgeAccumulator } from '@/services/knowledgeAccumulator';
 import { haptics } from '@/services/haptics';
@@ -34,7 +32,7 @@ import { otaUpdates, UpdateInfo } from '@/services/otaUpdates';
 import { autoErrorLogger } from '@/services/autoErrorLogger';
 
 // ── Palette (matches knowledge.tsx exactly) ───────────────────────
-const BG    = '#050810';
+const BG    = '#070A10';
 const SURF  = '#0B0F17';
 const SURF2 = '#111621';
 const SURF3 = '#4A9EFF';
@@ -42,11 +40,11 @@ const AMBER = '#FFB43D';
 const CYAN  = '#38D9E8';
 const GREEN = '#2FE38A';
 const PURP  = '#A468FF';
-const TEAL  = '#27C7B8';
+const TEAL  = '#38D9E8';
 const BLUE  = '#4A9EFF';
 const RED   = '#FF4D5E';
-const DIM   = '#00E5FF20';
-const MID   = '#7B8EA9';
+const DIM   = '#4A9EFF';
+const MID   = '#4A9EFF';
 const TEXT  = '#DCE6F2';
 const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
 const SW    = Math.max(320, Dimensions.get('window').width);
@@ -169,7 +167,7 @@ const HomeHeader = memo(({ safeTop, isConn, tab, onTabChange, onPair }: {
   );
 });
 const HH = StyleSheet.create({
-  root:  { backgroundColor: '#050810', overflow: 'hidden', borderBottomWidth: 1.5 },
+  root:  { backgroundColor: '#050810', overflow: 'hidden' },
   scan:  { position: 'absolute', top: 0, bottom: 0, width: 80, backgroundColor: CYAN + '07' },
   body:  { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 14, paddingTop: 11, paddingBottom: 10, gap: 10, zIndex: 1 },
   eye:   { fontFamily: MONO, fontSize: 7.5, color: CYAN + '60', letterSpacing: 1.5, fontWeight: '700' },
@@ -224,15 +222,14 @@ const PCStatusEngine = memo(({ isConn, onPair }: { isConn: boolean; onPair: () =
   );
 });
 const PE = StyleSheet.create({
-  // BUTLER'S ARRIVAL: dense double-weight command cards with a restrained cyan border hierarchy.
-  root:        { backgroundColor: SURF, borderRadius: 16, borderWidth: 1.5, borderTopWidth: 3, padding: 14 },
+  root:        { backgroundColor: SURF, borderRadius: 14, borderWidth: 1.5, padding: 14 },
   iconBox:     { width: 48, height: 48, borderRadius: 13, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 6 },
 });
 
 // 4-stat grid (matches KBStatsGrid style)
-const HomeStatsGrid = memo(({ isConn, cpu, ram, disk, kbCount, compact = false }: {
-  isConn: boolean; cpu: number; ram: number; disk: number; kbCount: number; compact?: boolean;
+const HomeStatsGrid = memo(({ isConn, cpu, ram, disk, kbCount }: {
+  isConn: boolean; cpu: number; ram: number; disk: number; kbCount: number;
 }) => {
   const cells = [
     { label: 'CPU',      val: isConn ? `${Math.round(cpu)}%` : '--', color: CYAN,  icon: 'cpu-64-bit' },
@@ -241,9 +238,9 @@ const HomeStatsGrid = memo(({ isConn, cpu, ram, disk, kbCount, compact = false }
     { label: 'KB FACTS', val: isConn ? String(kbCount || 0) : '--', color: PURP,  icon: 'brain' },
   ];
   return (
-    <View style={{ flexDirection: 'row', flexWrap: compact ? 'wrap' : 'nowrap', gap: 8 }}>
+    <View style={{ flexDirection: 'row', gap: 8 }}>
       {cells.map((c, i) => (
-        <View key={i} style={[GS.cell, compact ? { flexGrow: 0, flexBasis: '48%' } : null, { borderTopColor: c.color, borderColor: c.color + '28' }]}>
+        <View key={i} style={[GS.cell, { borderTopColor: c.color, borderColor: c.color + '28' }]}>
           <MaterialCommunityIcons name={c.icon as any} size={14} color={c.color + '80'} />
           <Text style={[GS.val, { color: isConn ? c.color : MID }]}>{c.val}</Text>
           <Text style={GS.label}>{c.label}</Text>
@@ -253,8 +250,7 @@ const HomeStatsGrid = memo(({ isConn, cpu, ram, disk, kbCount, compact = false }
   );
 });
 const GS = StyleSheet.create({
-  // BUTLER'S ARRIVAL: metrics behave as compact instrument tiles, not generic rounded statistics.
-  cell:  { flex: 1, backgroundColor: SURF, borderRadius: 13, borderWidth: 1.5, borderTopWidth: 3, padding: 10, alignItems: 'center', gap: 4,
+  cell:  { flex: 1, backgroundColor: SURF, borderRadius: 12, borderWidth: 1.5, borderTopWidth: 2.5, padding: 10, alignItems: 'center', gap: 4,
     ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 5 }, android: { elevation: 3 } }) },
   val:   { fontFamily: MONO, fontSize: 17, fontWeight: '900', lineHeight: 21 },
   label: { fontFamily: MONO, fontSize: 7, color: MID, fontWeight: '900', letterSpacing: 0.8 },
@@ -347,93 +343,8 @@ const DownloadCTA = memo(() => {
   );
 });
 const DC = StyleSheet.create({
-  // BUTLER'S ARRIVAL: download remains an explicit local-server setup action with an instrument-card edge.
-  root:  { backgroundColor: SURF, borderRadius: 16, borderWidth: 1.5, borderLeftWidth: 3, padding: 14 },
+  root:  { backgroundColor: SURF, borderRadius: 14, borderWidth: 1.5, padding: 14 },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 6, flexShrink: 0 },
-});
-
-/**
- * THE BUTLER'S ARRIVAL — overview guide card.
- * Style contract: local-first operational language, a contained responsive mascot, and no
- * secondary connection path. Its action delegates to the existing pair screen only.
- */
-const OperationsConcierge = memo(({ isConn, onPair, compact }: { isConn: boolean; onPair: () => void; compact: boolean }) => {
-  const hover = useRef(new Animated.Value(0)).current;
-  const [reduceMotion, setReduceMotion] = useState(false);
-  const accent = isConn ? GREEN : CYAN;
-
-  useEffect(() => {
-    let mounted = true;
-    AccessibilityInfo.isReduceMotionEnabled().then((value: boolean) => {
-      if (mounted) setReduceMotion(Boolean(value));
-    }).catch(() => {});
-    const subscription = AccessibilityInfo.addEventListener?.('reduceMotionChanged', (value: boolean) => setReduceMotion(Boolean(value)));
-    return () => { mounted = false; subscription?.remove?.(); };
-  }, []);
-
-  useEffect(() => {
-    hover.stopAnimation();
-    if (reduceMotion) { hover.setValue(0); return; }
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(hover, { toValue: 1, duration: 1800, useNativeDriver: true }),
-      Animated.timing(hover, { toValue: 0, duration: 1800, useNativeDriver: true }),
-    ]));
-    loop.start(); return () => loop.stop();
-  }, [hover, reduceMotion]);
-
-  const mascotY = hover.interpolate({ inputRange: [0, 1], outputRange: [1, -3] });
-  const label = isConn ? 'CONSOLE ONLINE' : 'READY TO PAIR';
-  const guidance = isConn
-    ? 'Your paired console is responding. Butler will surface live values when the server returns them.'
-    : 'Scan a pairing QR code or add your PC connection details when you are ready.';
-
-  return (
-    <TouchableOpacity accessibilityRole="button" accessibilityLabel={isConn ? 'Manage PC connection' : 'Pair a PC'}
-      onPress={() => { haptics.medium(); onPair(); }} activeOpacity={0.9}
-      style={[OC.root, { borderColor: accent + '68', backgroundColor: accent + '08' }]}> 
-      <View style={[OC.rail, { backgroundColor: accent }]} />
-      <View style={OC.copy}>
-        <View style={{ flexDirection:'row', alignItems:'center', gap:7 }}>
-          <View style={[OC.statusDot, { backgroundColor: accent }]} />
-          <Text style={[OC.eyebrow, { color:accent }]}>OPERATIONS CONCIERGE · {label}</Text>
-        </View>
-        <Text style={OC.title}>{isConn ? 'Your Butler is on watch.' : 'Let’s connect your command deck.'}</Text>
-        <Text style={OC.body}>{guidance}</Text>
-        <View style={[OC.protocol, compact && { flexWrap:'wrap', rowGap:5 }]}>
-          {[
-            { label:'BUILD', color:CYAN }, { label:'VERIFY', color:AMBER }, { label:'GUARD', color:PURP }, { label:'RUN', color:GREEN },
-          ].map((step, index) => (
-            <React.Fragment key={step.label}>
-              <View style={OC.protocolStep}>
-                <View style={[OC.protocolDot, { backgroundColor:step.color }]} />
-                <Text style={[OC.protocolText, { color:step.color }]}>{step.label}</Text>
-              </View>
-              {index < 3 && <View style={[OC.protocolLine, { backgroundColor:step.color + '80' }]} />}
-            </React.Fragment>
-          ))}
-        </View>
-      </View>
-      <View style={[OC.mascotDock, compact && OC.mascotDockCompact, { borderColor:accent + '70' }]}>
-        <Animated.View pointerEvents="none" style={{ position:'absolute', inset:0 as any, transform:[{ translateY:mascotY }] }}>
-          <Image source={require('@/assets/images/butler-robot-tux.jpg')} style={StyleSheet.absoluteFill} contentFit="cover" />
-        </Animated.View>
-        <View style={OC.mascotHalo}><ButlerMascotMotion size={28} paused={reduceMotion} /></View>
-      </View>
-      <View style={[OC.actionChip, { borderColor:accent + '75', backgroundColor:BG + 'DD' }]}>
-        <Text style={[OC.actionText, { color:accent }]}>{isConn ? 'MANAGE' : 'PAIR PC'}</Text>
-        <MaterialIcons name="chevron-right" size={14} color={accent} />
-      </View>
-    </TouchableOpacity>
-  );
-});
-const OC = StyleSheet.create({
-  root:{ minHeight:142, borderWidth:1.5, borderRadius:17, overflow:'hidden', position:'relative', padding:14, paddingRight:120 },
-  rail:{ position:'absolute', top:0, left:0, right:0, height:3 }, copy:{ flex:1, zIndex:2 },
-  statusDot:{ width:7, height:7, borderRadius:4 }, eyebrow:{ fontFamily:MONO, fontSize:7.7, fontWeight:'900', letterSpacing:0.7 },
-  title:{ fontFamily:MONO, fontSize:15, lineHeight:19, fontWeight:'900', color:TEXT, marginTop:7, maxWidth:208 }, body:{ fontFamily:MONO, fontSize:8.5, lineHeight:12, color:MID, marginTop:4, maxWidth:215 },
-  protocol:{ flexDirection:'row', alignItems:'center', marginTop:10 }, protocolStep:{ flexDirection:'row', alignItems:'center', gap:3 }, protocolDot:{ width:5, height:5, borderRadius:3 }, protocolText:{ fontFamily:MONO, fontSize:6.4, fontWeight:'900', letterSpacing:0.25 }, protocolLine:{ height:1, width:12, marginHorizontal:4 },
-  mascotDock:{ position:'absolute', right:9, top:10, width:102, height:119, borderRadius:13, overflow:'hidden', borderWidth:1.2, backgroundColor:'#020406', zIndex:1, elevation:6 }, mascotDockCompact:{ width:88, height:108, right:7, top:14 }, mascotHalo:{ position:'absolute', right:5, bottom:5, borderRadius:18, backgroundColor:BG + 'E8', borderWidth:1, borderColor:CYAN + '55', padding:2 },
-  actionChip:{ position:'absolute', left:14, bottom:10, flexDirection:'row', alignItems:'center', borderWidth:1, borderRadius:7, paddingVertical:4, paddingLeft:7, paddingRight:4, zIndex:3 }, actionText:{ fontFamily:MONO, fontSize:7, fontWeight:'900', letterSpacing:0.5 },
 });
 
 // Knowledge graph (reused from KB page style)
@@ -698,8 +609,8 @@ const MC = StyleSheet.create({
 // ════════════════════════════════════════════════════════════════
 
 // 2×2 large-text status grid (matches CategoryBreakdown style)
-const TelemetryGrid = memo(({ isConn, cpu, ram, disk, kbCount, compact = false }: {
-  isConn: boolean; cpu: number; ram: number; disk: number; kbCount: number; compact?: boolean;
+const TelemetryGrid = memo(({ isConn, cpu, ram, disk, kbCount }: {
+  isConn: boolean; cpu: number; ram: number; disk: number; kbCount: number;
 }) => {
   const cards = [
     { cat: 'PC',  color: isConn ? GREEN : AMBER, icon: 'desktop-classic',          pct: isConn ? 100 : 0, big: isConn ? 'ONLINE' : 'OFFLINE', desc: isConn ? 'Butler server active' : 'Tap PAIR to connect' },
@@ -716,7 +627,7 @@ const TelemetryGrid = memo(({ isConn, cpu, ram, disk, kbCount, compact = false }
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {cards.map((c, i) => (
-          <View key={i} style={{ width: compact ? '100%' : HALF, backgroundColor: SURF, borderRadius: 12, borderWidth: 1.5, borderTopWidth: 2.5, borderTopColor: c.color, borderColor: c.color + '28', padding: 12 }}>
+          <View key={i} style={{ width: HALF, backgroundColor: SURF, borderRadius: 12, borderWidth: 1.5, borderTopWidth: 2.5, borderTopColor: c.color, borderColor: c.color + '28', padding: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 6 }}>
               <View style={{ width: 28, height: 28, borderRadius: 7, backgroundColor: c.color + '14', borderWidth: 1, borderColor: c.color + '35', alignItems: 'center', justifyContent: 'center' }}>
                 <MaterialCommunityIcons name={c.icon as any} size={14} color={c.color} />
@@ -910,8 +821,6 @@ const OtaBanner = memo(({ info, onApply, onDismiss }: {
 // ════════════════════════════════════════════════════════════════
 function HomeInner() {
   const insets  = useSafeAreaInsets();
-  const { width, fontScale } = useWindowDimensions();
-  const compact = width < 360 || fontScale > 1.15;
   const [tab, setTab]         = useState('overview');
   const [isConn, setIsConn]   = useState(false);
   const [cpu,    setCpu]      = useState(0);
@@ -924,8 +833,6 @@ function HomeInner() {
   const [refresh, setRefresh] = useState(false);
   const [liveErrors, setLiveErrors] = useState<RuntimeError[]>([]);
   const [otaInfo, setOtaInfo] = useState<UpdateInfo>(otaUpdates.getState());
-  const appStateRef = useRef(AppState.currentState);
-  const metricsBusyRef = useRef(false);
 
   // ── Live error monitor subscription ───────────────────────────
   useEffect(() => {
@@ -942,16 +849,11 @@ function HomeInner() {
   }, []);
 
   const loadData = useCallback(async () => {
-    // Butler performance guard: do not keep telemetry alive when the command
-    // deck is backgrounded, and never allow a slow request to stack up.
-    if (appStateRef.current !== 'active' || metricsBusyRef.current) return;
-    metricsBusyRef.current = true;
     try {
       const conn = serverConnection.isConnected?.() ?? false;
       setIsConn(conn);
       if (conn) {
-        const ctrl = new AbortController();
-        const timeout = setTimeout(() => ctrl.abort(), 5000);
+        const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 5000);
         try {
           const res = await serverConnection.request('/api/metrics', { signal: ctrl.signal });
           if (res.ok) {
@@ -960,7 +862,7 @@ function HomeInner() {
             setRam(d.ram_percent  ?? d.memory?.percent ?? 0);
             setDisk(d.disk_percent ?? d.disk?.percent  ?? 0);
           }
-        } catch {} finally { clearTimeout(timeout); }
+        } catch {}
         try {
           const learn = await serverConnection.request('/api/learn/status');
           if (learn.ok) {
@@ -979,24 +881,13 @@ function HomeInner() {
       } catch {}
     } catch {
       autoErrorLogger.warn('[Home]', 'loadData failed');
-    } finally {
-      metricsBusyRef.current = false;
     }
   }, []);
 
   useFocusEffect(useCallback(() => {
-    if (appStateRef.current === 'active') loadData();
-    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
-      appStateRef.current = nextState;
-      if (nextState === 'active') loadData();
-    });
-    const t = setInterval(() => {
-      if (appStateRef.current === 'active') loadData();
-    }, 25000);
-    return () => {
-      clearInterval(t);
-      appStateSubscription.remove();
-    };
+    loadData();
+    const t = setInterval(loadData, 25000);
+    return () => clearInterval(t);
   }, [loadData]));
 
   const goToTab = useCallback((t: string) => {
@@ -1037,7 +928,6 @@ function HomeInner() {
             />
           )}
           <PCStatusEngine isConn={isConn} onPair={() => goToTab('connect')} />
-          <OperationsConcierge isConn={isConn} onPair={() => goToTab('connect')} compact={compact} />
           <ServerConsolePanel
             isConnected={isConn}
             cpu={cpu}
@@ -1051,11 +941,11 @@ function HomeInner() {
             onOpenLogs={() => goToTab('telemetry')}
           />
           <LanRemoteCard isConn={isConn} onPair={() => goToTab('connect')} />
-          <HomeStatsGrid isConn={isConn} cpu={cpu} ram={ram} disk={disk} kbCount={kbCount} compact={compact} />
+          <HomeStatsGrid isConn={isConn} cpu={cpu} ram={ram} disk={disk} kbCount={kbCount} />
           <DownloadCTA />
-          <View style={{ flexDirection: compact ? 'column' : 'row', gap: 10 }}>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
             <HomeNeuralGraph isConn={isConn} kbCount={kbCount} />
-            <View style={{ width: compact ? '100%' : HALF, gap: 8 }}>
+            <View style={{ width: HALF, gap: 8 }}>
               {[
                 { l: 'STATUS',  v: isConn ? 'LIVE'    : 'OFFLINE',      c: isConn ? GREEN : AMBER },
                 { l: 'STORAGE', v: isConn ? 'PROTECTED' : '--',                 c: PURP  },
@@ -1087,7 +977,7 @@ function HomeInner() {
       {tab === 'telemetry' && (
         <ScrollView showsVerticalScrollIndicator={false} refreshControl={refreshControl}
           contentContainerStyle={{ padding: 14, gap: 12, paddingBottom: insets.bottom + 100 }}>
-          <TelemetryGrid isConn={isConn} cpu={cpu} ram={ram} disk={disk} kbCount={kbCount} compact={compact} />
+          <TelemetryGrid isConn={isConn} cpu={cpu} ram={ram} disk={disk} kbCount={kbCount} />
           <AlertsIntel isConn={isConn} goToTab={goToTab} />
           {/* Security badge row */}
           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, paddingTop: 4 }}>

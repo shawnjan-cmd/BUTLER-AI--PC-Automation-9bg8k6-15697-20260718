@@ -328,8 +328,8 @@ function DeadManPanel({ triggered, offlineSec, threshold = 90 }: {
   return (
     <View style={vlt.section}>
       <View style={vlt.secHdr}>
-        <MaterialCommunityIcons name="timer-alert" size={10} color={col} />
-        <Text style={[vlt.secTitle, { color: col }]}>{`DEAD MAN'S SWITCH`}</Text>
+        <MaterialCommunityIcons name="clock-alert-outline" size={10} color={col} />
+        <Text style={[vlt.secTitle, { color: col }]}>DEAD MAN&apos;S SWITCH</Text>
         <View style={[vlt.statusChip, { borderColor: col + '50', backgroundColor: col + '0C', marginLeft: 'auto' }]}>
           <Text style={{ fontFamily: MONO, fontSize: 7.5, color: col, fontWeight: '900' }}>
             {triggered ? 'TRIGGERED' : offlineSec > 0 ? 'ARMED' : 'STANDBY'}
@@ -726,7 +726,7 @@ export function NexusVaultCard({ isConnected, serverLatencyMs }: {
                 </View>
                 {[
                   { icon: 'waveform',       col: C.purple, name: 'NEURAL TRIPWIRE',       desc: 'Statistical latency baseline · >2σ = MITM alert' },
-                  { icon: 'timer-alert',    col: C.red,    name: 'DEAD MAN\'S SWITCH',     desc: 'Auto-wipes token + clipboard after 90s offline' },
+                  { icon: 'clock-alert-outline', col: C.red,    name: 'DEAD MAN\'S SWITCH',     desc: 'Auto-wipes token + clipboard after 90s offline' },
                   { icon: 'dna',            col: C.teal,   name: 'CONNECTION DNA',         desc: 'Session fingerprint — detects hijacking mid-session' },
                   { icon: 'bird',           col: C.green,  name: 'BUNDLE CANARY',          desc: 'XOR watermark check on every render cycle' },
                   { icon: 'lock-clock',     col: C.amber,  name: 'BEHAVIORAL BIOMETRICS',  desc: 'Token entropy + session age + network type score' },

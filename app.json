@@ -2,7 +2,7 @@
   "expo": {
     "name": "Butler AI",
     "slug": "butler-ai",
-    "version": "5.0.10",
+    "version": "5.0.9",
     "owner": "andrejsladkovic",
     "description": "Butler AI — PC Automation & Control. © 2024-2026 Andrej Sladkovic. All Rights Reserved. Unauthorised copying, reverse-engineering or redistribution is strictly prohibited.",
     "orientation": "portrait",
@@ -10,10 +10,6 @@
     "userInterfaceStyle": "dark",
     "scheme": "butlerai",
     "newArchEnabled": true,
-    "updates": {
-      "enabled": false,
-      "checkAutomatically": "NEVER"
-    },
     "splash": {
       "image": "./assets/icon.png",
       "resizeMode": "contain",
@@ -32,7 +28,7 @@
         "backgroundColor": "#070A10"
       },
       "package": "com.butlerai.pc.automation",
-      "versionCode": 1784400006,
+      "versionCode": 1784400005,
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.CAMERA",
@@ -41,15 +37,9 @@
       "blockedPermissions": [
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.MEDIA_PROJECTION",
         "android.permission.PHONE_CALL",
         "android.permission.READ_PHONE_STATE",
-        "android.permission.READ_CALENDAR",
-        "android.permission.WRITE_CALENDAR",
-        "android.permission.READ_CONTACTS",
-        "android.permission.WRITE_CONTACTS",
-        "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_MEDIA_AUDIO",
         "android.permission.READ_MEDIA_IMAGES",
@@ -69,6 +59,11 @@
     },
     "plugins": [
       "expo-router"
-    ]
+    ],
+    "extra": {
+      "legal": {
+        "copyright": "© 2024-2026 Andrej Sladkovic. All Rights Reserved."
+      }
+    }
   }
 }

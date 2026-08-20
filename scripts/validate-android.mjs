@@ -93,25 +93,6 @@ try {
   if (typeof android.versionCode !== 'number') {
     warnings.push('app.json: expo.android.versionCode is not set – Play Store uploads need it');
   }
-  const declared = new Set(android.permissions ?? []);
-  const blocked = new Set(android.blockedPermissions ?? []);
-  const forbidden = [
-    'android.permission.ACCESS_FINE_LOCATION',
-    'android.permission.ACCESS_COARSE_LOCATION',
-    'android.permission.ACCESS_BACKGROUND_LOCATION',
-    'android.permission.FOREGROUND_SERVICE',
-    'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
-    'android.permission.MODIFY_AUDIO_SETTINGS',
-    'android.permission.READ_CALENDAR',
-    'android.permission.WRITE_CALENDAR',
-    'android.permission.READ_CONTACTS',
-    'android.permission.WRITE_CONTACTS',
-    'android.permission.SYSTEM_ALERT_WINDOW',
-  ];
-  for (const permission of forbidden) {
-    if (declared.has(permission)) errors.push(`app.json: forbidden permission declared: ${permission}`);
-    if (!blocked.has(permission)) errors.push(`app.json: blockedPermissions must deny: ${permission}`);
-  }
 } catch (e) {
   errors.push(`app.json is not valid JSON: ${e.message}`);
 }

@@ -1,7 +1,7 @@
 /**
  * PERFORMANCE MONITOR WIDGET — Standalone component
  * Real-time circular ring gauges for CPU, RAM, GPU/AI, Disk
- * Same color scheme as the app (teal #10d9a0, amber, red, purple)
+ * Same color scheme as the app (teal #2FE38A, amber, red, purple)
  * Can be placed on any page as a self-contained card.
  */
 
@@ -20,24 +20,24 @@ const { width: SW } = Dimensions.get('window');
 
 // ─── Palette — matches app's dark NEXUS theme ──────────────────
 const PM = {
-  bg:        '#090a0f',
-  surface:   '#0d0e14',
-  surfaceHi: '#111318',
+  bg:        '#070A10',
+  surface:   '#0B0F17',
+  surfaceHi: '#0B0F17',
   border:    'rgba(255,255,255,0.06)',
-  text:      '#e2e8f0',
-  dim:       '#4a5568',
-  mid:       '#94a3b8',
-  teal:      '#10d9a0',
+  text:      '#DCE6F2',
+  dim:       '#4A9EFF',
+  mid:       '#4A9EFF',
+  teal:      '#2FE38A',
   tealDim:   '#10d9a015',
-  amber:     '#f59e0b',
+  amber:     '#FFB43D',
   amberDim:  '#f59e0b15',
-  red:       '#ef4444',
+  red:       '#FF4D5E',
   redDim:    '#ef444415',
-  purple:    '#8b5cf6',
+  purple:    '#A468FF',
   purpleDim: '#8b5cf615',
-  blue:      '#3b82f6',
-  green:     '#22c55e',
-  cyan:      '#22d3ee',
+  blue:      '#4A9EFF',
+  green:     '#2FE38A',
+  cyan:      '#38D9E8',
 };
 
 function getBarColor(pct: number, type: 'cpu' | 'ram' | 'disk' | 'ai' = 'cpu') {
@@ -178,7 +178,7 @@ function StatsFeed({ isConnected, metrics }: {
   useEffect(() => {
     if (!isConnected) { setFeed(STATIC_FEED); return; }
     const now = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    const alerts = [];
+    const alerts: { time: string; msg: string; col: string }[] = [];
     if (metrics.cpu > 80) alerts.push({ time: now(), msg: `CPU spike: ${Math.round(metrics.cpu)}% usage`, col: PM.red });
     if (metrics.ram > 85) alerts.push({ time: now(), msg: `RAM high: ${Math.round(metrics.ram)}% used`, col: PM.amber });
     if (metrics.disk > 90) alerts.push({ time: now(), msg: `Disk critical: ${Math.round(metrics.disk)}% full`, col: PM.red });
@@ -457,7 +457,7 @@ const pms = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 14,
     ...Platform.select({
-      ios:     { shadowColor: '#10d9a0', shadowOffset:{width:0,height:4}, shadowOpacity:0.12, shadowRadius:14 },
+      ios:     { shadowColor: '#2FE38A', shadowOffset:{width:0,height:4}, shadowOpacity:0.12, shadowRadius:14 },
       android: { elevation: 4 },
     }),
   },
@@ -465,7 +465,7 @@ const pms = StyleSheet.create({
   header:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingTop: 12, paddingBottom: 6 },
   headerLeft:   { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   headerRight:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  headerTitle:  { fontSize: 13, fontWeight: '900', color: '#e2e8f0', fontFamily: MONO, letterSpacing: 0.5 },
+  headerTitle:  { fontSize: 13, fontWeight: '900', color: '#DCE6F2', fontFamily: MONO, letterSpacing: 0.5 },
   headerSub:    { fontSize: 9, color: PM.dim, fontFamily: MONO, marginTop: 2, letterSpacing: 0.3 },
   liveDot:      { width: 9, height: 9, borderRadius: 5, flexShrink: 0 },
   badgeRow:     { flexDirection: 'row', gap: 6, paddingHorizontal: 14, paddingBottom: 10 },
@@ -491,7 +491,7 @@ const pms = StyleSheet.create({
 
   // Feed
   feedSection:  { paddingHorizontal: 14, paddingBottom: 12 },
-  feedWrap:     { backgroundColor: '#030810', borderRadius: 8, overflow: 'hidden' },
+  feedWrap:     { backgroundColor: '#050810', borderRadius: 8, overflow: 'hidden' },
   feedRow:      { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.04)' },
   feedTime:     { fontSize: 9, fontFamily: MONO, fontWeight: '700', width: 56, flexShrink: 0 },
   feedDot:      { width: 4, height: 4, borderRadius: 2, flexShrink: 0 },
@@ -508,7 +508,7 @@ const pms = StyleSheet.create({
   compactItem:  { alignItems: 'center' },
 
   // Strip (header bar version)
-  stripWrap:    { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 7, backgroundColor: '#0a0b0f', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  stripWrap:    { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 7, backgroundColor: '#070A10', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
   stripDot:     { width: 6, height: 6, borderRadius: 3, flexShrink: 0 },
   stripItem:    { flexDirection: 'row', alignItems: 'center', gap: 5, flex: 1 },
   stripLabel:   { fontSize: 8, fontWeight: '700', fontFamily: MONO, letterSpacing: 0.8, width: 22 },

@@ -6,7 +6,6 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppState } from 'react-native';
 import { serverConnection } from './serverConnection';
 import { autoErrorLogger } from './autoErrorLogger';
 
@@ -62,22 +61,28 @@ class ServerMetricsService {
 
   // ── Fetch real metrics from server ──────────────────────────
   async fetch(forceRefresh = false): Promise<MetricSnapshot | null> {
-    // The telemetry cache is intentionally foreground-only. Background refreshes
-    // would keep a low-end phone and the paired PC busy without visible value.
-    if (AppState.currentState !== 'active') return this.cache;
     // Return cache if fresh enough
     if (!forceRefresh && this.cache && Date.now() - this.cache.fetchedAt < CACHE_TTL) {
       return this.cache;
     }
 
-    if (!serverConnection.isConnected() || this.fetching) return this.cache;
+    const ip   = serverConnection.getIP();
+    const port = serverConnection.getPort();
+    const token = serverConnection.getToken();
+    if (!ip || !port || this.fetching) return this.cache;
 
     this.fetching = true;
     const start = Date.now();
     try {
       const ctrl = new AbortController();
-      const tid  = setTimeout(() => ctrl.abort(), 6000);
-      const res = await serverConnection.request('/api/metrics', { signal: ctrl.signal });
+      const tid  = setTimeout(() => ctrl.abort(), 8000);
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`http://${ip}:${port}/api/metrics`, {
+        headers,
+        signal: ctrl.signal,
+      });
       clearTimeout(tid);
       const latency = Date.now() - start;
 

@@ -20,26 +20,26 @@ const { width: SW } = Dimensions.get('window');
 const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
 
 const C = {
-  bg:      '#020810',
-  card:    '#060E1A',
-  surf:    '#08111E',
-  cyan:    '#00E5FF',
-  green:   '#00FF88',
-  amber:   '#FFB020',
-  purple:  '#CC44FF',
-  sigma:   '#CC33FF',
-  red:     '#FF3344',
-  teal:    '#00CCBB',
-  blue:    '#4499FF',
-  pink:    '#FF44AA',
-  text:    '#D4E8F6',
-  mid:     '#6A8EA8',
-  dim:     '#2A4060',
-  yellow:  '#FFD700',
+  bg:      '#050810',
+  card:    '#0B0F17',
+  surf:    '#0B0F17',
+  cyan:    '#38D9E8',
+  green:   '#2FE38A',
+  amber:   '#FFB43D',
+  purple:  '#A468FF',
+  sigma:   '#A468FF',
+  red:     '#FF4D5E',
+  teal:    '#38D9E8',
+  blue:    '#4A9EFF',
+  pink:    '#FF5FA8',
+  text:    '#4A9EFF',
+  mid:     '#4A9EFF',
+  dim:     '#4A9EFF',
+  yellow:  '#FFC94A',
   border:  'rgba(0,229,255,0.14)',
 };
 
-const ACCENT_COLORS = ['#2A4060','#00CCBB','#00FF88','#00E5FF','#4499FF','#CC44FF','#CC33FF','#FFB020','#FF44AA','#FFD700','#00E5FF'];
+const ACCENT_COLORS = ['#4A9EFF','#38D9E8','#2FE38A','#38D9E8','#4A9EFF','#A468FF','#A468FF','#FFB43D','#FF5FA8','#FFC94A','#38D9E8'];
 
 function getLevel(articles: number) {
   const thresholds = [0, 10, 25, 50, 100, 200, 400, 700, 1000, 2000, 5000];
@@ -54,12 +54,6 @@ function getLevel(articles: number) {
 // ── Tiny Pulse Dot ────────────────────────────────────────────────
 function PulseDot({ color, size = 6 }: { color: string; size?: number }) {
   const a = useRef(new Animated.Value(0.4)).current;
-  // Tripwire subscription
-  useEffect(() => {
-    const unsub = neuralTripwire.subscribe(s => setTripState(s));
-    neuralTripwire.loadSavedBaseline();
-    return unsub;
-  }, []);
 
   useEffect(() => {
     const l = Animated.loop(Animated.sequence([
@@ -208,7 +202,7 @@ function NeuralBrain({ kbArticles, isConnected, sessions }: {
 }
 
 const nb = StyleSheet.create({
-  canvas:  { position:'relative', backgroundColor:'#010608', borderRadius:10, overflow:'hidden', marginBottom:10 },
+  canvas:  { position:'relative', backgroundColor:'#050810', borderRadius:10, overflow:'hidden', marginBottom:10 },
   scan:    { position:'absolute', top:0, bottom:0, backgroundColor:C.cyan+'09', transform:[{skewX:'-8deg'}] },
   edge:    { position:'absolute', height:1.5, borderRadius:1 },
   packet:  { position:'absolute', width:8, height:8, borderRadius:4 },

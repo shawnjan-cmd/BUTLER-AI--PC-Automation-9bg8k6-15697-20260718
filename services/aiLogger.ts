@@ -9,6 +9,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { encryptedStorage } from './encryptedStorage';
 
 // ═══════════════════════════════════════════════════════════════
 // 📊 ERROR PATTERNS DATABASE
@@ -82,14 +83,44 @@ const ERROR_PATTERNS: ErrorPattern[] = [
 // 🧠 AI LOGGER CLASS
 // ═══════════════════════════════════════════════════════════════
 
-interface LogEntry {
+export interface LogEntry {
   timestamp: string;
   level: 'info' | 'warn' | 'error' | 'success';
   category: string;
   message: string;
-  data?: any;
+  data?: Record<string, unknown>;
   pattern?: ErrorPattern;
   autoFixApplied?: boolean;
+}
+
+export interface WorkflowLogEvent {
+  correlationId: string;
+  stage: string;
+  state: 'active' | 'completed' | 'blocked' | 'failed';
+  source: 'android' | 'paired_pc';
+  detail?: string;
+}
+
+const SENSITIVE_LOG_KEY = /(?:token|password|secret|authorization|cookie|credential|private|key|script|source|content|chat|prompt|ip|host|path|url)/i;
+const SENSITIVE_LOG_VALUE = /(?:bearer\s+[a-z0-9._-]+|(?:token|password|secret|api[_ -]?key|authorization)\s*[:=]\s*[^\s,;]+)/i;
+
+function sanitizeLogValue(value: unknown, depth = 0): unknown {
+  if (depth > 4) return '<truncated>';
+  if (typeof value === 'string') {
+    return SENSITIVE_LOG_VALUE.test(value) ? '<redacted>' : value.replace(/[\r\n\t]+/g, ' ').slice(0, 240);
+  }
+  if (typeof value === 'number' || typeof value === 'boolean' || value === null) return value;
+  if (Array.isArray(value)) return value.slice(0, 16).map(item => sanitizeLogValue(item, depth + 1));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>).slice(0, 24).map(([key, nested]) => [key, SENSITIVE_LOG_KEY.test(key) ? '<redacted>' : sanitizeLogValue(nested, depth + 1)]));
+  }
+  return String(value).slice(0, 120);
+}
+
+function sanitizeLogData(data?: unknown): Record<string, unknown> | undefined {
+  if (data === undefined) return undefined;
+  const safe = sanitizeLogValue(data);
+  return safe && typeof safe === 'object' && !Array.isArray(safe) ? safe as Record<string, unknown> : { detail: safe };
 }
 
 class AILogger {
@@ -114,8 +145,25 @@ class AILogger {
     this.analyzeError(message, data);
   }
 
-  success(message: string, data?: any) {
+  success(message: string, data?: unknown) {
     this.log('success', 'Success', message, data);
+  }
+
+  /**
+   * Records only correlation-safe workflow metadata. Source code, chat text,
+   * approval tokens, credentials and full server details are redacted before
+   * reaching memory, persistent storage, or a development console.
+   */
+  workflow(event: WorkflowLogEvent): void {
+    const level = event.state === 'failed' || event.state === 'blocked'
+      ? 'warn' : event.state === 'completed' ? 'success' : 'info';
+    this.log(level, 'AutomationFlow', `flow=${event.correlationId.slice(-8)} stage=${event.stage} state=${event.state}`, {
+      correlationId: event.correlationId.slice(-32),
+      stage: event.stage.slice(0, 48),
+      state: event.state,
+      source: event.source,
+      detail: event.detail || '',
+    });
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -158,14 +206,14 @@ class AILogger {
     level: LogEntry['level'],
     category: string,
     message: string,
-    data?: any
+    data?: unknown
   ) {
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
       level,
-      category,
-      message,
-      data,
+      category: String(category).replace(/[\r\n\t]+/g, ' ').slice(0, 48),
+      message: String(message).replace(/[\r\n\t]+/g, ' ').slice(0, 280),
+      data: sanitizeLogData(data),
     };
 
     // Add to memory
@@ -176,20 +224,18 @@ class AILogger {
       this.logs = this.logs.slice(-this.maxLogs);
     }
 
-    // Console output with colors
-    const emoji = {
-      info: 'ℹ️',
-      warn: '⚠️',
-      error: '❌',
-      success: '✅',
-    }[level];
+        // Production builds avoid device-console copies of user or workflow data.
+    // In-memory diagnostics remain redacted, and persistent warn/error/workflow
+    // records are encrypted below.
+    if ((global as any).__DEV__ === true) {
+      const emoji = { info: 'ℹ️', warn: '⚠️', error: '❌', success: '✅' }[level];
+      console.log(`${emoji} [${entry.category}] ${entry.message}`, entry.data || '');
+    }
 
-    console.log(`${emoji} [${category}] ${message}`, data || '');
-
-    // Persist important logs
-    if (level === 'error' || level === 'warn') {
+    if (level === 'error' || level === 'warn' || category === 'AutomationFlow') {
       this.persistLog(entry);
     }
+
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -198,10 +244,11 @@ class AILogger {
 
   private async persistLog(entry: LogEntry) {
     try {
-      const key = `@butler_log_${Date.now()}`;
-      await AsyncStorage.setItem(key, JSON.stringify(entry));
-    } catch (error) {
-      console.error('Failed to persist log:', error);
+      const key = `@butler_hardened_log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      await encryptedStorage.setItem(key, JSON.stringify(entry));
+    } catch {
+      // Logging is non-authoritative: failure to persist a diagnostic must not
+      // grant execution, reveal data, or change a security decision.
     }
   }
 
@@ -224,7 +271,7 @@ class AILogger {
     
     // Clear AsyncStorage
     const keys = await AsyncStorage.getAllKeys();
-    const logKeys = keys.filter(k => k.startsWith('@butler_log_'));
+    const logKeys = keys.filter(k => k.startsWith('@butler_log_') || k.startsWith('@butler_hardened_log_'));
     await AsyncStorage.multiRemove(logKeys);
   }
 

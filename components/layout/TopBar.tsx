@@ -11,7 +11,7 @@ import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLOR, FONT, TYPE, glow, hex } from '@/constants/tokens';
 import { haptics } from '@/services/haptics';
 
-interface TopBarProps {
+export interface TopBarProps {
   isConnected: boolean;
   serverAddr?: string;
   latencyMs?: number;
@@ -109,7 +109,7 @@ const s = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#020609',
+    backgroundColor: '#050810',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,229,255,0.10)',
   },

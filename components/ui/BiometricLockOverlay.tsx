@@ -25,24 +25,24 @@ const { width: SW, height: SH } = Dimensions.get('window');
 const MONO: any = Platform.OS === 'ios' ? 'Menlo-Bold' : 'monospace';
 
 const C = {
-  bg:      '#010508',
-  surf:    '#060E1A',
-  cyan:    '#00E5FF',
-  green:   '#00FF88',
-  red:     '#FF3344',
-  amber:   '#FFB020',
-  purple:  '#CC44FF',
-  mid:     '#5A7A96',
-  dim:     '#243040',
-  text:    '#C8E4F0',
+  bg:      '#050810',
+  surf:    '#0B0F17',
+  cyan:    '#38D9E8',
+  green:   '#2FE38A',
+  red:     '#FF4D5E',
+  amber:   '#FFB43D',
+  purple:  '#A468FF',
+  mid:     '#4A9EFF',
+  dim:     '#4A9EFF',
+  text:    '#DCE6F2',
 };
 
-type View = 'lock' | 'pin' | 'settings';
+type LockView = 'lock' | 'pin' | 'settings';
 
 export function BiometricLockOverlay() {
   const insets = useSafeAreaInsets();
   const [lockState, setLockState] = useState<BiometricLockState>(biometricLock.getState());
-  const [view,      setView]      = useState<View>('lock');
+  const [view,      setView]      = useState<LockView>('lock');
   const [pin,       setPin]       = useState('');
   const [pinError,  setPinError]  = useState('');
   const [newPin,    setNewPin]    = useState('');
@@ -366,7 +366,7 @@ export function BiometricLockOverlay() {
 
 const s = StyleSheet.create({
   container: {
-    flex: 1, backgroundColor: '#010508',
+    flex: 1, backgroundColor: '#050810',
     alignItems: 'center', justifyContent: 'space-between',
   },
   scan: {
@@ -396,7 +396,7 @@ const s = StyleSheet.create({
   bioBtnTxt: { fontFamily: MONO, fontSize: 13, fontWeight: '900', color: '#000', letterSpacing: 0.5 },
   pinLink:   { flexDirection: 'row', alignItems: 'center', gap: 5, padding: 8 },
   pinLinkTxt:{ fontFamily: MONO, fontSize: 10, color: C.mid },
-  pinInput:  { width: '100%', backgroundColor: '#03090F', borderWidth: 1.5, borderColor: C.dim,
+  pinInput:  { width: '100%', backgroundColor: '#050810', borderWidth: 1.5, borderColor: C.dim,
     borderRadius: 12, padding: 14, fontFamily: MONO, fontSize: 20, color: C.text, textAlign: 'center', letterSpacing: 6 },
   pinError:  { fontFamily: MONO, fontSize: 10, color: C.red, textAlign: 'center' },
   settingsBtn: { padding: 8, marginTop: -6 },

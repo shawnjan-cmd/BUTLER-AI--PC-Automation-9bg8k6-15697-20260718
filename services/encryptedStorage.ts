@@ -55,9 +55,17 @@ const SENSITIVE_KEYS = new Set([
   '@butler_events_v1',
   '@butler_crawl_history_v1',
   '@butler_vault_index_v1',
+  '@butler_automation_memory_v1',
 ]);
 
-const SENSITIVE_PREFIXES = ['@butler_src_'];
+// Prefix-scoped records are protected as a class so future workflow traces
+// cannot accidentally fall back to plaintext simply because they use a new ID.
+const SENSITIVE_PREFIXES = [
+  '@butler_src_',
+  '@butler_workflow_trace_',
+  '@butler_hardened_log_',
+  '@butler_automation_receipt_',
+];
 const isSensitiveKey = (key: string): boolean => SENSITIVE_KEYS.has(key) || SENSITIVE_PREFIXES.some(prefix => key.startsWith(prefix));
 
 const SALT             = 'butler-ai-local-v1-salt-2025';

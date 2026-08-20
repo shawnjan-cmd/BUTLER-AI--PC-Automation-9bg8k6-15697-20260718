@@ -2,28 +2,23 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
-    "paths": { "@/*": ["./*"] },
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    },
     "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
+  "include": [
+    "**/*.ts",
+    "**/*.tsx"
+  ],
   "exclude": [
     "node_modules",
-    "archive",
     "android",
     "ios",
-    "stubs",
-    "covenant_extract",
-    "supabase",
-    "components/cyber",
-    "components/home",
-    "components/ui/BiometricLockOverlay.tsx",
-    "components/ui/GlowCard.tsx",
-    "components/ui/NexusVaultCard.tsx",
-    "components/ui/PerformanceMonitorWidget.tsx",
-    "components/ui/RuntimeDiagnosticsHUD.tsx",
-    "services/chat.ts",
-    "services/knowledgeGrowthEngine.ts",
-    "services/nexusCrawlerEngine.ts"
+    "stubs"
   ]
 }
