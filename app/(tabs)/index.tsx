@@ -1,5 +1,5 @@
 /**
- * index.tsx — Legacy redirect stub.
+ * index.tsx — Cosmetics-first legacy redirect.
  * Uses router.replace inside useEffect so the navigator is fully
  * initialized before navigation fires. This avoids the WeakMap crash
  * on web where <Redirect> renders before ContextNavigator is ready.
@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 export default function IndexRedirect() {
   const router = useRouter();
   useEffect(() => {
-    router.replace('/(tabs)/home' as any);
+    router.replace('/(tabs)/cosmetic' as any);
   }, []);
   return <View style={{ flex: 1, backgroundColor: '#050810' }} />;
 }

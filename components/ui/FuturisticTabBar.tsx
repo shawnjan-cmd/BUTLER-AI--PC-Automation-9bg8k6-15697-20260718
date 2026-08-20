@@ -50,7 +50,7 @@ const ICON_SIZE = 20;
 const HIDDEN_TABS = new Set(['onboarding', 'index', 'terminal', 'support']);
 
 /** Left→right dock order. Anything unlisted sits before Settings, which is pinned last. */
-const TAB_ORDER = ['home', 'scripts', 'butler', 'knowledge', 'connect', 'logs', 'settings'];
+const TAB_ORDER = ['cosmetic', 'home', 'scripts', 'butler', 'knowledge', 'connect', 'logs', 'settings'];
 
 const TAB_ALIASES: Record<string, string> = {
   home: 'home', core: 'home',
@@ -75,7 +75,7 @@ const TAB_META: Record<string, { color: string; label: string }> = {
   builder:   { color: '#FF7A1F', label: 'BILD'  },
   fileshare: { color: '#FF5FA8', label: 'VAULT' },
   settings:  { color: '#A468FF', label: 'CFG'   },
-  cosmetic:  { color: '#A468FF', label: 'SKIN'  },
+  cosmetic:  { color: '#A468FF', label: 'STYLE' },
   connect:   { color: '#38D9E8', label: 'PAIR'  },
 };
 
@@ -274,7 +274,7 @@ export default function FuturisticTabBar(
     [state.routes, descriptors],
   );
 
-  const activeRouteName = visibleRoutes.find(r => r.idx === state.index)?.route?.name ?? 'home';
+  const activeRouteName = visibleRoutes.find(r => r.idx === state.index)?.route?.name ?? 'cosmetic';
   const isOnButlerTab   = activeRouteName === 'butler';
   const activeColor     = getColor(activeRouteName);
   const bottomPad       = Math.max(insets.bottom, Platform.OS === 'android' ? 4 : 0);

@@ -20,6 +20,23 @@ import { encryptedStorage } from '@/services/encryptedStorage';
 const KNOWN_GOOD_KEY = '@sc_known_good_ips_v1';
 export const AUTH_DISABLED_KEY = '@sc_auth_disabled_v1';
 
+/**
+ * Butler's base connection layer is deliberately LAN-only. A future remote
+ * add-on must use a separate opt-in transport with identity pinning; it may
+ * not reuse the manual LAN path or silently publish a local service.
+ */
+export function isLocalLanAddress(value: string): boolean {
+  const ip = String(value || '').trim();
+  if (ip === 'localhost' || ip === '127.0.0.1') return true;
+  const parts = ip.split('.');
+  if (parts.length !== 4 || parts.some(part => !/^\d{1,3}$/.test(part))) return false;
+  const nums = parts.map(Number);
+  if (nums.some(part => part < 0 || part > 255)) return false;
+  return nums[0] === 10 || nums[0] === 192 && nums[1] === 168 || nums[0] === 172 && nums[1] >= 16 && nums[1] <= 31;
+}
+
+export const LOCAL_LAN_ONLY_ERROR = 'Enter a private LAN address (10.x.x.x, 172.16–31.x.x, or 192.168.x.x). Remote access requires a separate opt-in transport.';
+
 // ── Global auth-disabled flag (loaded once at startup, toggled from Settings) ──
 // Stored in encryptedStorage so an attacker cannot flip it by writing '1' to raw
 // AsyncStorage without holding the derived encryption key.
@@ -254,6 +271,7 @@ class ServerConnectionService {
 
   // ── Ultra-fast ping — tries /api/status AND /health (works with any server) ──
   async quickPing(ip: string, port: string): Promise<number | null> {
+    if (!isLocalLanAddress(ip)) return null;
     await this._ensureLoaded();
     const t0 = Date.now();
     for (const path of ['/api/status', '/health', '/status', '/']) {
@@ -506,6 +524,7 @@ class ServerConnectionService {
 
   // ── Manual save (silent — no notify so UI doesn't flicker mid-connect) ────
   async saveManual(ip: string, port: string): Promise<void> {
+    if (!isLocalLanAddress(ip)) throw new Error(LOCAL_LAN_ONLY_ERROR);
     this._ip   = ip;
     this._port = port;
     await this._ensureDeviceId();
@@ -522,6 +541,7 @@ class ServerConnectionService {
   // ── Full manual connect ──────────────────────────────────────
   // Adaptively discovers the right port if the primary doesn't work.
   async connectManual(ip: string, port: string, pairingCode: string = ''): Promise<ConnResult> {
+    if (!isLocalLanAddress(ip)) return { success: false, connected: false, error: LOCAL_LAN_ONLY_ERROR, errorType: 'UNREACHABLE' };
     await this._ensureLoaded();
     // Save immediately so other tabs see the IP even before we confirm
     await this.saveManual(ip, port);

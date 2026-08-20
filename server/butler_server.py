@@ -57,12 +57,13 @@ app = FastAPI(
     description="The complete, zero-knowledge, local-first PC automation companion server."
 )
 
+_cors_origins = [origin.strip() for origin in os.environ.get("BUTLER_CORS_ORIGINS", "").split(",") if origin.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_cors_origins,
+    allow_credentials=bool(_cors_origins),
+    allow_methods=["GET", "POST"],
+    allow_headers=["Authorization", "Content-Type", "X-Device-Id", "X-Butler-App-Sig"],
 )
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -76,26 +77,28 @@ BUTLER_RULES = [
 ]
 
 class CanonicalVault:
-    def __init__(self, store_path="/home/ubuntu/preserved_60mb/server/vault_store/vault.enc"):
-        self.store_path = Path(store_path)
+    def __init__(self, store_path: Optional[str] = None):
+        resolved_store = store_path or os.environ.get("BUTLER_VAULT_STORE", str(Path.home() / ".butler-ai" / "vault" / "vault.enc"))
+        self.store_path = Path(resolved_store).expanduser()
         self.store_path.parent.mkdir(parents=True, exist_ok=True)
         self.locked = True
         self.failed_attempts = 0
+        # A server package must never ship with a known unlock secret.
+        self._pin = os.environ.get("BUTLER_VAULT_PIN", "")
 
     def unlock_vault(self, pin: str) -> dict:
+        if not self._pin:
+            return {"status": "CONFIG_REQUIRED", "reason": "Set a unique BUTLER_VAULT_PIN before unlocking the local vault."}
         if self.failed_attempts >= 5:
             return {"status": "LOCKED_OUT", "reason": "Too many failed attempts. Brute-force lockout active."}
-        if len(pin) < 6 or pin != "123456":
+        if len(pin) < 6 or not secrets.compare_digest(pin, self._pin):
             self.failed_attempts += 1
             if self.failed_attempts >= 5:
                 return {"status": "LOCKED_OUT", "reason": "Too many failed attempts. Brute-force lockout active."}
             return {"status": "FAILED", "reason": "Invalid PIN or length < 6."}
-        if pin == "123456":
-            self.locked = False
-            self.failed_attempts = 0
-            return {"status": "UNLOCKED", "vault_state": "ACTIVE"}
-        self.failed_attempts += 1
-        return {"status": "FAILED", "reason": "Invalid PIN."}
+        self.locked = False
+        self.failed_attempts = 0
+        return {"status": "UNLOCKED", "vault_state": "ACTIVE"}
 
 class CanonicalPrivacyCircuit:
     def __init__(self):
@@ -439,10 +442,12 @@ automation_flow = CanonicalAutomationFlow(script_workshop)
 # Pairing State for One-Time QR Bootstrap
 PAIRING_STATE = {
     "bootstrap_token": secrets.token_hex(16),
+    "pairing_code": os.environ.get("BUTLER_PAIRING_CODE") or f"{secrets.randbelow(1_000_000):06d}",
+    "session_token": None,
     "is_paired": False,
     "paired_device_id": None,
     "created_at": time.time(),
-    "expires_at": time.time() + 600
+    "expires_at": time.time() + 600,
 }
 
 # Redacted synchronization metadata only. Raw chats, secrets, script source,
@@ -463,6 +468,16 @@ class ScriptPayload(BaseModel):
 class PairRequest(BaseModel):
     bootstrap_token: str
     device_id: str
+
+
+class MobilePairRequest(BaseModel):
+    pairingCode: str = Field(..., min_length=4, max_length=32)
+    deviceId: str = Field(..., min_length=8, max_length=160)
+    platform: str = Field(default="android", max_length=32)
+
+
+class ReconnectRequest(BaseModel):
+    deviceId: str = Field(..., min_length=8, max_length=160)
 
 
 class AutomationPlanPayload(BaseModel):
@@ -643,6 +658,38 @@ def verify_pairing(payload: PairRequest):
     observatory.push_event("SECURITY", f"Device {payload.device_id} successfully paired and server locked.")
     return {"status": "PAIRING_SUCCESS_LOCKED", "device_id": payload.device_id}
 
+@app.post("/pair")
+def pair_mobile(payload: MobilePairRequest):
+    if time.time() > PAIRING_STATE["expires_at"]:
+        return JSONResponse(status_code=403, content={"error": "Pairing code expired. Restart the local companion server to create a new code."})
+    if PAIRING_STATE["is_paired"]:
+        if PAIRING_STATE.get("paired_device_id") == payload.deviceId and PAIRING_STATE.get("session_token"):
+            return {"status": "ok", "sessionToken": PAIRING_STATE["session_token"], "localOnly": True}
+        return JSONResponse(status_code=403, content={"error": "Server is already paired to a different device. Re-pairing requires local server restart."})
+    if not secrets.compare_digest(str(payload.pairingCode), str(PAIRING_STATE["pairing_code"])):
+        return JSONResponse(status_code=401, content={"error": "Wrong pairing code"})
+    PAIRING_STATE["is_paired"] = True
+    PAIRING_STATE["paired_device_id"] = payload.deviceId
+    PAIRING_STATE["session_token"] = secrets.token_urlsafe(32)
+    observatory.push_event("SECURITY", "Trusted mobile device paired; bootstrap code sealed")
+    return {"status": "ok", "sessionToken": PAIRING_STATE["session_token"], "localOnly": True}
+
+
+@app.post("/reconnect")
+def reconnect_mobile(payload: ReconnectRequest):
+    if PAIRING_STATE.get("is_paired") and PAIRING_STATE.get("paired_device_id") == payload.deviceId and PAIRING_STATE.get("session_token"):
+        return {"status": "ok", "sessionToken": PAIRING_STATE["session_token"], "localOnly": True}
+    return JSONResponse(status_code=403, content={"error": "Server is not paired to this device"})
+
+
+@app.post("/api/verify")
+def verify_mobile_session(payload: ReconnectRequest, request: Request):
+    supplied = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+    if not supplied or not PAIRING_STATE.get("session_token") or not secrets.compare_digest(supplied, str(PAIRING_STATE["session_token"])):
+        return JSONResponse(status_code=401, content={"ok": False})
+    return {"ok": PAIRING_STATE.get("paired_device_id") == payload.deviceId}
+
+
 @app.post("/vault/unlock")
 def unlock_vault(payload: VaultUnlockPayload):
     return vault.unlock_vault(payload.pin)
@@ -761,7 +808,8 @@ def print_banner_and_qr(server_url: str):
 """
     print(banner)
     print(f"[*] Companion Server running at: {server_url}")
-    print(f"[*] Local Bootstrap Token: {PAIRING_STATE['bootstrap_token']}")
+    print(f"[*] One-Time Pairing Code: {PAIRING_STATE['pairing_code']}")
+    print("[*] Enter this code only in Butler's local LAN Connect setup.\n")
     print("[*] Generating One-Time App Pairing QR Code...\n")
 
     pairing_payload = f"butler://pair?url={server_url}&token={PAIRING_STATE['bootstrap_token']}"

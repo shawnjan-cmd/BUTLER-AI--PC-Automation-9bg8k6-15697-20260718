@@ -5,12 +5,12 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSkin } from '@/hooks/useSkin';
 import { ButlerSignalIcon } from '@/components/ui/ButlerSignalIcon';
 import { haptics } from '@/services/haptics';
-import { serverConnection } from '@/services/serverConnection';
+import { isLocalLanAddress, LOCAL_LAN_ONLY_ERROR, serverConnection } from '@/services/serverConnection';
 
 type StepState = 'idle' | 'working' | 'passed' | 'failed';
 
 const STEPS = [
-  { icon: 'download-circle-outline' as const, title: 'Get the PC server', body: 'Download the Butler Python server from your trusted project repository and run it on the PC that should stay private.' },
+  { icon: 'package-variant-closed' as const, title: 'Get the PC server package', body: 'Use the supplied Butler companion-server package on the PC that should stay private. Do not expose it publicly or use an untrusted download source.' },
   { icon: 'lan-connect' as const, title: 'Find your PC', body: 'Enter the local IP address and port shown by the running Python server. Butler never invents a connection.' },
   { icon: 'cellphone-key' as const, title: 'Pair this phone', body: 'Enter the one-time pairing code visible on the PC server window or QR screen. Pairing locks the server to this device.' },
   { icon: 'robot-outline' as const, title: 'Verify local AI', body: 'Butler checks the real server health and reports the actual Ollama state. No cloud fallback is used.' },
@@ -42,6 +42,9 @@ export default function ServerSetupScreen() {
   const testServer = async () => {
     if (!ip.trim() || !/^\d{1,5}$/.test(port.trim())) {
       setState(1, 'failed'); setMessage('Enter the real PC IP address and a numeric port.'); haptics.error(); return;
+    }
+    if (!isLocalLanAddress(ip.trim())) {
+      setState(1, 'failed'); setMessage(LOCAL_LAN_ONLY_ERROR); haptics.error(); return;
     }
     setState(1, 'working'); setMessage('Testing the real server…');
     const latency = await serverConnection.quickPing(ip.trim(), port.trim());
@@ -81,7 +84,7 @@ export default function ServerSetupScreen() {
     if (step === 1) return { label: states[1] === 'passed' ? 'Continue' : 'Test server', onPress: states[1] === 'passed' ? next : testServer };
     if (step === 2) return { label: states[2] === 'passed' ? 'Continue' : 'Pair phone', onPress: states[2] === 'passed' ? next : pairPhone };
     if (step === 3) return { label: states[3] === 'passed' ? 'Continue' : 'Verify Ollama', onPress: states[3] === 'passed' ? next : verifyOllama };
-    return { label: complete ? 'Return to Butler' : 'Review connection steps', onPress: complete ? () => router.replace('/(tabs)/home' as any) : () => setStep(1) };
+    return { label: complete ? 'Return to Cosmetics' : 'Review connection steps', onPress: complete ? () => router.replace('/(tabs)/cosmetic' as any) : () => setStep(1) };
   }, [step, states, complete]);
 
   const isWorking = states[step] === 'working';
@@ -92,7 +95,7 @@ export default function ServerSetupScreen() {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={[styles.top, { width: Math.min(width - 28, 620) }]}>
           <Pressable onPress={() => router.back()} accessibilityLabel="Close server setup" style={[styles.close, { borderColor: skin.border }]}><MaterialCommunityIcons name="close" size={20} color={skin.mid} /></Pressable>
-          <View style={styles.topCopy}><Text style={[styles.eyebrow, { color: skin.accent }]}>BUTLER / SERVER SETUP</Text><Text style={[styles.topTitle, { color: skin.text }]}>Make the PC feel present</Text></View>
+          <View style={styles.topCopy}><Text style={[styles.eyebrow, { color: skin.accent }]}>COSMETICS / LAN CONNECT · 5</Text><Text style={[styles.topTitle, { color: skin.text }]}>Connect your PC safely</Text></View>
           <Text style={[styles.counter, { color: skin.dim }]}>{step + 1}/{STEPS.length}</Text>
         </View>
         <View style={[styles.progress, { width: Math.min(width - 28, 620), backgroundColor: skin.panel2 }]}>{STEPS.map((_, i) => <View key={i} style={[styles.progressStep, { backgroundColor: i <= step ? skin.accent : skin.border }]} />)}</View>
@@ -109,7 +112,7 @@ export default function ServerSetupScreen() {
         <View style={[styles.bottom, { width: Math.min(width - 28, 620) }]}>
           <Pressable onPress={action.onPress} disabled={isWorking} accessibilityRole="button" accessibilityLabel={action.label} style={({ pressed }) => [styles.primary, { backgroundColor: isWorking ? skin.panel2 : skin.accent, opacity: pressed || isWorking ? 0.78 : 1 }]}>{isWorking ? <ActivityIndicator color={skin.bg} /> : <><Text style={[styles.primaryText, { color: skin.bg }]}>{action.label}</Text><MaterialCommunityIcons name="arrow-right" size={19} color={skin.bg} /></>}</Pressable>
           {step > 0 && <Pressable onPress={() => { haptics.light(); setMessage(''); setStep(s => s - 1); }} accessibilityLabel="Previous setup step" style={styles.back}><Text style={[styles.backText, { color: skin.dim }]}>Previous step</Text></Pressable>}
-          <Text style={[styles.privacy, { color: skin.dim }]}><MaterialCommunityIcons name="lock-outline" size={13} color={skin.accent} /> No cloud AI · no automatic script launches · pairing is stored through encrypted app storage</Text>
+          <Text style={[styles.privacy, { color: skin.dim }]}><MaterialCommunityIcons name="lock-outline" size={13} color={skin.accent} /> Local network only · no automatic script launches · pairing is stored through encrypted app storage</Text>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

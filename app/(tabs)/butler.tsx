@@ -5,6 +5,8 @@
  * © 2026 Andrej Sladkovic — ALL RIGHTS RESERVED
  */
 import { ButlerPageStudioHost } from '@/components/ui/ButlerPageStudioHost';
+import ButlerEvidenceStrip from '@/components/ui/ButlerEvidenceStrip';
+import ButlerFlowLedgerCard from '@/components/ui/ButlerFlowLedgerCard';
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import ButlerMicrocopy from '@/components/ui/ButlerMicrocopy';
 import ButlerAtmosphere from '@/components/ui/ButlerAtmosphere';
@@ -699,8 +701,10 @@ function ButlerInner() {
         safeTop={insets.top} isConn={isConn} model={model}
         msgCount={userMsgCount} onClear={clearChat}
         onHistory={() => setShowHistory(true)} />
+      <ButlerEvidenceStrip model={model} approvalPending={workflowSnapshot?.stage === 'approval_required'} receiptRecorded={workflowSnapshot?.stage === 'receipt'} />
       <ButlerPageStudioHost pageId="chat" />
       <ModeBar mode={mode} onChange={setMode} />
+      <ButlerFlowLedgerCard snapshot={workflowSnapshot} />
       <View style={{ flexDirection:'row', alignItems:'center', gap:8, paddingHorizontal:12, paddingVertical:8, backgroundColor:SURF2, borderBottomWidth:1, borderBottomColor:DIM+'45' }}>
         <View style={{ borderWidth:1.5, borderRadius:20, paddingHorizontal:9, paddingVertical:4, borderColor:modeColor+'55', backgroundColor:modeColor+'10' }}>
           <Text style={{ fontFamily:MONO, fontSize:8.5, color:modeColor, fontWeight:'900', letterSpacing:0.5 }}>

@@ -113,7 +113,7 @@ export default function TabsLayout() {
    * isDone state machine:
    *  null  → still reading AsyncStorage (render LoadingSplash)
    *  false → new user (initialRouteName = 'onboarding')
-   *  true  → returning user (initialRouteName = 'home')
+   *  true  → returning user (initialRouteName = 'cosmetic')
    */
   const [isDone, setIsDone] = useState<boolean | null>(null);
 
@@ -181,7 +181,7 @@ export default function TabsLayout() {
   const prevIsDoneRef = useRef<boolean | null>(null);
   useEffect(() => {
     if (isDone === true && prevIsDoneRef.current === false) {
-      try { router.replace('/(tabs)/home' as any); } catch {}
+      try { router.replace('/(tabs)/cosmetic' as any); } catch {}
     }
     prevIsDoneRef.current = isDone;
   }, [isDone]);
@@ -259,7 +259,7 @@ export default function TabsLayout() {
   }
 
   // ── ROUTE PHASE: new vs returning user ─────────────────────────
-  const initialRoute = isDone ? 'home' : 'onboarding';
+  const initialRoute = isDone ? 'cosmetic' : 'onboarding';
 
   // First route is resolved and about to paint — the single signal the
   // Android emulator smoke test waits for.
@@ -278,13 +278,13 @@ export default function TabsLayout() {
       {/* ── Tutorial: hidden from tab bar, always navigable ── */}
       <Tabs.Screen name="onboarding" options={{ href: null }} />
 
-      {/* ── CLEAN COMMAND CENTER SURFACES ── */}
+      {/* ── COSMETICS-FIRST COMMAND CENTER SURFACES ── */}
+      <Tabs.Screen name="cosmetic"  options={{ title: 'COSMETICS', tabBarLabel: 'COSMETICS' }} />
       <Tabs.Screen name="home"      options={{ title: 'HOME',    tabBarLabel: 'HOME'    }} />
       <Tabs.Screen name="scripts"   options={{ title: 'SCRIPTS', tabBarLabel: 'SCRIPTS' }} />
       <Tabs.Screen name="butler"    options={{ title: 'BUTLER',  tabBarLabel: 'BUTLER'  }} />
       <Tabs.Screen name="knowledge" options={{ title: 'KNOWLEDGE', tabBarLabel: 'KNOWLEDGE' }} />
       <Tabs.Screen name="monitor"   options={{ title: 'PC MONITOR', tabBarLabel: 'MONITOR' }} />
-      <Tabs.Screen name="cosmetic"  options={{ title: 'COSMETICS', tabBarLabel: 'COSMETICS' }} />
       <Tabs.Screen name="tools"     options={{ title: 'TOOLS HUB', tabBarLabel: 'TOOLS' }} />
       <Tabs.Screen name="settings"  options={{ title: 'SETTINGS', tabBarLabel: 'SETTINGS' }} />
 

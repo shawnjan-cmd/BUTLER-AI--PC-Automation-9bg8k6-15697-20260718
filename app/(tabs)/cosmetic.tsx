@@ -25,6 +25,8 @@ import ButlerPackageSpotlight from '@/components/ui/ButlerPackageSpotlight';
 import ButlerDragonFlavorMoment from '@/components/ui/ButlerDragonFlavorMoment';
 import ButlerBackpackThankYou from '@/components/ui/ButlerBackpackThankYou';
 import ButlerStyleRecipePreview from '@/components/ui/ButlerStyleRecipePreview';
+import ButlerBackpackGallery from '@/components/ui/ButlerBackpackGallery';
+import CosmeticsCommandDeck from '@/components/ui/CosmeticsCommandDeck';
 import { PACK_THEMES, useCosmetic } from '@/contexts/CosmeticContext';
 
 const BG   = '#050810';
@@ -185,7 +187,7 @@ function CosmeticInner() {
   return (
     <View style={{ flex:1, backgroundColor:BG }}>
       <ButlerAtmosphere accent="#FF4D9A" intensity={0.12} />
-      <ButlerMicrocopy accent="#FF4D9A" text="Skins change presentation only; data and connection policy stay separate." icon="palette-outline" />
+      <ButlerMicrocopy accent="#FF4D9A" text="Cosmetics change presentation only. Pairing, server authority, and data policy stay separate." icon="palette-outline" />
       {/* Header */}
       <View style={[SH.root, { paddingTop:insets.top }]}>
         <View style={{ height:3, backgroundColor:ACCENT }} />
@@ -195,7 +197,7 @@ function CosmeticInner() {
             <Text style={[SH.eye, { color: ACCENT+'60' }]}>VISUAL SKIN · COLOR PALETTE</Text>
             <View style={{ flexDirection:'row', alignItems:'center', gap:8 }}>
               <MaterialCommunityIcons name="palette-swatch" size={18} color={ACCENT} />
-              <Text style={SH.title}>COSMETIC <Text style={{ color:ACCENT }}>SKINS</Text></Text>
+              <Text style={SH.title}>COSMETICS <Text style={{ color:ACCENT }}>WORKBENCH</Text></Text>
             </View>
             <View style={{ flexDirection:'row', gap:6 }}>
               <View style={[SH.pill, { borderColor: ACCENT+'60', backgroundColor: ACCENT+'10' }]}>
@@ -232,11 +234,13 @@ function CosmeticInner() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={{ gap: 10, paddingBottom: 2 }}>
+            <CosmeticsCommandDeck />
             <ButlerPackageSpotlight />
             <ButlerDragonFlavorMoment />
             <ButlerBackpackThankYou />
             <ButlerStyleRecipePreview />
-          <ButlerBackpackShowcase />
+            <ButlerBackpackGallery />
+            <ButlerBackpackShowcase />
             <ButlerBackpackInventory />
             <ButlerBuildModePanel />
             <OpportunityReviewCard />
@@ -276,7 +280,7 @@ function CosmeticInner() {
               <Text style={{ fontFamily:MONO, fontSize:7.5, color:AMBER, lineHeight:11 }}>Purchase and entitlement verification must use the platform billing flow. This page does not claim a purchase or active remote tunnel without a verified result.</Text>
             </ButlerSurface>
             <Text style={{ fontFamily:MONO, fontSize:9, color:MID, textAlign:'center', paddingBottom:8, letterSpacing:1.5 }}>
-              TAP A THEME TO APPLY · {THEMES.length} VISUAL PRESETS · 2 COSMETIC PACKAGES + REMOTE CONNECTION
+              COSMETICS FIRST · {THEMES.length} VISUAL PRESETS · LOCAL BACKPACK · REMOTE CONNECTION IS SEPARATE
             </Text>
           </View>
         }
